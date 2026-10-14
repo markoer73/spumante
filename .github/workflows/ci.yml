@@ -1,0 +1,45 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+name: Wine Parity Differential Conformance, Security & Lint CI
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+  schedule:
+    # Periodic weekly security & parity audit (Mondays at 06:00 UTC)
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+jobs:
+  parity-check:
+    name: Differential Parity & Security (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, ubuntu-latest]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Run WineHQ Style, Markdown, and Canonical Script Linter
+        run: ./scripts/test.sh --lint
+
+      - name: Run 4-Gate Security Audit (Secrets, Clean-Room, SAST, ASan+UBSan)
+        run: ./scripts/test.sh --security --dll bcrypt --test test_symmetric_key
+
+      - name: Surgically Build BCrypt Conformance Target
+        run: ./scripts/build.sh --dll bcrypt --test test_symmetric_key
+
+      - name: Run Targeted Differential Conformance Test
+        run: ./scripts/test.sh --dll bcrypt --test test_symmetric_key
+
+      - name: Run Full Architecture & Harness Unit Suite
+        run: python3 -m unittest -v tests/unit/test_harness_suite.py

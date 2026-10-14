@@ -1,3 +1,17 @@
+# Wine Parity Repository Ignore Rules
+# Never commit upstream Wine checkouts, build artifacts, or VM disk images.
+
+.wine-upstream/
+builds/
+build/
+Build/
+build-*/
+*.qcow2
+*.iso
+*.fd
+*.rom
+*.bin
+
 # Prerequisites
 *.d
 
@@ -16,6 +30,7 @@
 
 # Debugger Files
 *.pdb
+*.dwo
 
 # Compiled Dynamic libraries
 *.so
@@ -38,11 +53,6 @@
 *.out
 *.app
 
-# Build directories
-build/
-Build/
-build-*/
-
 # CMake generated files
 CMakeFiles/
 CMakeCache.txt
@@ -51,18 +61,18 @@ Makefile
 install_manifest.txt
 compile_commands.json
 
-# Temporary files
+# Temporary & OS files
 *.tmp
 *.log
 *.bak
 *.swp
+.DS_Store
 
-# vcpkg
+# Python cache
+__pycache__/
+*.py[cod]
+
+# vcpkg & test output
 vcpkg_installed/
-
-# debug information files
-*.dwo
-
-# test output & cache
 Testing/
 .cache/

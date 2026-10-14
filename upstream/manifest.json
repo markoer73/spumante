@@ -1,0 +1,57 @@
+{
+  "schema_version": "1.0.0",
+  "project_repository": "https://github.com/markoer73/winehq-parity.git",
+  "upstream_remote": "https://gitlab.winehq.org/wine/wine.git",
+  "upstream_fallback_remote": "git://source.winehq.org/git/wine.git",
+  "upstream_access_mode": "read-only",
+  "local_sparse_cache": ".wine-upstream",
+  "sparse_clone_flags": [
+    "--filter=blob:none",
+    "--no-checkout",
+    "--sparse"
+  ],
+  "shared_sparse_paths": [
+    "include"
+  ],
+  "borrowed_dlls": {
+    "bcrypt": {
+      "upstream_path": "dlls/bcrypt",
+      "upstream_tests_path": "dlls/bcrypt/tests",
+      "base_upstream_commit": "wine-10.0-base",
+      "merge_strategy": "3-way-backport-preserving-macos-blocks",
+      "macos_acceleration": "CommonCrypto / Security.framework",
+      "tracked_files": [
+        "dlls/bcrypt/bcrypt.h",
+        "dlls/bcrypt/bcrypt.spec",
+        "dlls/bcrypt/bcrypt_main.c"
+      ],
+      "required_conformance_tests": [
+        "test_symmetric_key"
+      ]
+    },
+    "kernelbase": {
+      "upstream_path": "dlls/kernelbase",
+      "upstream_tests_path": "dlls/kernelbase/tests",
+      "base_upstream_commit": "wine-10.0-base",
+      "merge_strategy": "3-way-backport-preserving-macos-blocks",
+      "macos_acceleration": "Darwin libSystem / CoreFoundation / Mach",
+      "tracked_files": [
+        "dlls/kernelbase/kernelbase.spec",
+        "dlls/kernelbase/kernelbase_stubs.c"
+      ],
+      "required_conformance_tests": []
+    },
+    "mfplat": {
+      "upstream_path": "dlls/mfplat",
+      "upstream_tests_path": "dlls/mfplat/tests",
+      "base_upstream_commit": "wine-10.0-base",
+      "merge_strategy": "3-way-backport-preserving-macos-blocks",
+      "macos_acceleration": "VideoToolbox / CoreMedia / AVFoundation",
+      "tracked_files": [
+        "dlls/mfplat/mfplat.spec",
+        "dlls/mfplat/mfplat_stubs.c"
+      ],
+      "required_conformance_tests": []
+    }
+  }
+}

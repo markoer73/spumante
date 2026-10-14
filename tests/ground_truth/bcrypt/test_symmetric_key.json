@@ -1,0 +1,128 @@
+{
+  "dll": "bcrypt",
+  "test_name": "test_symmetric_key",
+  "architecture": "x86_64",
+  "environment": "windows_vm",
+  "assertions": [
+    {
+      "id": "err_null_alg",
+      "case": "InvalidHandle_NullAlgorithm",
+      "api": "BCryptGenerateSymmetricKey",
+      "comparison_mode": "exact",
+      "status": "0xc0000008",
+      "last_error": 0,
+      "out_length": 0,
+      "buffer_hex": "",
+      "handle_valid": false
+    },
+    {
+      "id": "err_null_phkey",
+      "case": "InvalidParam_NullPhKey",
+      "api": "BCryptGenerateSymmetricKey",
+      "comparison_mode": "exact",
+      "status": "0xc000000d",
+      "last_error": 0,
+      "out_length": 0,
+      "buffer_hex": "",
+      "handle_valid": false
+    },
+    {
+      "id": "err_null_secret",
+      "case": "InvalidParam_NullSecret",
+      "api": "BCryptGenerateSymmetricKey",
+      "comparison_mode": "exact",
+      "status": "0xc000000d",
+      "last_error": 0,
+      "out_length": 0,
+      "buffer_hex": "",
+      "handle_valid": false
+    },
+    {
+      "id": "err_bad_flags",
+      "case": "InvalidParam_NonZeroFlags",
+      "api": "BCryptGenerateSymmetricKey",
+      "comparison_mode": "exact",
+      "status": "0xc000000d",
+      "last_error": 0,
+      "out_length": 0,
+      "buffer_hex": "",
+      "handle_valid": false
+    },
+    {
+      "id": "err_bad_secret_len",
+      "case": "InvalidParam_BadKeySize7",
+      "api": "BCryptGenerateSymmetricKey",
+      "comparison_mode": "exact",
+      "status": "0xc000000d",
+      "last_error": 0,
+      "out_length": 0,
+      "buffer_hex": "",
+      "handle_valid": false
+    },
+    {
+      "id": "err_buffer_too_small",
+      "case": "BufferBoundary_SmallKeyObject",
+      "api": "BCryptGenerateSymmetricKey",
+      "comparison_mode": "exact",
+      "status": "0xc0000023",
+      "last_error": 0,
+      "out_length": 0,
+      "buffer_hex": "",
+      "handle_valid": false
+    },
+    {
+      "id": "aes128_encrypt",
+      "case": "AES128_EncryptVector",
+      "api": "BCryptEncrypt",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 16,
+      "buffer_hex": "69c4e0d86a7b0430d8cdb78070b4c55a",
+      "handle_valid": true
+    },
+    {
+      "id": "aes128_roundtrip",
+      "case": "AES128_DecryptRoundTrip",
+      "api": "BCryptDecrypt",
+      "comparison_mode": "roundtrip",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 16,
+      "buffer_hex": "00112233445566778899aabbccddeeff",
+      "roundtrip_ok": true
+    },
+    {
+      "id": "aes128_export",
+      "case": "AES128_ExportKeyDataBlob",
+      "api": "BCryptExportKey",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 28,
+      "buffer_hex": "4b44424d0100000010000000000102030405060708090a0b0c0d0e0f",
+      "handle_valid": true
+    },
+    {
+      "id": "aes192_null_keyobj",
+      "case": "AES192_Win8NullKeyObject",
+      "api": "BCryptGenerateSymmetricKey",
+      "comparison_mode": "handle_state",
+      "status": "0x00000000",
+      "last_error": 0,
+      "handle_valid": true,
+      "handle_alignment": 8
+    },
+    {
+      "id": "aes256_encrypt",
+      "case": "AES256_EncryptVector",
+      "api": "BCryptEncrypt",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 16,
+      "buffer_hex": "8ea2b7ca516745bfeafc49904b496089",
+      "handle_valid": true
+    }
+  ]
+}

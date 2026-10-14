@@ -1,0 +1,110 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wine-parity.local/schemas/result.json",
+  "title": "WineParityDifferentialResult",
+  "description": "Standardized JSON output schema for Wine vs. Windows VM differential conformance test assertions.",
+  "type": "object",
+  "required": [
+    "dll",
+    "test_name",
+    "architecture",
+    "assertions"
+  ],
+  "properties": {
+    "dll": {
+      "type": "string",
+      "description": "Target Wine DLL name (e.g. bcrypt, kernelbase, mfplat)."
+    },
+    "test_name": {
+      "type": "string",
+      "description": "Conformance test binary/source identifier (e.g. test_symmetric_key)."
+    },
+    "architecture": {
+      "type": "string",
+      "enum": ["x86_64", "arm64"],
+      "description": "Target CPU architecture."
+    },
+    "environment": {
+      "type": "string",
+      "enum": ["windows_vm", "ground_truth_cache", "wine_macos", "wine_linux", "wine_stub_sim"],
+      "description": "Execution environment that produced this result record."
+    },
+    "assertions": {
+      "type": "array",
+      "description": "Ordered list of differential probe records and assertions.",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "case",
+          "api",
+          "comparison_mode",
+          "status",
+          "last_error"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Deterministic step identifier within the test."
+          },
+          "case": {
+            "type": "string",
+            "description": "Human-readable test case name (filterable via --filter)."
+          },
+          "api": {
+            "type": "string",
+            "description": "Win32 / NT API under test (e.g. BCryptGenerateSymmetricKey)."
+          },
+          "comparison_mode": {
+            "type": "string",
+            "enum": ["exact", "handle_state", "masked", "roundtrip"],
+            "description": "Field-level comparison strategy used by the differential comparator."
+          },
+          "status": {
+            "type": "string",
+            "pattern": "^0x[0-9a-fA-F]{8}$",
+            "description": "Formatted 32-bit NTSTATUS / HRESULT / return code."
+          },
+          "last_error": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Win32 GetLastError() value after the API call."
+          },
+          "out_length": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Output byte length written (e.g. pcbResult)."
+          },
+          "buffer_hex": {
+            "type": "string",
+            "pattern": "^([0-9a-fA-F]{2})*$",
+            "description": "Lowercase hexadecimal encoding of deterministic output buffer or exported blob."
+          },
+          "handle_valid": {
+            "type": "boolean",
+            "description": "Whether the returned handle/pointer is non-NULL and valid."
+          },
+          "handle_alignment": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Pointer alignment in bytes for handle_state comparisons."
+          },
+          "bitmask_value": {
+            "type": "integer",
+            "description": "Integer field compared under bitmask."
+          },
+          "bitmask_mask": {
+            "type": "integer",
+            "description": "Bitmask applied during masked comparison mode."
+          },
+          "roundtrip_ok": {
+            "type": "boolean",
+            "description": "Whether round-trip verification (encrypt/decrypt or export/import) succeeded."
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}
