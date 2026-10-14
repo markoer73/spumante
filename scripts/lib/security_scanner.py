@@ -150,6 +150,11 @@ def gate_asan_ubsan_memory_safety(dll: str, test_name: str) -> dict[str, Any]:
 
     with tempfile.TemporaryDirectory(prefix="wine_asan_", dir="/tmp") as tmp_dir:
         asan_bin = Path(tmp_dir) / f"{test_name}_asan.bin"
+        darwin_frameworks = (
+            ["-framework", "Security", "-framework", "CoreFoundation"]
+            if sys.platform == "darwin"
+            else []
+        )
         cmd = [
             host_cc,
             "-std=c11",
@@ -162,6 +167,7 @@ def gate_asan_ubsan_memory_safety(dll: str, test_name: str) -> dict[str, Any]:
             "-fsanitize=address,undefined",
             str(test_c),
             *c_sources,
+            *darwin_frameworks,
             "-o",
             str(asan_bin),
         ]

@@ -1,0 +1,25 @@
+{
+  "dll": "bcrypt",
+  "api_name": "BCryptDeriveKeyPBKDF2",
+  "header": "bcrypt.h",
+  "ms_learn_url": "https://learn.microsoft.com/en-us/windows/win32/api/bcrypt/nf-bcrypt-bcryptderivekeypbkdf2",
+  "signature": "NTSTATUS WINAPI BCryptDeriveKeyPBKDF2(BCRYPT_ALG_HANDLE hPrf, PUCHAR pbPassword, ULONG cbPassword, PUCHAR pbSalt, ULONG cbSalt, ULONGLONG cIterations, PUCHAR pbDerivedKey, ULONG cbDerivedKey, ULONG dwFlags)",
+  "return_codes": {
+    "STATUS_SUCCESS": "0x00000000",
+    "STATUS_INVALID_HANDLE": "0xc0000008",
+    "STATUS_INVALID_PARAMETER": "0xc000000d"
+  },
+  "empirical_windows_behavior": [
+    "Validates hPrf handle first (STATUS_INVALID_HANDLE), then checks cIterations > 0, pbDerivedKey != NULL, cbDerivedKey > 0, dwFlags == 0."
+  ],
+  "macos_backend_strategy": "Use Apple CommonCrypto CCKeyDerivationPBKDF (kCCPBKDF2) and CCHmac on __APPLE__ with RFC 2898 C99 fallback.",
+  "clean_room_attestation": {
+    "sources": [
+      "Microsoft Learn public documentation",
+      "Public Wine include/bcrypt.h header declarations",
+      "Black-box Windows 11 differential conformance test observations"
+    ],
+    "no_leaked_source_exposure": true,
+    "no_proprietary_decompilation": true
+  }
+}

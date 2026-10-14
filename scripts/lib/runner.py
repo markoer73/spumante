@@ -58,6 +58,11 @@ def surgical_build(
 
     # 1. Build single shared library / Wine override module for target DLL
     shared_ext = ".dylib" if sys.platform == "darwin" else ".so"
+    darwin_frameworks = (
+        ["-framework", "Security", "-framework", "CoreFoundation"]
+        if sys.platform == "darwin"
+        else []
+    )
     dll_out = build_dir / f"{dll}{shared_ext}"
     if c_sources:
         cmd_dll = [
@@ -70,6 +75,7 @@ def surgical_build(
             "-fPIC",
             "-shared",
             *c_sources,
+            *darwin_frameworks,
             "-o",
             str(dll_out),
         ]
@@ -93,6 +99,7 @@ def surgical_build(
             "-O2",
             str(test_c),
             *c_sources,
+            *darwin_frameworks,
             "-o",
             str(test_bin),
         ]

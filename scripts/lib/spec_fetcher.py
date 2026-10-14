@@ -60,7 +60,96 @@ KNOWN_CLEAN_ROOM_SPECS: dict[str, dict[str, Any]] = {
             "no_leaked_source_exposure": True,
             "no_proprietary_decompilation": True,
         },
-    }
+    },
+    "bcrypt:BCryptEncrypt": {
+        "dll": "bcrypt",
+        "api_name": "BCryptEncrypt",
+        "header": "bcrypt.h",
+        "ms_learn_url": "https://learn.microsoft.com/en-us/windows/win32/api/bcrypt/nf-bcrypt-bcryptencrypt",
+        "signature": (
+            "NTSTATUS WINAPI BCryptEncrypt("
+            "BCRYPT_KEY_HANDLE hKey, PUCHAR pbInput, ULONG cbInput, void *pPaddingInfo, "
+            "PUCHAR pbIV, ULONG cbIV, PUCHAR pbOutput, ULONG cbOutput, ULONG *pcbResult, ULONG dwFlags)"
+        ),
+        "return_codes": {
+            "STATUS_SUCCESS": "0x00000000",
+            "STATUS_INVALID_HANDLE": "0xc0000008",
+            "STATUS_INVALID_PARAMETER": "0xc000000d",
+            "STATUS_BUFFER_TOO_SMALL": "0xc0000023",
+        },
+        "empirical_windows_behavior": [
+            "Supports AES-ECB, AES-CBC (mutating pbIV in-place to the final ciphertext block), PKCS#7 BCRYPT_BLOCK_PADDING (0x00000001), AES-GCM via BCRYPT_AUTHENTICATED_CIPHER_MODE_INFO, and raw RSA BCRYPT_PAD_NONE (0x00000001).",
+            "When pbOutput == NULL, sets *pcbResult to required output size and returns STATUS_SUCCESS.",
+        ],
+        "macos_backend_strategy": "Use Apple CommonCrypto (CCCrypt) on __APPLE__ and big-integer modular exponentiation for BCRYPT_PAD_NONE RSA.",
+        "clean_room_attestation": {
+            "sources": [
+                "Microsoft Learn public documentation",
+                "Public Wine include/bcrypt.h header declarations",
+                "Black-box Windows 11 differential conformance test observations",
+            ],
+            "no_leaked_source_exposure": True,
+            "no_proprietary_decompilation": True,
+        },
+    },
+    "bcrypt:BCryptGenRandom": {
+        "dll": "bcrypt",
+        "api_name": "BCryptGenRandom",
+        "header": "bcrypt.h",
+        "ms_learn_url": "https://learn.microsoft.com/en-us/windows/win32/api/bcrypt/nf-bcrypt-bcryptgenrandom",
+        "signature": (
+            "NTSTATUS WINAPI BCryptGenRandom("
+            "BCRYPT_ALG_HANDLE hAlgorithm, PUCHAR pbBuffer, ULONG cbBuffer, ULONG dwFlags)"
+        ),
+        "return_codes": {
+            "STATUS_SUCCESS": "0x00000000",
+            "STATUS_INVALID_HANDLE": "0xc0000008",
+            "STATUS_INVALID_PARAMETER": "0xc000000d",
+        },
+        "empirical_windows_behavior": [
+            "When hAlgorithm == NULL, BCRYPT_USE_SYSTEM_PREFERRED_RNG (0x00000002) must be set or STATUS_INVALID_HANDLE (0xc0000008) is returned.",
+            "When hAlgorithm != NULL and BCRYPT_USE_SYSTEM_PREFERRED_RNG is set, returns STATUS_INVALID_PARAMETER (0xc000000d).",
+        ],
+        "macos_backend_strategy": "Use Apple CommonCrypto CCRandomGenerateBytes and Security.framework SecRandomCopyBytes on __APPLE__.",
+        "clean_room_attestation": {
+            "sources": [
+                "Microsoft Learn public documentation",
+                "Public Wine include/bcrypt.h header declarations",
+                "Black-box Windows 11 differential conformance test observations",
+            ],
+            "no_leaked_source_exposure": True,
+            "no_proprietary_decompilation": True,
+        },
+    },
+    "bcrypt:BCryptDeriveKeyPBKDF2": {
+        "dll": "bcrypt",
+        "api_name": "BCryptDeriveKeyPBKDF2",
+        "header": "bcrypt.h",
+        "ms_learn_url": "https://learn.microsoft.com/en-us/windows/win32/api/bcrypt/nf-bcrypt-bcryptderivekeypbkdf2",
+        "signature": (
+            "NTSTATUS WINAPI BCryptDeriveKeyPBKDF2("
+            "BCRYPT_ALG_HANDLE hPrf, PUCHAR pbPassword, ULONG cbPassword, PUCHAR pbSalt, ULONG cbSalt, "
+            "ULONGLONG cIterations, PUCHAR pbDerivedKey, ULONG cbDerivedKey, ULONG dwFlags)"
+        ),
+        "return_codes": {
+            "STATUS_SUCCESS": "0x00000000",
+            "STATUS_INVALID_HANDLE": "0xc0000008",
+            "STATUS_INVALID_PARAMETER": "0xc000000d",
+        },
+        "empirical_windows_behavior": [
+            "Validates hPrf handle first (STATUS_INVALID_HANDLE), then checks cIterations > 0, pbDerivedKey != NULL, cbDerivedKey > 0, dwFlags == 0.",
+        ],
+        "macos_backend_strategy": "Use Apple CommonCrypto CCKeyDerivationPBKDF (kCCPBKDF2) and CCHmac on __APPLE__ with RFC 2898 C99 fallback.",
+        "clean_room_attestation": {
+            "sources": [
+                "Microsoft Learn public documentation",
+                "Public Wine include/bcrypt.h header declarations",
+                "Black-box Windows 11 differential conformance test observations",
+            ],
+            "no_leaked_source_exposure": True,
+            "no_proprietary_decompilation": True,
+        },
+    },
 }
 
 

@@ -1,0 +1,26 @@
+{
+  "dll": "bcrypt",
+  "api_name": "BCryptGenRandom",
+  "header": "bcrypt.h",
+  "ms_learn_url": "https://learn.microsoft.com/en-us/windows/win32/api/bcrypt/nf-bcrypt-bcryptgenrandom",
+  "signature": "NTSTATUS WINAPI BCryptGenRandom(BCRYPT_ALG_HANDLE hAlgorithm, PUCHAR pbBuffer, ULONG cbBuffer, ULONG dwFlags)",
+  "return_codes": {
+    "STATUS_SUCCESS": "0x00000000",
+    "STATUS_INVALID_HANDLE": "0xc0000008",
+    "STATUS_INVALID_PARAMETER": "0xc000000d"
+  },
+  "empirical_windows_behavior": [
+    "When hAlgorithm == NULL, BCRYPT_USE_SYSTEM_PREFERRED_RNG (0x00000002) must be set or STATUS_INVALID_HANDLE (0xc0000008) is returned.",
+    "When hAlgorithm != NULL and BCRYPT_USE_SYSTEM_PREFERRED_RNG is set, returns STATUS_INVALID_PARAMETER (0xc000000d)."
+  ],
+  "macos_backend_strategy": "Use Apple CommonCrypto CCRandomGenerateBytes and Security.framework SecRandomCopyBytes on __APPLE__.",
+  "clean_room_attestation": {
+    "sources": [
+      "Microsoft Learn public documentation",
+      "Public Wine include/bcrypt.h header declarations",
+      "Black-box Windows 11 differential conformance test observations"
+    ],
+    "no_leaked_source_exposure": true,
+    "no_proprietary_decompilation": true
+  }
+}

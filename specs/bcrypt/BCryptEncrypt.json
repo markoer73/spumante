@@ -1,0 +1,27 @@
+{
+  "dll": "bcrypt",
+  "api_name": "BCryptEncrypt",
+  "header": "bcrypt.h",
+  "ms_learn_url": "https://learn.microsoft.com/en-us/windows/win32/api/bcrypt/nf-bcrypt-bcryptencrypt",
+  "signature": "NTSTATUS WINAPI BCryptEncrypt(BCRYPT_KEY_HANDLE hKey, PUCHAR pbInput, ULONG cbInput, void *pPaddingInfo, PUCHAR pbIV, ULONG cbIV, PUCHAR pbOutput, ULONG cbOutput, ULONG *pcbResult, ULONG dwFlags)",
+  "return_codes": {
+    "STATUS_SUCCESS": "0x00000000",
+    "STATUS_INVALID_HANDLE": "0xc0000008",
+    "STATUS_INVALID_PARAMETER": "0xc000000d",
+    "STATUS_BUFFER_TOO_SMALL": "0xc0000023"
+  },
+  "empirical_windows_behavior": [
+    "Supports AES-ECB, AES-CBC (mutating pbIV in-place to the final ciphertext block), PKCS#7 BCRYPT_BLOCK_PADDING (0x00000001), AES-GCM via BCRYPT_AUTHENTICATED_CIPHER_MODE_INFO, and raw RSA BCRYPT_PAD_NONE (0x00000001).",
+    "When pbOutput == NULL, sets *pcbResult to required output size and returns STATUS_SUCCESS."
+  ],
+  "macos_backend_strategy": "Use Apple CommonCrypto (CCCrypt) on __APPLE__ and big-integer modular exponentiation for BCRYPT_PAD_NONE RSA.",
+  "clean_room_attestation": {
+    "sources": [
+      "Microsoft Learn public documentation",
+      "Public Wine include/bcrypt.h header declarations",
+      "Black-box Windows 11 differential conformance test observations"
+    ],
+    "no_leaked_source_exposure": true,
+    "no_proprietary_decompilation": true
+  }
+}

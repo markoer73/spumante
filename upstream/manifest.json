@@ -26,7 +26,8 @@
         "dlls/bcrypt/bcrypt_main.c"
       ],
       "required_conformance_tests": [
-        "test_symmetric_key"
+        "test_symmetric_key",
+        "test_crypto_primitives"
       ]
     },
     "kernelbase": {

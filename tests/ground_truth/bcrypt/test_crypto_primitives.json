@@ -1,0 +1,137 @@
+{
+  "dll": "bcrypt",
+  "test_name": "test_crypto_primitives",
+  "architecture": "x86_64",
+  "environment": "windows_vm",
+  "assertions": [
+    {
+      "id": "aes128_cbc_encrypt",
+      "case": "AES128_CBC_EncryptVector",
+      "api": "BCryptEncrypt",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 16,
+      "buffer_hex": "7649abac8119b246cee98e9b12e9197d",
+      "handle_valid": true
+    },
+    {
+      "id": "aes128_cbc_iv_mutated",
+      "case": "AES128_CBC_IVUpdatedInPlace",
+      "api": "BCryptEncrypt",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 16,
+      "buffer_hex": "7649abac8119b246cee98e9b12e9197d",
+      "handle_valid": true
+    },
+    {
+      "id": "aes128_cbc_pkcs7_roundtrip",
+      "case": "AES128_CBC_PKCS7_RoundTrip",
+      "api": "BCryptDecrypt",
+      "comparison_mode": "roundtrip",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 10,
+      "buffer_hex": "57696e65506172697479",
+      "roundtrip_ok": true
+    },
+    {
+      "id": "rng_err_null_alg_no_flag",
+      "case": "GenRandom_NullAlgWithoutSystemPreferredFlag",
+      "api": "BCryptGenRandom",
+      "comparison_mode": "exact",
+      "status": "0xc0000008",
+      "last_error": 0,
+      "out_length": 0,
+      "buffer_hex": "",
+      "handle_valid": false
+    },
+    {
+      "id": "rng_system_preferred",
+      "case": "GenRandom_SystemPreferredEntropy",
+      "api": "BCryptGenRandom",
+      "comparison_mode": "handle_state",
+      "status": "0x00000000",
+      "last_error": 0,
+      "handle_valid": true,
+      "handle_alignment": 8
+    },
+    {
+      "id": "sha256_abc_digest",
+      "case": "SHA256_AbcDigestVector",
+      "api": "BCryptFinishHash",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 32,
+      "buffer_hex": "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+      "handle_valid": true
+    },
+    {
+      "id": "hmac_sha256_reusable",
+      "case": "HMAC_SHA256_ReusableHandleRFC4231",
+      "api": "BCryptFinishHash",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 32,
+      "buffer_hex": "5bdcc146bf60754e6a042426089575c75a003f089d2739839dec58b964ec3843",
+      "handle_valid": true
+    },
+    {
+      "id": "pbkdf2_hmac_sha256",
+      "case": "PBKDF2_HMAC_SHA256_RFC6070_4096",
+      "api": "BCryptDeriveKeyPBKDF2",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 32,
+      "buffer_hex": "c5e478d59288c841aa530db6845c4c8d962893a001ce4e11a4963873aa98134a",
+      "handle_valid": true
+    },
+    {
+      "id": "rsa_pad_none_encrypt",
+      "case": "RSA_BCRYPT_PAD_NONE_Encrypt",
+      "api": "BCryptEncrypt",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 8,
+      "buffer_hex": "3ff9048ffe1b14b3",
+      "handle_valid": true
+    },
+    {
+      "id": "rsa_pad_none_roundtrip",
+      "case": "RSA_BCRYPT_PAD_NONE_DecryptRoundTrip",
+      "api": "BCryptDecrypt",
+      "comparison_mode": "roundtrip",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 8,
+      "buffer_hex": "0011223344556677",
+      "roundtrip_ok": true
+    },
+    {
+      "id": "ecc_p256_sign_verify",
+      "case": "ECC_P256_SignVerifyRoundTrip",
+      "api": "BCryptVerifySignature",
+      "comparison_mode": "handle_state",
+      "status": "0x00000000",
+      "last_error": 0,
+      "handle_valid": true,
+      "handle_alignment": 8
+    },
+    {
+      "id": "provider_and_interfaces_query",
+      "case": "ProviderAndFunctionTablesQuery",
+      "api": "GetCipherInterface",
+      "comparison_mode": "handle_state",
+      "status": "0x00000000",
+      "last_error": 0,
+      "handle_valid": true,
+      "handle_alignment": 8
+    }
+  ]
+}
