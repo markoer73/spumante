@@ -14,6 +14,7 @@ SIMULATE_STUB=0
 DISCOVER_STUBS=0
 CHECK_UPSTREAM=0
 RUN_SECURITY=0
+RUN_WINETEST=0
 FETCH_SPEC=""
 RUN_LINT=0
 RUN_CI=0
@@ -27,7 +28,8 @@ Surgical single-target differential test & verification script (macOS First, Lin
 Options:
   --dll <name>             Target Wine DLL (e.g. bcrypt, kernelbase, mfplat)
   --test <name>            Target conformance test (e.g. test_symmetric_key)
-  --filter <pattern>       Filter specific test cases (e.g. "AES128*")
+  --winetest               Run upstream Wine winetest & A/B anti-regression suite for --dll
+  --filter <pattern>       Filter specific test cases or winetest subtests (e.g. "AES128*")
   --arch <x86_64|arm64>    Target architecture (default: x86_64)
   --live-vm                Execute against live QEMU Windows VM via VirtIO serial qemu-ga
   --simulate-stub          Simulate unimplemented Wine stub to verify RED failure
@@ -36,8 +38,8 @@ Options:
   --security               Run 4-gate security audit (secrets/clean-room, SAST/sandbox, ASan+UBSan, CI schedule)
   --fetch-spec <dll:api>   Generate auditable Clean-Room Spec Packet in specs/<dll>/<api>.json
   --lint                   Run WineHQ C99/C11, Markdown \[...\], and script boundary linter
-  --ci                     Run full CI verification suite (linter + security + differential tests)
-  --all                    Explicitly run all registered differential tests
+  --ci                     Run full CI verification suite (linter + differential + security + winetest follow-up)
+  --all                    Explicitly run all registered differential and winetest suites
 EOF
 }
 
@@ -50,6 +52,10 @@ while [[ $# -gt 0 ]]; do
         --test)
             TEST_NAME="${2:-}"
             shift 2
+            ;;
+        --winetest)
+            RUN_WINETEST=1
+            shift
             ;;
         --filter)
             CASE_FILTER="${2:-}"
@@ -119,6 +125,16 @@ if [[ "$RUN_SECURITY" -eq 1 ]]; then
     exit 0
 fi
 
+if [[ "$RUN_WINETEST" -eq 1 ]]; then
+    WT_DLL="${DLL:-bcrypt}"
+    WT_ARGS=(--mode test --dll "$WT_DLL" --arch "$ARCH")
+    if [[ -n "$CASE_FILTER" ]]; then
+        WT_ARGS+=(--filter "$CASE_FILTER")
+    fi
+    python3 "$REPO_ROOT/scripts/lib/winetest_runner.py" "${WT_ARGS[@]}"
+    exit 0
+fi
+
 if [[ -n "$FETCH_SPEC" ]]; then
     python3 "$REPO_ROOT/scripts/lib/spec_fetcher.py" "$FETCH_SPEC"
     exit 0
@@ -141,13 +157,16 @@ fi
 
 if [[ "$RUN_CI" -eq 1 || "$RUN_ALL" -eq 1 ]]; then
     python3 "$REPO_ROOT/scripts/lib/linter.py"
-    python3 "$REPO_ROOT/scripts/lib/security_scanner.py" --dll bcrypt --test test_symmetric_key
     python3 "$REPO_ROOT/scripts/lib/runner.py" --mode test --dll bcrypt --test test_symmetric_key --arch "$ARCH"
+    python3 "$REPO_ROOT/scripts/lib/runner.py" --mode test --dll bcrypt --test test_crypto_primitives --arch "$ARCH"
+    python3 "$REPO_ROOT/scripts/lib/security_scanner.py" --dll bcrypt --test test_symmetric_key
+    python3 "$REPO_ROOT/scripts/lib/security_scanner.py" --dll bcrypt --test test_crypto_primitives
+    python3 "$REPO_ROOT/scripts/lib/winetest_runner.py" --mode test --dll bcrypt --arch "$ARCH"
     exit 0
 fi
 
 if [[ -z "$DLL" || -z "$TEST_NAME" ]]; then
-    echo "[SURGICAL TEST GUARD] Refusing unscoped test run! Specify --dll <name> --test <test_name> [--filter <case>] to avoid running 1000+ tests, or pass --lint / --security / --discover-stubs / --check-upstream / --ci / --all." >&2
+    echo "[SURGICAL TEST GUARD] Refusing unscoped test run! Specify --dll <name> --test <test_name> [--filter <case>] or --winetest --dll <name>, or pass --lint / --security / --discover-stubs / --check-upstream / --ci / --all." >&2
     usage >&2
     exit 2
 fi

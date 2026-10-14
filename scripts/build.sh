@@ -14,15 +14,17 @@ EXPORT_PATCH=0
 BORROW_DLL=""
 UPSTREAM_REF=""
 DRY_RUN=0
+BUILD_WINETEST=0
 
 usage() {
     cat <<EOF
-Usage: ./scripts/build.sh --dll <dll_name> [--test <test_name>] [--arch x86_64|arm64] [--export-patch] [--all]
+Usage: ./scripts/build.sh --dll <dll_name> [--test <test_name>] [--winetest] [--arch x86_64|arm64] [--export-patch] [--all]
        ./scripts/build.sh --borrow <dll_name> [--upstream-ref <sha_or_tag>] [--dry-run]
 
 Surgical single-target build & upstream Wine borrow script (macOS First, Linux Second).
 Examples:
   ./scripts/build.sh --dll bcrypt --test test_symmetric_key
+  ./scripts/build.sh --dll bcrypt --winetest
   ./scripts/build.sh --dll bcrypt --arch arm64
   ./scripts/build.sh --borrow bcrypt --dry-run
   ./scripts/build.sh --dll bcrypt --export-patch
@@ -38,6 +40,10 @@ while [[ $# -gt 0 ]]; do
         --test)
             TEST_NAME="${2:-}"
             shift 2
+            ;;
+        --winetest)
+            BUILD_WINETEST=1
+            shift
             ;;
         --arch)
             ARCH="${2:-x86_64}"
@@ -93,8 +99,14 @@ if [[ -z "$DLL" && "$BUILD_ALL" -eq 0 ]]; then
     exit 2
 fi
 
+if [[ "$BUILD_WINETEST" -eq 1 ]]; then
+    python3 "$REPO_ROOT/scripts/lib/winetest_runner.py" --mode build --dll "${DLL:-bcrypt}" --arch "$ARCH"
+    exit 0
+fi
+
 if [[ "$BUILD_ALL" -eq 1 && -z "$DLL" ]]; then
     python3 "$REPO_ROOT/scripts/lib/runner.py" --mode build --dll bcrypt --test test_symmetric_key --arch "$ARCH"
+    python3 "$REPO_ROOT/scripts/lib/winetest_runner.py" --mode build --dll bcrypt --arch "$ARCH"
     exit 0
 fi
 
@@ -107,3 +119,4 @@ if [[ "$EXPORT_PATCH" -eq 1 ]]; then
 fi
 
 python3 "$REPO_ROOT/scripts/lib/runner.py" --mode build --dll "$DLL" --arch "$ARCH" "${EXTRA_ARGS[@]}"
+

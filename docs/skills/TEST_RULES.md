@@ -27,12 +27,16 @@ All VM management, guest agent control, building, test execution, stub discovery
 # 3. Run ONLY the targeted differential test and specific test case filter
 ./scripts/test.sh --dll bcrypt --test test_symmetric_key --filter "AES128*"
 
-# 4. Run WineHQ style & Markdown compliance linter on modified files
+# 4. Run upstream Wine winetest & A/B anti-regression suite (mandatory follow-up after unit & security tests)
+./scripts/test.sh --winetest --dll bcrypt
+
+# 5. Run WineHQ style & Markdown compliance linter on modified files
 ./scripts/test.sh --lint
 ```
 
 - **Default Surgical Guard**: `scripts/build.sh` and `scripts/test.sh` require a specific `--dll` or `--test` target by default and refuse full-project builds unless `--all` is explicitly passed.
 - **Ground-Truth Cache Acceleration**: During the iterative GREEN/REFACTOR loop on macOS Wine, `scripts/test.sh` compares Wine output against cached Ground-Truth JSON records in `tests/ground_truth/<dll>/` in milliseconds, and supports `--live-vm` to force fresh execution against the warm QEMU Windows VM.
+- **Mandatory Follow-Up Upstream `winetest` & A/B Anti-Regression Stage**: Every target DLL change MUST be verified against the adapted upstream Wine `winetest` suite (`tests/winetest/<dll>/winetest_<dll>.c` using `tests/include/wine/test.h`) via `./scripts/test.sh --winetest --dll <dll>` as a follow-up stage after unit/differential tests and 4-gate security checks. The runner (`scripts/lib/winetest_runner.py`) executes A/B comparison (`WINETEST_BASELINE_MODE=1` vs. `wine-parity`) plus ASan+UBSan runtime instrumentation (`winetest_<dll>_asan.bin`) and enforces zero regressions.
 
 ---
 
@@ -51,7 +55,8 @@ Differential testing operates across two isolated environments:
 
 ## 4. Test Organization & Fixtures Policy
 
-- All test cases live under `tests/conformance/<dll_name>/` and include `tests/include/parity_test.h`.
+- Differential conformance test cases live under `tests/conformance/<dll_name>/` and include `tests/include/parity_test.h`.
+- Adapted upstream Wine `winetest` suites live under `tests/winetest/<dll_name>/winetest_<dll_name>.c` and include `tests/include/wine/test.h`.
 - Differential assertion outputs validate against `tests/schema/result.json` using field-level comparison modes (`exact`, `handle_state`, `masked`, `roundtrip`).
 - Tests must be **hermetic, deterministic, and self-contained** with zero network calls.
 

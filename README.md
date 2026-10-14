@@ -49,7 +49,9 @@ Rather than attempting an impossible real-time "AI-powered runtime" (which would
                                  │
                                  ▼
  ┌───────────────────────────────────────────────────────────────┐
- │ 5. LINT, REGRESSION & SUBMISSION                              │
+ │ 5. SECURITY, UPSTREAM WINETEST & SUBMISSION                   │
+ │    • ./scripts/test.sh --security --dll <name> --test <name>  │
+ │    • ./scripts/test.sh --winetest --dll <name>                │
  │    • ./scripts/test.sh --lint                                 │
  │    • ./scripts/build.sh --dll <name> --export-patch           │
  └───────────────────────────────────────────────────────────────┘
@@ -68,17 +70,21 @@ All host/VM orchestration, compilation, differential testing, stub discovery, an
 # 2. Run ONLY the targeted differential test (with optional case filter)
 ./scripts/test.sh --dll bcrypt --test test_symmetric_key --filter "AES128*"
 
-# 3. Discover & rank unimplemented stubs across Wine DLLs
+# 3. Run 4-gate security audit & upstream Wine winetest A/B anti-regression suite
+./scripts/test.sh --security --dll bcrypt --test test_crypto_primitives
+./scripts/test.sh --winetest --dll bcrypt
+
+# 4. Discover & rank unimplemented stubs across Wine DLLs
 ./scripts/test.sh --discover-stubs --dll bcrypt
 
-# 4. Generate an auditable Clean-Room Spec Packet in specs/<dll>/<api>.json
+# 5. Generate an auditable Clean-Room Spec Packet in specs/<dll>/<api>.json
 ./scripts/test.sh --fetch-spec bcrypt:BCryptGenerateSymmetricKey
 
-# 5. Launch/verify or stop the headless QEMU Windows VM & Guest Agent
+# 6. Launch/verify or stop the headless QEMU Windows VM & Guest Agent
 ./scripts/launch.sh --arch arm64 --dry-run
 ./scripts/stop.sh --all
 
-# 6. Run WineHQ C99/C11, Markdown \[...\], and script boundary linter
+# 7. Run WineHQ C99/C11, Markdown & KaTeX badge, and script boundary linter
 ./scripts/test.sh --lint
 ```
 

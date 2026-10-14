@@ -4,19 +4,25 @@ This document defines repository standards for markdown documentation, task trac
 
 ---
 
-## 1. Markdown Specification Compliance (Strict CommonMark / GFM)
+## 1. Markdown Specification & KaTeX Rendering Compliance (Strict CommonMark / GFM)
 
-All documentation, task files, and pull request descriptions must strictly fulfill CommonMark and GitHub Flavored Markdown (GFM) specifications.
+All documentation, task files, and pull request descriptions must strictly fulfill CommonMark, GitHub Flavored Markdown (GFM), and KaTeX math preview specifications.
 
-### The Square Bracket Rule (Mandatory)
-In Markdown, text enclosed in unescaped square brackets (`[text]`) outside of fenced code blocks is parsed as a link or link reference shortcut. Unless defined with a matching link reference (`[text]: url`), Markdown linters and parsers flag this as an error (`No link definition found for '...'`).
+### The Square Bracket & KaTeX Compatibility Rule (Mandatory)
+1. **CommonMark Link-Reference Hazard**: In Markdown, text enclosed in unescaped square brackets (`[text]`) outside of code spans is parsed as a link reference shortcut. Unless defined with a matching link reference (`[text]: url`), Markdown linters flag this as an error (`No link definition found for '...'`).
+2. **KaTeX Display-Math Hazard (`\[ ... \]`)**: In Markdown viewers with KaTeX/LaTeX math enabled, escaping **both** brackets (`\[ ... \]`) outside code spans is interpreted as a **LaTeX display-math block** (`$$ ... $$`). This causes prose inside `\[ ... \]` to render as an italic math equation with stripped spaces, and throws a fatal `KaTeX parse error` whenever the text contains LaTeX control characters such as `#` (e.g. `PKCS#7`), `&` (e.g. `A/B & ASan`), `%`, or `$`.
 
 **Rules for Agents:**
-1. **Always escape square brackets** in agent WIP badges, completion tags, status markers, and array indices:
-   - Correct: `**\[ANTIGRAVITY-WIP 2026-10-14\]**`
-   - Correct: `**\[GEMINI-COMPLETED 2026-10-14: added test\]**`
-   - Correct: `array\[index\]`
-   - Incorrect: `**[ANTIGRAVITY-WIP 2026-10-14]**` (triggers broken link warning)
+1. **Prevent both CommonMark link warnings and KaTeX math hijacking** in agent WIP/COMPLETED badges, status markers, and array indices by either:
+   - **Escaping only the opening bracket (`\[...]`)** so CommonMark treats it as literal text while KaTeX does not see a closing `\]` math delimiter:
+     - Correct: `**\[ANTIGRAVITY-WIP 2026-10-14]**`
+     - Correct: `**\[GEMINI-COMPLETED 2026-10-14: added PKCS#7 & ASan test]**`
+     - Correct: `array\[index]`
+   - **Or wrapping the bracketed tag in inline code backticks (`` `[...]` ``)**:
+     - Correct: `` **`[ANTIGRAVITY-WIP 2026-10-14]`** ``
+   - **If `\[...\]` is used**: Never include unescaped LaTeX control characters (`#`, `&`, `%`, `$`) inside `\[...\]`.
+   - Incorrect: `**[ANTIGRAVITY-WIP 2026-10-14]**` (triggers CommonMark broken link reference warning)
+   - Incorrect: `**\[ANTIGRAVITY-COMPLETED 2026-10-14: PKCS#7 & ASan\]**` (triggers `KaTeX parse error` on `#` and `&`)
 2. **Permitted unescaped brackets:**
    - Standard markdown links: `[Link text](https://example.com)` or `[Doc](docs/skills/ARCHITECTURE.md)`
    - Initial GFM task list items: `- [ ] ` and `- [x] `

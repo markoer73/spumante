@@ -345,8 +345,138 @@ class TestWineParityArchitecture(unittest.TestCase):
         self.assertTrue(sec_report["gates"]["static_sast_and_sandbox_scan"]["passed"])
         self.assertTrue(sec_report["gates"]["asan_ubsan_memory_safety"]["passed"])
 
+    def test_11_bcrypt_expanded_macos_backends_differential_loop(self) -> None:
+        """Verify expanded dlls/bcrypt primitives (AES-CBC/PKCS#7, RNG, SHA256/HMAC, PBKDF2, RSA/ECC BCRYPT_PAD_NONE, provider APIs)."""
+        build_sh = REPO_ROOT / "scripts" / "build.sh"
+        test_sh = REPO_ROOT / "scripts" / "test.sh"
+
+        # 1. Surgically build bcrypt + test_crypto_primitives
+        res_build = subprocess.run(
+            [str(build_sh), "--dll", "bcrypt", "--test", "test_crypto_primitives"],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(res_build.returncode, 0, res_build.stdout + res_build.stderr)
+
+        # 2. Verify RED failure when running with --simulate-stub
+        res_red = subprocess.run(
+            [str(test_sh), "--dll", "bcrypt", "--test", "test_crypto_primitives", "--simulate-stub"],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertNotEqual(res_red.returncode, 0)
+
+        # 3. Verify GREEN match against Windows Ground Truth
+        res_green = subprocess.run(
+            [str(test_sh), "--dll", "bcrypt", "--test", "test_crypto_primitives"],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(
+            res_green.returncode,
+            0,
+            f"test_crypto_primitives failed:\n{res_green.stdout}\n{res_green.stderr}",
+        )
+        self.assertIn("MATCHED (0 discrepancies) [12 assertions]", res_green.stdout)
+
+        # 4. Verify 4-gate security audit (including ASan+UBSan) on test_crypto_primitives
+        res_sec = subprocess.run(
+            [str(test_sh), "--security", "--dll", "bcrypt", "--test", "test_crypto_primitives"],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(
+            res_sec.returncode,
+            0,
+            f"Security scan failed on test_crypto_primitives:\n{res_sec.stdout}\n{res_sec.stderr}",
+        )
+
+    def test_12_winetest_and_ab_upstream_regression_harness(self) -> None:
+        """Verify upstream winetest & A/B regression harness (--winetest) runs as follow-up to unit and security tests."""
+        build_sh = REPO_ROOT / "scripts" / "build.sh"
+        test_sh = REPO_ROOT / "scripts" / "test.sh"
+        ci_path = REPO_ROOT / ".github" / "workflows" / "ci.yml"
+        wine_test_h = REPO_ROOT / "tests" / "include" / "wine" / "test.h"
+        winetest_c = REPO_ROOT / "tests" / "winetest" / "bcrypt" / "winetest_bcrypt.c"
+
+        self.assertTrue(wine_test_h.is_file(), "tests/include/wine/test.h compatibility header must exist")
+        self.assertTrue(winetest_c.is_file(), "tests/winetest/bcrypt/winetest_bcrypt.c must exist")
+
+        # 1. Surgically build winetest target for bcrypt
+        res_build = subprocess.run(
+            [str(build_sh), "--dll", "bcrypt", "--winetest"],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(res_build.returncode, 0, res_build.stdout + res_build.stderr)
+
+        # 2. Run full bcrypt winetest & A/B upstream regression harness
+        res_wt = subprocess.run(
+            [str(test_sh), "--winetest", "--dll", "bcrypt"],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(
+            res_wt.returncode,
+            0,
+            f"winetest --dll bcrypt failed:\n{res_wt.stdout}\n{res_wt.stderr}",
+        )
+        wt_report = json.loads(res_wt.stdout)
+        self.assertTrue(wt_report["passed"])
+        self.assertEqual(wt_report["dll"], "bcrypt")
+        self.assertEqual(wt_report["failures"], 0)
+        self.assertEqual(wt_report["regressions_vs_upstream"], 0)
+        self.assertGreaterEqual(wt_report["total_assertions"], 80)
+        self.assertIn("ab_comparison", wt_report)
+        self.assertTrue(wt_report["ab_comparison"]["zero_regressions"])
+        expected_subtests = {
+            "test_BCryptGenRandom",
+            "test_rng",
+            "test_hashes",
+            "test_BcryptHash",
+            "test_BcryptDeriveKeyPBKDF2",
+            "test_aes",
+            "test_BCryptGenerateSymmetricKey",
+            "test_BCryptEncrypt",
+            "test_BCryptDecrypt",
+            "test_key_import_export",
+            "test_RSA",
+            "test_ECDSA",
+            "test_providers",
+        }
+        self.assertTrue(expected_subtests.issubset(set(wt_report["subtests_executed"])))
+
+        # 3. Verify surgical subtest filter (--filter)
+        res_filter = subprocess.run(
+            [str(test_sh), "--winetest", "--dll", "bcrypt", "--filter", "test_BCryptGenRandom"],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(res_filter.returncode, 0, res_filter.stdout + res_filter.stderr)
+        filter_report = json.loads(res_filter.stdout)
+        self.assertEqual(filter_report["subtests_executed"], ["test_BCryptGenRandom"])
+
+        # 4. Verify CI workflow runs winetest as follow-up after unit and security tests
+        ci_text = ci_path.read_text(encoding="utf-8")
+        self.assertIn("./scripts/test.sh --winetest --dll bcrypt", ci_text)
+
 
 if __name__ == "__main__":
     unittest.main()
+
 
 

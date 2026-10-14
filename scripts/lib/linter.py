@@ -53,12 +53,17 @@ def lint_c_and_h_files() -> list[str]:
 
 
 def lint_markdown_files() -> list[str]:
-    """Verify CommonMark/GFM compliance, ensuring status badges escape square brackets."""
+    """Verify CommonMark/GFM and KaTeX compliance on status badges."""
     errors: list[str] = []
-    unescaped_badge_re = re.compile(r"(?<!\\)\[(?:ANTIGRAVITY|GEMINI|CLAUDE|CODEX|OPENCODE|AGENT)-(?:WIP|COMPLETED)[^\]]*\]")
+    unescaped_badge_re = re.compile(
+        r"(?<!\\)\[(?:ANTIGRAVITY|GEMINI|CLAUDE|CODEX|OPENCODE|AGENT)-(?:WIP|COMPLETED)[^\]]*\]"
+    )
+    katex_hazard_re = re.compile(
+        r"\\\[(?:ANTIGRAVITY|GEMINI|CLAUDE|CODEX|OPENCODE|AGENT)-(?:WIP|COMPLETED)[^\]]*[#&%$][^\]]*\\\]"
+    )
 
     for md_path in sorted(REPO_ROOT.rglob("*.md")):
-        if ".git" in md_path.parts or "builds" in md_path.parts:
+        if ".git" in md_path.parts or "builds" in md_path.parts or ".wine-upstream" in md_path.parts:
             continue
         rel = md_path.relative_to(REPO_ROOT)
         text = md_path.read_text(encoding="utf-8", errors="replace")
@@ -70,11 +75,15 @@ def lint_markdown_files() -> list[str]:
                 continue
             if in_fence:
                 continue
-            # Remove inline code spans before checking unescaped badges
+            # Remove inline code spans before checking badges
             no_inline = re.sub(r"`[^`]*`", "", line)
             if unescaped_badge_re.search(no_inline):
                 errors.append(
-                    f"{rel}:{idx}: Unescaped square brackets in agent badge (use \\[...\\])"
+                    f"{rel}:{idx}: Unescaped opening square bracket in agent badge (use \\[...])"
+                )
+            if katex_hazard_re.search(no_inline):
+                errors.append(
+                    f"{rel}:{idx}: KaTeX math collision in \\[...\\] badge containing #/&/%/$ (use \\[...] without closing backslash)"
                 )
     return errors
 

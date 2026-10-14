@@ -41,5 +41,8 @@ jobs:
       - name: Run Targeted Differential Conformance Test
         run: ./scripts/test.sh --dll bcrypt --test test_symmetric_key
 
+      - name: Run Upstream Wine winetest & A/B Anti-Regression Suite
+        run: ./scripts/test.sh --winetest --dll bcrypt
+
       - name: Run Full Architecture & Harness Unit Suite
         run: python3 -m unittest -v tests/unit/test_harness_suite.py
