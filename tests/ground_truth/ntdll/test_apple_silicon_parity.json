@@ -1,0 +1,96 @@
+{
+  "dll": "ntdll",
+  "test_name": "test_apple_silicon_parity",
+  "architecture": "arm64",
+  "environment": "windows_vm",
+  "assertions": [
+    {
+      "id": "virtual_16k_host_4k_subpage_guard_isolation",
+      "case": "Virtual_16KHost_4KSubpage_GuardIsolation",
+      "api": "NtProtectVirtualMemory",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 260,
+      "buffer_hex": "010000800000000004000000040100000100008000000000",
+      "handle_valid": true
+    },
+    {
+      "id": "virtual_16k_host_4k_write_watch_granularity",
+      "case": "Virtual_16KHost_4KWriteWatchGranularity",
+      "api": "NtGetWriteWatch",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 4096,
+      "buffer_hex": "0200000000100000001000000030000000000000",
+      "handle_valid": true
+    },
+    {
+      "id": "virtual_rosetta2_read_fault_and_exec_write_exceptions",
+      "case": "Virtual_Rosetta2ReadFault_And_ExecWriteExceptions",
+      "api": "NtSetInformationProcess",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 1,
+      "buffer_hex": "0000000001000000050000c0020600c000000000",
+      "handle_valid": true
+    },
+    {
+      "id": "virtual_apple_silicon_map_jit_wx_and_icache_flush",
+      "case": "Virtual_AppleSilicon_MapJitWx_And_IcacheFlush",
+      "api": "NtFlushInstructionCache",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 2,
+      "buffer_hex": "0010000001000000000000000200000001000000",
+      "handle_valid": true
+    },
+    {
+      "id": "signal_arm64_darwin_x18_platform_register_preservation",
+      "case": "SignalArm64_DarwinX18_PlatformRegisterPreservation",
+      "api": "NtSetContextThread",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 1,
+      "buffer_hex": "0000fe7f0000fe7f00f0df6f0000fe7f00f0df6f0080fe7f01000000",
+      "handle_valid": true
+    },
+    {
+      "id": "signal_arm64_wow64_cpu_area_and_arm64ec_emulator",
+      "case": "SignalArm64_Wow64CpuArea_And_Arm64EcEmulator",
+      "api": "RtlWow64GetCpuAreaInfo",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 34404,
+      "buffer_hex": "040000001000000008000000100000000d0000c00100000001000000",
+      "handle_valid": true
+    },
+    {
+      "id": "signal_arm64_cross_process_work_list_queue",
+      "case": "SignalArm64_CrossProcessWorkListQueue",
+      "api": "RtlWow64PushCrossProcessWorkOntoWorkList",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 1,
+      "buffer_hex": "0010000000200000003000000000000001000000",
+      "handle_valid": true
+    },
+    {
+      "id": "signal_x86_64_rosetta_ldt_selectors_and_gsbase_fixup",
+      "case": "SignalX8664_RosettaLdtSelectors_And_GsbaseFixup",
+      "api": "RtlWow64GetThreadSelectorEntry",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 8,
+      "buffer_hex": "0000fe7fff0f00000040120000e0fd7f0200000001000000",
+      "handle_valid": true
+    }
+  ]
+}

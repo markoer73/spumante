@@ -8,9 +8,6 @@ Executive summary of all remaining open tasks in `docs/TASK_QUEUE.md`.
 
 ## Remaining Open Tasks
 
-### Critical Priority
-- [ ] Implement Apple Silicon (`arm64`) execution parity for Intel (`x86_64` & `i386`) Windows apps in `dlls/ntdll` (Rosetta 2 write-fault/LDT/WoW64 parity in `signal_x86_64.c`/`virtual.c` AND native `arm64-apple-darwin` + `ARM64EC` `fexcore.dll`/`box64cpu.dll` support: Darwin `x18` platform-register save/restore in `signal_arm64.c`, 16 KB host page vs. 4 KB Windows PE page guard/write-watch emulation in `virtual.c`, and `MAP_JIT`/`pthread_jit_write_protect_np` W^X toggling)
-
 ### High Priority
 - [ ] Implement macOS fast NT synchronization (`NTSync` parity) in `dlls/ntdll` and `dlls/kernelbase` (`WaitOnAddress`, `WakeByAddressSingle`, `WakeByAddressAll`, `NtWaitForAlertByThreadId`) backed by Darwin `__ulock_wait2`/`__ulock_wake` and Mach semaphores
 - [ ] Borrow and implement `dlls/winemac.drv` missing macOS windowing & Metal features: `IOSurface`-backed cross-process child window `CAMetalLayer` swapchains (`window.c:1177`), multi-monitor `ChangeDisplaySettingsEx` on non-primary displays (`display.c:767-772`), and cross-process window DCs / layered attributes (`opengl.c:1139`, `window.c:1318`)

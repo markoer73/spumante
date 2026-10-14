@@ -74,7 +74,13 @@ All host/VM orchestration, compilation, differential testing, stub discovery, an
 ./scripts/test.sh --security --dll bcrypt --test test_crypto_primitives
 ./scripts/test.sh --winetest --dll bcrypt
 
-# 4. Discover & rank unimplemented stubs across Wine DLLs
+# 4. Build & verify Apple Silicon (arm64) execution parity for Intel apps in ntdll
+./scripts/build.sh --dll ntdll --test test_apple_silicon_parity
+./scripts/test.sh --dll ntdll --test test_apple_silicon_parity
+./scripts/test.sh --security --dll ntdll --test test_apple_silicon_parity
+./scripts/test.sh --winetest --dll ntdll
+
+# 5. Discover & rank unimplemented stubs across Wine DLLs
 ./scripts/test.sh --discover-stubs --dll bcrypt
 
 # 5. Generate an auditable Clean-Room Spec Packet in specs/<dll>/<api>.json

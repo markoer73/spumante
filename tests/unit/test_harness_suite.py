@@ -474,6 +474,96 @@ class TestWineParityArchitecture(unittest.TestCase):
         ci_text = ci_path.read_text(encoding="utf-8")
         self.assertIn("./scripts/test.sh --winetest --dll bcrypt", ci_text)
 
+    def test_13_ntdll_apple_silicon_intel_execution_parity(self) -> None:
+        """Verify dlls/ntdll Apple Silicon (arm64) execution parity for Intel (x86_64/i386) apps (virtual.c, signal_arm64.c, signal_x86_64.c)."""
+        build_sh = REPO_ROOT / "scripts" / "build.sh"
+        test_sh = REPO_ROOT / "scripts" / "test.sh"
+
+        # 1. Verify upstream/manifest.json alignment for ntdll
+        res_check = subprocess.run(
+            [str(test_sh), "--check-upstream", "--dll", "ntdll"],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(res_check.returncode, 0, res_check.stdout + res_check.stderr)
+        check_report = json.loads(res_check.stdout)
+        self.assertEqual(check_report["dll"], "ntdll")
+        self.assertTrue(check_report["manifest_verified"])
+        self.assertTrue(check_report["macos_blocks_present"])
+
+        # 2. Surgically build ntdll + test_apple_silicon_parity
+        res_build = subprocess.run(
+            [str(build_sh), "--dll", "ntdll", "--test", "test_apple_silicon_parity"],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(res_build.returncode, 0, res_build.stdout + res_build.stderr)
+
+        # 3. Verify RED failure when running with --simulate-stub
+        res_red = subprocess.run(
+            [str(test_sh), "--dll", "ntdll", "--test", "test_apple_silicon_parity", "--simulate-stub"],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertNotEqual(res_red.returncode, 0)
+
+        # 4. Verify GREEN match against Windows Ground Truth
+        res_green = subprocess.run(
+            [str(test_sh), "--dll", "ntdll", "--test", "test_apple_silicon_parity"],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(
+            res_green.returncode,
+            0,
+            f"test_apple_silicon_parity failed:\n{res_green.stdout}\n{res_green.stderr}",
+        )
+        self.assertIn("MATCHED (0 discrepancies) [8 assertions]", res_green.stdout)
+
+        # 5. Verify 4-gate security audit (including ASan+UBSan) on ntdll
+        res_sec = subprocess.run(
+            [str(test_sh), "--security", "--dll", "ntdll", "--test", "test_apple_silicon_parity"],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(
+            res_sec.returncode,
+            0,
+            f"Security scan failed on ntdll:\n{res_sec.stdout}\n{res_sec.stderr}",
+        )
+
+        # 6. Verify mandatory follow-up upstream winetest & A/B anti-regression suite for ntdll
+        res_wt = subprocess.run(
+            [str(test_sh), "--winetest", "--dll", "ntdll"],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(
+            res_wt.returncode,
+            0,
+            f"winetest --dll ntdll failed:\n{res_wt.stdout}\n{res_wt.stderr}",
+        )
+        wt_report = json.loads(res_wt.stdout)
+        self.assertTrue(wt_report["passed"])
+        self.assertEqual(wt_report["dll"], "ntdll")
+        self.assertEqual(wt_report["failures"], 0)
+        self.assertEqual(wt_report["regressions_vs_upstream"], 0)
+        self.assertGreaterEqual(wt_report["total_assertions"], 900)
+        self.assertTrue(wt_report["ab_comparison"]["zero_regressions"])
+        self.assertTrue(wt_report["ab_comparison"]["asan_ubsan_passed"])
+
 
 if __name__ == "__main__":
     unittest.main()

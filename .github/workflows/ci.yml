@@ -41,8 +41,16 @@ jobs:
       - name: Run Targeted Differential Conformance Test
         run: ./scripts/test.sh --dll bcrypt --test test_symmetric_key
 
-      - name: Run Upstream Wine winetest & A/B Anti-Regression Suite
+      - name: Run Upstream Wine winetest & A/B Anti-Regression Suite (bcrypt)
         run: ./scripts/test.sh --winetest --dll bcrypt
+
+      - name: Surgically Build & Test NTDLL Apple Silicon Execution Parity
+        run: |
+          ./scripts/build.sh --dll ntdll --test test_apple_silicon_parity
+          ./scripts/test.sh --dll ntdll --test test_apple_silicon_parity
+          ./scripts/test.sh --security --dll ntdll --test test_apple_silicon_parity
+          ./scripts/test.sh --winetest --dll ntdll
 
       - name: Run Full Architecture & Harness Unit Suite
         run: python3 -m unittest -v tests/unit/test_harness_suite.py
+

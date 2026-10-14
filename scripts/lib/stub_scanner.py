@@ -108,7 +108,7 @@ def discover_stubs(
     """Run the 3-layer stub scanner across target DLL directories."""
     dlls_root = REPO_ROOT / "dlls"
     relay_counts = parse_relay_log(relay_log)
-    target_names = [dll_filter] if dll_filter else ["bcrypt", "kernelbase", "mfplat"]
+    target_names = [dll_filter] if dll_filter else ["bcrypt", "kernelbase", "mfplat", "ntdll"]
 
     all_stubs: list[dict[str, Any]] = []
     for name in target_names:

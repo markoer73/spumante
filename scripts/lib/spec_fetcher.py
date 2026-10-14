@@ -150,6 +150,69 @@ KNOWN_CLEAN_ROOM_SPECS: dict[str, dict[str, Any]] = {
             "no_proprietary_decompilation": True,
         },
     },
+    "ntdll:RtlWow64GetCpuAreaInfo": {
+        "dll": "ntdll",
+        "api_name": "RtlWow64GetCpuAreaInfo",
+        "header": "ntdll.h",
+        "ms_learn_url": "https://learn.microsoft.com/en-us/windows/arm/arm64ec",
+        "signature": (
+            "NTSTATUS WINAPI RtlWow64GetCpuAreaInfo("
+            "WOW64_CPU_AREA_INFO *CpuArea, ULONG Reserved, WOW64_CPU_AREA_INFO *Info)"
+        ),
+        "return_codes": {
+            "STATUS_SUCCESS": "0x00000000",
+            "STATUS_INVALID_PARAMETER": "0xc000000d",
+        },
+        "empirical_windows_behavior": [
+            "Populates WOW64_CPU_AREA_INFO (Context, ContextEx, ContextFlagsLocation,CpuArea, Machine) for I386 (0x014c), AMD64 (0x8664), ARMNT (0x01c4), and ARM64 (0xaa64).",
+            "Validates alignment (4, 16, 8, 16 bytes respectively) and rejects unsupported machine constants with STATUS_INVALID_PARAMETER (0xc000000d).",
+        ],
+        "macos_backend_strategy": "Preserve Darwin x18 platform register across PE/Unix transitions on arm64-apple-darwin while binding ARM64EC/WoW64 CPU areas to fexcore.dll, box64cpu.dll, or xtajit64.dll.",
+        "clean_room_attestation": {
+            "sources": [
+                "Microsoft Learn ARM64EC & WoW64 ABI documentation",
+                "Public Wine include/winternl.h and dlls/ntdll/tests/wow64.c declarations",
+                "Black-box Windows 11 differential conformance test observations",
+            ],
+            "no_leaked_source_exposure": True,
+            "no_proprietary_decompilation": True,
+        },
+    },
+    "ntdll:NtGetWriteWatch": {
+        "dll": "ntdll",
+        "api_name": "NtGetWriteWatch",
+        "header": "ntdll.h",
+        "ms_learn_url": "https://learn.microsoft.com/en-us/windows/win32/api/memoryapi/nf-memoryapi-getwritewatch",
+        "signature": (
+            "NTSTATUS WINAPI NtGetWriteWatch("
+            "HANDLE ProcessHandle, ULONG Flags, PVOID BaseAddress, SIZE_T RegionSize, "
+            "PVOID *UserAddressArray, ULONG_PTR *EntriesInUserAddressArray, PULONG Granularity)"
+        ),
+        "return_codes": {
+            "STATUS_SUCCESS": "0x00000000",
+            "STATUS_INVALID_PARAMETER_1": "0xc00000ef",
+            "STATUS_INVALID_PARAMETER_2": "0xc00000f0",
+            "STATUS_INVALID_PARAMETER_3": "0xc00000f1",
+            "STATUS_INVALID_PARAMETER_4": "0xc00000f2",
+            "STATUS_INVALID_PARAMETER_5": "0xc00000f3",
+            "STATUS_INVALID_PARAMETER_6": "0xc00000f4",
+            "STATUS_INVALID_PARAMETER_7": "0xc00000f5",
+        },
+        "empirical_windows_behavior": [
+            "Always reports 4096-byte (0x1000) granularity in *Granularity and tracks dirty pages per 4 KB Windows PE page even when the underlying Apple Silicon host uses 16 KB (0x4000) VM pages.",
+            "WRITE_WATCH_FLAG_RESET (0x01) atomically clears dirty state only for the returned 4 KB pages.",
+        ],
+        "macos_backend_strategy": "Sub-page 4 KB virtual protection bitmask table over 16 KB Darwin arm64 VM pages with Rosetta 2 read-fault-on-writable-page translation and MAP_JIT W^X toggling.",
+        "clean_room_attestation": {
+            "sources": [
+                "Microsoft Learn GetWriteWatch / ResetWriteWatch documentation",
+                "Public Wine include/winternl.h and dlls/ntdll/tests/virtual.c declarations",
+                "Black-box Windows 11 differential conformance test observations",
+            ],
+            "no_leaked_source_exposure": True,
+            "no_proprietary_decompilation": True,
+        },
+    },
 }
 
 
