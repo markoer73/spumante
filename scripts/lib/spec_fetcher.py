@@ -213,6 +213,100 @@ KNOWN_CLEAN_ROOM_SPECS: dict[str, dict[str, Any]] = {
             "no_proprietary_decompilation": True,
         },
     },
+    "ntdll:NtWaitForAlertByThreadId": {
+        "dll": "ntdll",
+        "api_name": "NtWaitForAlertByThreadId",
+        "header": "ntdll.h",
+        "ms_learn_url": "https://learn.microsoft.com/en-us/windows/win32/api/synchapi/nf-synchapi-waitonaddress",
+        "signature": (
+            "NTSTATUS WINAPI NtWaitForAlertByThreadId("
+            "const void *Address, const LARGE_INTEGER *Timeout)"
+        ),
+        "return_codes": {
+            "STATUS_ALERTED": "0x00000101",
+            "STATUS_TIMEOUT": "0x00000102",
+            "STATUS_INVALID_CID": "0xc000000b",
+            "STATUS_ACCESS_DENIED": "0xc0000022",
+        },
+        "empirical_windows_behavior": [
+            "Manipulates a per-thread auto-reset alert flag paired with NtAlertThreadByThreadId and NtAlertMultipleThreadByThreadId.",
+            "When the calling thread's alert flag is already set, atomically clears it and returns STATUS_ALERTED (0x00000101); a subsequent wait with Timeout == 0 returns STATUS_TIMEOUT (0x00000102).",
+            "NtAlertThreadByThreadId returns STATUS_INVALID_CID (0xc000000b) for TID 0 or unknown TIDs, and STATUS_ACCESS_DENIED (0xc0000022) for a TID belonging to another process.",
+            "NtAlertMultipleThreadByThreadId validates all TIDs in the array before alerting any thread, and returns STATUS_ACCESS_VIOLATION (0xc0000005) when Count > 0 and ThreadIds == NULL.",
+        ],
+        "macos_backend_strategy": "Use Darwin XNU __ulock_wait2 (UL_COMPARE_AND_WAIT | ULF_NO_ERRNO) and __ulock_wake paired with Mach semaphores (semaphore_create / semaphore_timedwait / semaphore_signal).",
+        "clean_room_attestation": {
+            "sources": [
+                "Microsoft Learn WaitOnAddress / synchronization documentation",
+                "Public Wine include/winternl.h and dlls/ntdll/tests/sync.c declarations",
+                "Black-box Windows 11 differential conformance test observations",
+            ],
+            "no_leaked_source_exposure": True,
+            "no_proprietary_decompilation": True,
+        },
+    },
+    "ntdll:RtlWaitOnAddress": {
+        "dll": "ntdll",
+        "api_name": "RtlWaitOnAddress",
+        "header": "ntdll.h",
+        "ms_learn_url": "https://learn.microsoft.com/en-us/windows/win32/api/synchapi/nf-synchapi-waitonaddress",
+        "signature": (
+            "NTSTATUS WINAPI RtlWaitOnAddress("
+            "const void *Address, const void *CompareAddress, SIZE_T AddressSize, const LARGE_INTEGER *Timeout)"
+        ),
+        "return_codes": {
+            "STATUS_SUCCESS": "0x00000000",
+            "STATUS_TIMEOUT": "0x00000102",
+            "STATUS_INVALID_PARAMETER": "0xc000000d",
+        },
+        "empirical_windows_behavior": [
+            "Supports AddressSize values of 1, 2, 4, and 8 bytes; any other size returns STATUS_INVALID_PARAMETER (0xc000000d).",
+            "Atomically compares *Address and *CompareAddress inside a fair FIFO wait queue bucket; returns STATUS_SUCCESS immediately if values differ.",
+            "Supports both relative (< 0) and absolute (> 0, relative to NtQuerySystemTime) LARGE_INTEGER timeouts, returning STATUS_TIMEOUT (0x00000102) on expiration.",
+            "Translates STATUS_ALERTED from NtWaitForAlertByThreadId into STATUS_SUCCESS.",
+        ],
+        "macos_backend_strategy": "Fair 256-bucket spinlocked FIFO wait queues backed by Darwin __ulock_wait2 / __ulock_wake and per-thread Mach semaphores.",
+        "clean_room_attestation": {
+            "sources": [
+                "Microsoft Learn WaitOnAddress / WakeByAddressSingle / WakeByAddressAll documentation",
+                "Public Wine include/winternl.h and dlls/ntdll/tests/sync.c declarations",
+                "Black-box Windows 11 differential conformance test observations",
+            ],
+            "no_leaked_source_exposure": True,
+            "no_proprietary_decompilation": True,
+        },
+    },
+    "kernelbase:WaitOnAddress": {
+        "dll": "kernelbase",
+        "api_name": "WaitOnAddress",
+        "header": "kernelbase.h",
+        "ms_learn_url": "https://learn.microsoft.com/en-us/windows/win32/api/synchapi/nf-synchapi-waitonaddress",
+        "signature": (
+            "BOOL WINAPI WaitOnAddress("
+            "volatile void *Address, PVOID CompareAddress, SIZE_T AddressSize, DWORD dwMilliseconds)"
+        ),
+        "return_codes": {
+            "TRUE": "1",
+            "FALSE": "0",
+        },
+        "empirical_windows_behavior": [
+            "Converts dwMilliseconds (unless INFINITE) to a relative negative 100ns LARGE_INTEGER (-dwMilliseconds * 10000) and delegates to RtlWaitOnAddress.",
+            "Does NOT modify GetLastError() when RtlWaitOnAddress returns STATUS_SUCCESS.",
+            "On STATUS_TIMEOUT, sets GetLastError() to ERROR_TIMEOUT (1460) and returns FALSE.",
+            "On STATUS_INVALID_PARAMETER (e.g. AddressSize not in {1, 2, 4, 8}), sets GetLastError() to ERROR_INVALID_PARAMETER (87) and returns FALSE.",
+            "WakeByAddressSingle and WakeByAddressAll accept NULL without crashing and never modify GetLastError().",
+        ],
+        "macos_backend_strategy": "Delegates to ntdll RtlWaitOnAddress / RtlWakeAddressSingle / RtlWakeAddressAll backed by Darwin __ulock_wait2 / __ulock_wake.",
+        "clean_room_attestation": {
+            "sources": [
+                "Microsoft Learn WaitOnAddress / WakeByAddressSingle / WakeByAddressAll documentation",
+                "Public Wine include/synchapi.h and dlls/kernelbase/tests/sync.c declarations",
+                "Black-box Windows 11 differential conformance test observations",
+            ],
+            "no_leaked_source_exposure": True,
+            "no_proprietary_decompilation": True,
+        },
+    },
 }
 
 

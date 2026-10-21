@@ -1,6 +1,38 @@
 # Wine kernelbase.dll export specification
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
+@ stdcall WaitOnAddress(ptr ptr long long)
+@ stdcall WakeByAddressSingle(ptr)
+@ stdcall WakeByAddressAll(ptr)
+@ stdcall InitializeSynchronizationBarrier(ptr long long)
+@ stdcall EnterSynchronizationBarrier(ptr long)
+@ stdcall DeleteSynchronizationBarrier(ptr)
+@ stdcall InitOnceInitialize(ptr)
+@ stdcall InitOnceBeginInitialize(ptr long ptr ptr)
+@ stdcall InitOnceComplete(ptr long ptr)
+@ stdcall InitOnceExecuteOnce(ptr ptr ptr ptr)
+@ stdcall Sleep(long)
+@ stdcall SleepEx(long long)
+@ stdcall WaitForSingleObject(ptr long)
+@ stdcall WaitForSingleObjectEx(ptr long long)
+@ stdcall WaitForMultipleObjects(long ptr long long)
+@ stdcall WaitForMultipleObjectsEx(long ptr long long long)
+@ stdcall SignalObjectAndWait(ptr ptr long long)
+@ stdcall CreateEventW(ptr long long wstr)
+@ stdcall CreateEventExW(ptr wstr long long)
+@ stdcall OpenEventW(long long wstr)
+@ stdcall SetEvent(ptr)
+@ stdcall ResetEvent(ptr)
+@ stdcall PulseEvent(ptr)
+@ stdcall CreateMutexW(ptr long wstr)
+@ stdcall CreateMutexExW(ptr wstr long long)
+@ stdcall OpenMutexW(long long wstr)
+@ stdcall ReleaseMutex(ptr)
+@ stdcall CreateSemaphoreW(ptr long long wstr)
+@ stdcall CreateSemaphoreExW(ptr long long wstr long long)
+@ stdcall OpenSemaphoreW(long long wstr)
+@ stdcall ReleaseSemaphore(ptr long ptr)
+@ stdcall CloseHandle(ptr)
 @ stub GetProcessInformation
 @ stub SetThreadInformation
 @ stub CompareObjectHandles

@@ -9,7 +9,6 @@ Executive summary of all remaining open tasks in `docs/TASK_QUEUE.md`.
 ## Remaining Open Tasks
 
 ### High Priority
-- [ ] Implement macOS fast NT synchronization (`NTSync` parity) in `dlls/ntdll` and `dlls/kernelbase` (`WaitOnAddress`, `WakeByAddressSingle`, `WakeByAddressAll`, `NtWaitForAlertByThreadId`) backed by Darwin `__ulock_wait2`/`__ulock_wake` and Mach semaphores
 - [ ] Borrow and implement `dlls/winemac.drv` missing macOS windowing & Metal features: `IOSurface`-backed cross-process child window `CAMetalLayer` swapchains (`window.c:1177`), multi-monitor `ChangeDisplaySettingsEx` on non-primary displays (`display.c:767-772`), and cross-process window DCs / layered attributes (`opengl.c:1139`, `window.c:1318`)
 - [ ] Expand `dlls/kernelbase` missing Win32 utility APIs (`GetSystemTimePreciseAsFileTime`, `SetThreadDescription`, `GetThreadDescription`, `CompareObjectHandles`, `VirtualAlloc2`, `MapViewOfFile3`) with Darwin/Mach backends and differential conformance tests
 

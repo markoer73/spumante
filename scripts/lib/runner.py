@@ -54,14 +54,17 @@ def surgical_build(
     build_dir.mkdir(parents=True, exist_ok=True)
 
     c_sources = sorted(str(p) for p in dll_dir.glob("*.c"))
+    if dll == "kernelbase":
+        ntdll_dir = REPO_ROOT / "dlls" / "ntdll"
+        c_sources.extend(sorted(str(p) for p in ntdll_dir.glob("*.c")))
     built_artifacts: list[str] = []
 
     # 1. Build single shared library / Wine override module for target DLL
     shared_ext = ".dylib" if sys.platform == "darwin" else ".so"
     darwin_frameworks = (
-        ["-framework", "Security", "-framework", "CoreFoundation"]
+        ["-framework", "Security", "-framework", "CoreFoundation", "-pthread"]
         if sys.platform == "darwin"
-        else []
+        else ["-pthread"]
     )
     dll_out = build_dir / f"{dll}{shared_ext}"
     if c_sources:

@@ -35,12 +35,16 @@
       "upstream_tests_path": "dlls/kernelbase/tests",
       "base_upstream_commit": "wine-10.0-base",
       "merge_strategy": "3-way-backport-preserving-macos-blocks",
-      "macos_acceleration": "Darwin libSystem / CoreFoundation / Mach",
+      "macos_acceleration": "Darwin libSystem / CoreFoundation / Mach / __ulock_wait2",
       "tracked_files": [
+        "dlls/kernelbase/kernelbase.h",
         "dlls/kernelbase/kernelbase.spec",
-        "dlls/kernelbase/kernelbase_stubs.c"
+        "dlls/kernelbase/kernelbase_stubs.c",
+        "dlls/kernelbase/sync.c"
       ],
-      "required_conformance_tests": []
+      "required_conformance_tests": [
+        "test_wait_on_address"
+      ]
     },
     "mfplat": {
       "upstream_path": "dlls/mfplat",
@@ -59,16 +63,18 @@
       "upstream_tests_path": "dlls/ntdll/tests",
       "base_upstream_commit": "wine-10.0-base",
       "merge_strategy": "3-way-backport-preserving-macos-blocks",
-      "macos_acceleration": "Darwin XNU / Mach / MAP_JIT / pthread_jit_write_protect_np / Rosetta 2",
+      "macos_acceleration": "Darwin XNU / Mach / __ulock_wait2 / MAP_JIT / pthread_jit_write_protect_np / Rosetta 2",
       "tracked_files": [
         "dlls/ntdll/ntdll.h",
         "dlls/ntdll/ntdll.spec",
         "dlls/ntdll/signal_x86_64.c",
         "dlls/ntdll/signal_arm64.c",
+        "dlls/ntdll/sync.c",
         "dlls/ntdll/virtual.c"
       ],
       "required_conformance_tests": [
-        "test_apple_silicon_parity"
+        "test_apple_silicon_parity",
+        "test_ntsync_macos_parity"
       ]
     }
   }

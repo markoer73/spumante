@@ -147,13 +147,16 @@ def gate_asan_ubsan_memory_safety(dll: str, test_name: str) -> dict[str, Any]:
     dll_dir = REPO_ROOT / "dlls" / dll
     test_c = REPO_ROOT / "tests" / "conformance" / dll / f"{test_name}.c"
     c_sources = sorted(str(p) for p in dll_dir.glob("*.c"))
+    if dll == "kernelbase":
+        ntdll_dir = REPO_ROOT / "dlls" / "ntdll"
+        c_sources.extend(sorted(str(p) for p in ntdll_dir.glob("*.c")))
 
     with tempfile.TemporaryDirectory(prefix="wine_asan_", dir="/tmp") as tmp_dir:
         asan_bin = Path(tmp_dir) / f"{test_name}_asan.bin"
         darwin_frameworks = (
-            ["-framework", "Security", "-framework", "CoreFoundation"]
+            ["-framework", "Security", "-framework", "CoreFoundation", "-pthread"]
             if sys.platform == "darwin"
-            else []
+            else ["-pthread"]
         )
         cmd = [
             host_cc,

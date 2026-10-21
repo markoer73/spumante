@@ -17,6 +17,18 @@
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
 #endif
+#ifndef _KERNEL32_
+#define _KERNEL32_
+#endif
+#ifndef _NTSYSTEM_
+#define _NTSYSTEM_
+#endif
+#ifndef WINBASEAPI
+#define WINBASEAPI
+#endif
+#ifndef NTSYSAPI
+#define NTSYSAPI
+#endif
 #include <windows.h>
 typedef LONG NTSTATUS;
 #else
@@ -45,14 +57,18 @@ typedef uint16_t WCHAR;
 #define FALSE 0
 #endif
 
-static DWORD g_parity_last_error = 0;
+__attribute__((weak)) DWORD *parity_last_error_slot(void)
+{
+    static _Thread_local DWORD tls_last_error = 0;
+    return &tls_last_error;
+}
 static inline DWORD GetLastError(void)
 {
-    return g_parity_last_error;
+    return *parity_last_error_slot();
 }
 static inline void SetLastError(DWORD err)
 {
-    g_parity_last_error = err;
+    *parity_last_error_slot() = err;
 }
 #endif
 

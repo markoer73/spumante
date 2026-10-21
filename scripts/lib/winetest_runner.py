@@ -81,10 +81,13 @@ def build_winetest(dll: str, arch: str = "x86_64") -> dict[str, Any]:
     build_dir = REPO_ROOT / "builds" / arch / dll
     build_dir.mkdir(parents=True, exist_ok=True)
     c_sources = sorted(str(p) for p in dll_dir.glob("*.c"))
+    if dll == "kernelbase":
+        ntdll_dir = REPO_ROOT / "dlls" / "ntdll"
+        c_sources.extend(sorted(str(p) for p in ntdll_dir.glob("*.c")))
     darwin_frameworks = (
-        ["-framework", "Security", "-framework", "CoreFoundation"]
+        ["-framework", "Security", "-framework", "CoreFoundation", "-pthread"]
         if sys.platform == "darwin"
-        else []
+        else ["-pthread"]
     )
 
     built_artifacts: list[str] = []

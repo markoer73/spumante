@@ -637,6 +637,388 @@ static void test_cross_process_work_list(void)
        "UpdateProcessorInformation mismatch\n");
 }
 
+static void test_event(void)
+{
+    HANDLE event = NULL;
+    HANDLE event2 = NULL;
+    LONG prev_state = 0xdeadbeef;
+    NTSTATUS status;
+    UNICODE_STRING str;
+    OBJECT_ATTRIBUTES attr;
+    EVENT_BASIC_INFORMATION info;
+    static const WCHAR ev_name[] = { '\\','B','a','s','e','N','a','m','e','d','O','b','j','e','c','t','s','\\','t','e','s','t','E','v','e','n','t',0 };
+
+    NtdllResetSyncState();
+    RtlInitUnicodeString(&str, ev_name);
+    InitializeObjectAttributes(&attr, &str, 0, 0, NULL);
+
+    status = NtCreateEvent(&event, EVENT_ALL_ACCESS, &attr, (EVENT_TYPE)2, 0);
+    ok(status == STATUS_INVALID_PARAMETER, "NtCreateEvent failed %08x\n", (unsigned int)status);
+
+    status = NtCreateEvent(&event, EVENT_ALL_ACCESS, &attr, NotificationEvent, 0);
+    ok(status == STATUS_SUCCESS, "NtCreateEvent failed %08x\n", (unsigned int)status);
+    memset(&info, 0xcc, sizeof(info));
+    status = NtQueryEvent(event, EventBasicInformation, &info, sizeof(info), NULL);
+    ok(status == STATUS_SUCCESS, "NtQueryEvent failed %08x\n", (unsigned int)status);
+    ok(info.EventType == NotificationEvent && info.EventState == 0,
+       "NtQueryEvent failed, expected 0 0, got %d %d\n", (int)info.EventType, (int)info.EventState);
+    NtClose(event);
+
+    status = NtCreateEvent(&event, EVENT_ALL_ACCESS, &attr, SynchronizationEvent, 0);
+    ok(status == STATUS_SUCCESS, "NtCreateEvent failed %08x\n", (unsigned int)status);
+
+    status = NtPulseEvent(event, &prev_state);
+    ok(status == STATUS_SUCCESS, "NtPulseEvent failed %08x\n", (unsigned int)status);
+    ok(!prev_state, "prev_state = %x\n", (unsigned int)prev_state);
+
+    status = NtOpenEvent(&event2, EVENT_ALL_ACCESS, &attr);
+    ok(status == STATUS_SUCCESS, "NtOpenEvent failed %08x\n", (unsigned int)status);
+
+    NtClose(event);
+    event = event2;
+
+    status = NtSetEvent(event, &prev_state);
+    ok(status == STATUS_SUCCESS && prev_state == 0, "NtSetEvent failed: %08x\n", (unsigned int)status);
+
+    memset(&info, 0xcc, sizeof(info));
+    status = NtQueryEvent(event, EventBasicInformation, &info, sizeof(info), NULL);
+    ok(status == STATUS_SUCCESS && info.EventType == SynchronizationEvent && info.EventState == 1,
+       "NtQueryEvent failed\n");
+
+    status = NtSetEvent(event, &prev_state);
+    ok(status == STATUS_SUCCESS && prev_state == 1, "NtSetEvent failed\n");
+
+    status = NtResetEvent(event, &prev_state);
+    ok(status == STATUS_SUCCESS && prev_state == 1, "NtResetEvent failed\n");
+
+    status = NtResetEvent(event, &prev_state);
+    ok(status == STATUS_SUCCESS && prev_state == 0, "NtResetEvent failed\n");
+
+    status = NtSetEventBoostPriority(event);
+    ok(status == STATUS_SUCCESS, "NtSetEventBoostPriority failed: %08x\n", (unsigned int)status);
+
+    memset(&info, 0xcc, sizeof(info));
+    status = NtQueryEvent(event, EventBasicInformation, &info, sizeof(info), NULL);
+    ok(status == STATUS_SUCCESS && info.EventState == 1, "expected EventState == 1\n");
+
+    NtClose(event);
+}
+
+static void test_semaphore(void)
+{
+    SEMAPHORE_BASIC_INFORMATION info;
+    OBJECT_ATTRIBUTES attr;
+    UNICODE_STRING str;
+    NTSTATUS status;
+    HANDLE semaphore = NULL;
+    LONG prev = 0;
+    ULONG len = 0;
+    LARGE_INTEGER zero_to;
+    static const WCHAR sem_name[] = { '\\','B','a','s','e','N','a','m','e','d','O','b','j','e','c','t','s','\\','t','e','s','t','_','s','e','m',0 };
+
+    zero_to.QuadPart = 0;
+    RtlInitUnicodeString(&str, sem_name);
+    InitializeObjectAttributes(&attr, &str, 0, 0, NULL);
+
+    status = NtCreateSemaphore(&semaphore, SEMAPHORE_ALL_ACCESS, &attr, 2, 1);
+    ok(status == STATUS_INVALID_PARAMETER, "Failed to reject invalid Semaphore(%08x)\n", (unsigned int)status);
+    status = NtCreateSemaphore(&semaphore, SEMAPHORE_ALL_ACCESS, &attr, 1, 2);
+    ok(status == STATUS_SUCCESS, "Failed to create Semaphore(%08x)\n", (unsigned int)status);
+
+    status = NtQuerySemaphore(semaphore, SemaphoreBasicInformation, &info, 0, NULL);
+    ok(status == STATUS_INFO_LENGTH_MISMATCH, "expected STATUS_INFO_LENGTH_MISMATCH, got %08x\n", (unsigned int)status);
+    status = NtQuerySemaphore(semaphore, (SEMAPHORE_INFORMATION_CLASS)0x42, &info, sizeof(info), NULL);
+    ok(status == STATUS_INVALID_INFO_CLASS, "expected STATUS_INVALID_INFO_CLASS, got %08x\n", (unsigned int)status);
+    status = NtQuerySemaphore((HANDLE)(uintptr_t)0xdeadbeefU, SemaphoreBasicInformation, &info, sizeof(info), NULL);
+    ok(status == STATUS_INVALID_HANDLE, "expected STATUS_INVALID_HANDLE, got %08x\n", (unsigned int)status);
+
+    len = 0;
+    memset(&info, 0xcc, sizeof(info));
+    status = NtQuerySemaphore(semaphore, SemaphoreBasicInformation, &info, sizeof(info), &len);
+    ok(status == STATUS_SUCCESS && info.CurrentCount == 1 && info.MaximumCount == 2 && len == sizeof(info),
+       "NtQuerySemaphore failed\n");
+
+    status = NtWaitForSingleObject(semaphore, FALSE, &zero_to);
+    ok(status == STATUS_WAIT_0, "NtWaitForSingleObject failed %08x\n", (unsigned int)status);
+
+    prev = (LONG)0xdeadbeefU;
+    status = NtReleaseSemaphore(semaphore, (ULONG)-1, &prev);
+    ok(status == STATUS_INVALID_PARAMETER && prev == (LONG)0xdeadbeefU, "NtReleaseSemaphore(-1) failed\n");
+
+    status = NtReleaseSemaphore(semaphore, 0, &prev);
+    ok(status == STATUS_INVALID_PARAMETER && prev == (LONG)0xdeadbeefU, "NtReleaseSemaphore(0) failed\n");
+
+    status = NtReleaseSemaphore(semaphore, 3, &prev);
+    ok(status == STATUS_SEMAPHORE_LIMIT_EXCEEDED && prev == (LONG)0xdeadbeefU, "NtReleaseSemaphore(3) failed\n");
+
+    status = NtReleaseSemaphore(semaphore, 1, &prev);
+    ok(status == STATUS_SUCCESS && prev == 0, "NtReleaseSemaphore(1) failed\n");
+
+    status = NtReleaseSemaphore(semaphore, 1, &prev);
+    ok(status == STATUS_SUCCESS && prev == 1, "NtReleaseSemaphore(1) second failed\n");
+
+    status = NtReleaseSemaphore(semaphore, 1, &prev);
+    ok(status == STATUS_SEMAPHORE_LIMIT_EXCEEDED, "NtReleaseSemaphore overflow failed\n");
+
+    NtClose(semaphore);
+}
+
+static void test_mutant(void)
+{
+    MUTANT_BASIC_INFORMATION info;
+    OBJECT_ATTRIBUTES attr;
+    UNICODE_STRING str;
+    NTSTATUS status;
+    HANDLE mutant = NULL;
+    ULONG len = 0;
+    LONG prev = 0;
+    LARGE_INTEGER zero_to;
+    static const WCHAR mut_name[] = { '\\','B','a','s','e','N','a','m','e','d','O','b','j','e','c','t','s','\\','t','e','s','t','_','m','u','t',0 };
+
+    zero_to.QuadPart = 0;
+    RtlInitUnicodeString(&str, mut_name);
+    InitializeObjectAttributes(&attr, &str, 0, 0, NULL);
+    status = NtCreateMutant(&mutant, MUTANT_ALL_ACCESS, &attr, TRUE);
+    ok(status == STATUS_SUCCESS, "Failed to create Mutant(%08x)\n", (unsigned int)status);
+
+    status = NtQueryMutant(mutant, MutantBasicInformation, &info, 0, NULL);
+    ok(status == STATUS_INFO_LENGTH_MISMATCH, "expected STATUS_INFO_LENGTH_MISMATCH\n");
+    status = NtQueryMutant(mutant, (MUTANT_INFORMATION_CLASS)0x42, &info, sizeof(info), NULL);
+    ok(status == STATUS_INVALID_INFO_CLASS, "expected STATUS_INVALID_INFO_CLASS\n");
+    status = NtQueryMutant((HANDLE)(uintptr_t)0xdeadbeefU, MutantBasicInformation, &info, sizeof(info), NULL);
+    ok(status == STATUS_INVALID_HANDLE, "expected STATUS_INVALID_HANDLE\n");
+
+    memset(&info, 0xcc, sizeof(info));
+    status = NtQueryMutant(mutant, MutantBasicInformation, &info, sizeof(info), &len);
+    ok(status == STATUS_SUCCESS && info.CurrentCount == 0 && info.OwnedByCaller == TRUE &&
+       info.AbandonedState == FALSE && len == sizeof(info), "NtQueryMutant initial failed\n");
+
+    status = NtWaitForSingleObject(mutant, FALSE, &zero_to);
+    ok(status == STATUS_WAIT_0, "recursive wait failed\n");
+
+    status = NtQueryMutant(mutant, MutantBasicInformation, &info, sizeof(info), NULL);
+    ok(status == STATUS_SUCCESS && info.CurrentCount == -1 && info.OwnedByCaller == TRUE, "recursive query failed\n");
+
+    status = NtReleaseMutant(mutant, &prev);
+    ok(status == STATUS_SUCCESS && prev == -1, "first release failed\n");
+
+    status = NtReleaseMutant(mutant, &prev);
+    ok(status == STATUS_SUCCESS && prev == 0, "second release failed\n");
+
+    status = NtReleaseMutant(mutant, &prev);
+    ok(status == STATUS_MUTANT_NOT_OWNED, "unowned release should return STATUS_MUTANT_NOT_OWNED\n");
+
+    /* Abandonment test */
+    status = NtWaitForSingleObject(mutant, FALSE, &zero_to);
+    ok(status == STATUS_WAIT_0, "re-acquire failed\n");
+    (void)NtdllAbandonMutantsForThread(GetCurrentThreadId());
+
+    status = NtQueryMutant(mutant, MutantBasicInformation, &info, sizeof(info), NULL);
+    ok(status == STATUS_SUCCESS && info.CurrentCount == 1 && info.OwnedByCaller == FALSE && info.AbandonedState == TRUE,
+       "abandoned query mismatch\n");
+
+    status = NtWaitForSingleObject(mutant, FALSE, &zero_to);
+    ok(status == STATUS_ABANDONED_WAIT_0, "expected STATUS_ABANDONED_WAIT_0, got 0x%08x\n", (unsigned int)status);
+
+    status = NtQueryMutant(mutant, MutantBasicInformation, &info, sizeof(info), NULL);
+    ok(status == STATUS_SUCCESS && info.CurrentCount == 0 && info.OwnedByCaller == TRUE && info.AbandonedState == FALSE,
+       "post-abandoned query mismatch\n");
+
+    NtReleaseMutant(mutant, NULL);
+    NtClose(mutant);
+}
+
+static void test_keyed_events(void)
+{
+    OBJECT_ATTRIBUTES attr;
+    UNICODE_STRING str;
+    HANDLE handle = NULL;
+    HANDLE event = NULL;
+    NTSTATUS status;
+    LARGE_INTEGER timeout;
+    static const WCHAR ke_name[] = { '\\','B','a','s','e','N','a','m','e','d','O','b','j','e','c','t','s','\\','W','i','n','e','T','e','s','t','E','v','e','n','t',0 };
+
+    InitializeObjectAttributes(&attr, &str, 0, 0, NULL);
+    RtlInitUnicodeString(&str, ke_name);
+
+    status = NtCreateKeyedEvent(&handle, STANDARD_RIGHTS_REQUIRED | 0x3U | SYNCHRONIZE, &attr, 0);
+    ok(status == STATUS_SUCCESS, "NtCreateKeyedEvent failed %08x\n", (unsigned int)status);
+
+    timeout.QuadPart = 0;
+    status = NtWaitForSingleObject(handle, FALSE, &timeout);
+    ok(status == STATUS_WAIT_0, "NtWaitForSingleObject on KeyedEvent with SYNCHRONIZE failed %08x\n", (unsigned int)status);
+
+    status = NtWaitForKeyedEvent(handle, (const void *)(uintptr_t)255U, 0, &timeout);
+    ok(status == STATUS_INVALID_PARAMETER_1, "NtWaitForKeyedEvent odd key %08x\n", (unsigned int)status);
+    status = NtReleaseKeyedEvent(handle, (const void *)(uintptr_t)255U, 0, &timeout);
+    ok(status == STATUS_INVALID_PARAMETER_1, "NtReleaseKeyedEvent odd key %08x\n", (unsigned int)status);
+
+    status = NtWaitForKeyedEvent(handle, (const void *)(uintptr_t)254U, 0, &timeout);
+    ok(status == STATUS_TIMEOUT, "NtWaitForKeyedEvent timeout %08x\n", (unsigned int)status);
+    status = NtReleaseKeyedEvent(handle, (const void *)(uintptr_t)254U, 0, &timeout);
+    ok(status == STATUS_TIMEOUT, "NtReleaseKeyedEvent timeout %08x\n", (unsigned int)status);
+
+    status = NtWaitForKeyedEvent(NULL, (const void *)(uintptr_t)8U, 0, &timeout);
+    ok(status == STATUS_TIMEOUT, "NtWaitForKeyedEvent(NULL) %08x\n", (unsigned int)status);
+    status = NtReleaseKeyedEvent(NULL, (const void *)(uintptr_t)8U, 0, &timeout);
+    ok(status == STATUS_TIMEOUT, "NtReleaseKeyedEvent(NULL) %08x\n", (unsigned int)status);
+
+    status = NtWaitForKeyedEvent((HANDLE)(uintptr_t)0xdeadbeefU, (const void *)(uintptr_t)9U, 0, &timeout);
+    ok(status == STATUS_INVALID_PARAMETER_1, "NtWaitForKeyedEvent bad handle + odd key %08x\n", (unsigned int)status);
+    status = NtWaitForKeyedEvent((HANDLE)(uintptr_t)0xdeadbeefU, (const void *)(uintptr_t)8U, 0, &timeout);
+    ok(status == STATUS_INVALID_HANDLE, "NtWaitForKeyedEvent bad handle %08x\n", (unsigned int)status);
+
+    NtClose(handle);
+
+    /* Access rights checks */
+    status = NtCreateKeyedEvent(&handle, 0x0001U /* KEYEDEVENT_WAIT */, &attr, 0);
+    ok(status == STATUS_SUCCESS, "NtCreateKeyedEvent(WAIT) failed\n");
+    status = NtWaitForKeyedEvent(handle, (const void *)(uintptr_t)8U, 0, &timeout);
+    ok(status == STATUS_TIMEOUT, "NtWaitForKeyedEvent %08x\n", (unsigned int)status);
+    status = NtReleaseKeyedEvent(handle, (const void *)(uintptr_t)8U, 0, &timeout);
+    ok(status == STATUS_ACCESS_DENIED, "expected STATUS_ACCESS_DENIED on wake with wait-only handle\n");
+    status = NtWaitForSingleObject(handle, FALSE, &timeout);
+    ok(status == STATUS_ACCESS_DENIED, "expected STATUS_ACCESS_DENIED on WaitForSingleObject without SYNCHRONIZE\n");
+
+    status = NtPulseEvent(handle, NULL);
+    ok(status == STATUS_OBJECT_TYPE_MISMATCH, "NtPulseEvent on KeyedEvent should return STATUS_OBJECT_TYPE_MISMATCH\n");
+
+    status = NtCreateEvent(&event, EVENT_ALL_ACCESS, &attr, NotificationEvent, FALSE);
+    ok(status == STATUS_OBJECT_TYPE_MISMATCH, "NtCreateEvent colliding with KeyedEvent should return STATUS_OBJECT_TYPE_MISMATCH\n");
+    NtClose(handle);
+}
+
+static void test_wait_on_address(void)
+{
+    SIZE_T size;
+    NTSTATUS status;
+    LARGE_INTEGER start, end, timeout;
+    LONGLONG address = 0;
+    LONGLONG compare = 0;
+    NTDLL_MACOS_NTSYNC_STATE sync_state;
+
+    RtlWakeAddressSingle(NULL);
+    RtlWakeAddressAll(NULL);
+
+    status = RtlWaitOnAddress(&address, &compare, 5, NULL);
+    ok(status == STATUS_INVALID_PARAMETER, "got 0x%08x\n", (unsigned int)status);
+
+    NtQuerySystemTime(&start);
+    timeout.QuadPart = start.QuadPart + 10 * 10000; /* 10ms absolute */
+    status = RtlWaitOnAddress(&address, &compare, 8, &timeout);
+    NtQuerySystemTime(&end);
+    ok(status == STATUS_TIMEOUT, "got 0x%08x\n", (unsigned int)status);
+    ok(end.QuadPart >= start.QuadPart, "system time did not advance\n");
+
+    for (size = 1; size <= 4; size <<= 1) {
+        compare = ~0LL;
+        compare = (LONGLONG)((ULONGLONG)compare << (size * 8));
+        timeout.QuadPart = -5 * 10000; /* 5ms relative */
+        status = RtlWaitOnAddress(&address, &compare, size, &timeout);
+        ok(status == STATUS_TIMEOUT, "size %u: got 0x%08x\n", (unsigned int)size, (unsigned int)status);
+
+        status = RtlWaitOnAddress(&address, &compare, size << 1, &timeout);
+        ok(status == STATUS_SUCCESS, "size %u mismatch: got 0x%08x\n", (unsigned int)(size << 1), (unsigned int)status);
+    }
+
+    address = 0;
+    compare = 1;
+    status = RtlWaitOnAddress(&address, &compare, 8, NULL);
+    ok(status == STATUS_SUCCESS, "got 0x%08x\n", (unsigned int)status);
+
+    todo_wine {
+        status = NtdllQueryMacosNtsyncState(&sync_state);
+        ok(status == STATUS_SUCCESS && sync_state.ulock_available == 1 && sync_state.wait_on_address_calls >= 8,
+           "expected Darwin __ulock_wait2 acceleration active on macOS\n");
+    }
+}
+
+static void test_tid_alert(void)
+{
+    NTSTATUS ret;
+    HANDLE tid;
+    HANDLE tids[2];
+    LARGE_INTEGER timeout;
+
+    timeout.QuadPart = 0;
+    tid = (HANDLE)(uintptr_t)GetCurrentThreadId();
+
+    ret = NtWaitForAlertByThreadId(NULL, &timeout);
+    ok(ret == STATUS_TIMEOUT, "got %08x\n", (unsigned int)ret);
+
+    ret = NtWaitForAlertByThreadId((void *)(uintptr_t)0x123U, &timeout);
+    ok(ret == STATUS_TIMEOUT, "got %08x\n", (unsigned int)ret);
+
+    ret = NtAlertThreadByThreadId(0);
+    ok(ret == STATUS_INVALID_CID, "got %08x\n", (unsigned int)ret);
+
+    ret = NtAlertThreadByThreadId((HANDLE)(uintptr_t)0xdeadbeefU);
+    ok(ret == STATUS_INVALID_CID, "got %08x\n", (unsigned int)ret);
+
+    ret = NtAlertThreadByThreadId(tid);
+    ok(ret == STATUS_SUCCESS, "got %08x\n", (unsigned int)ret);
+
+    ret = NtAlertThreadByThreadId(tid);
+    ok(ret == STATUS_SUCCESS, "got %08x\n", (unsigned int)ret);
+
+    ret = NtWaitForAlertByThreadId((void *)(uintptr_t)0x123U, &timeout);
+    ok(ret == STATUS_ALERTED, "got %08x\n", (unsigned int)ret);
+
+    ret = NtWaitForAlertByThreadId((void *)(uintptr_t)0x123U, &timeout);
+    ok(ret == STATUS_TIMEOUT, "got %08x\n", (unsigned int)ret);
+
+    todo_wine {
+        ret = NtAlertMultipleThreadByThreadId(NULL, 0, NULL, NULL);
+        ok(ret == STATUS_SUCCESS, "got %08x\n", (unsigned int)ret);
+
+        ret = NtAlertMultipleThreadByThreadId(NULL, 1, NULL, NULL);
+        ok(ret == STATUS_ACCESS_VIOLATION, "got %08x\n", (unsigned int)ret);
+
+        tids[0] = tid;
+        tids[1] = (HANDLE)(uintptr_t)0xdeadbeefU;
+        ret = NtAlertMultipleThreadByThreadId(tids, 2, NULL, NULL);
+        ok(ret == STATUS_INVALID_CID, "got %08x\n", (unsigned int)ret);
+
+        tids[1] = tid;
+        ret = NtAlertMultipleThreadByThreadId(tids, 2, NULL, NULL);
+        ok(ret == STATUS_SUCCESS, "got %08x\n", (unsigned int)ret);
+
+        ret = NtWaitForAlertByThreadId(NULL, &timeout);
+        ok(ret == STATUS_ALERTED, "got %08x\n", (unsigned int)ret);
+    }
+}
+
+static void test_barrier_and_resource(void)
+{
+    RTL_BARRIER barrier;
+    RTL_RWLOCK rwlock;
+    NTSTATUS status;
+    BOOLEAN b_ret;
+
+    status = RtlInitBarrier(&barrier, 0, 0);
+    ok(status == STATUS_INVALID_PARAMETER, "RtlInitBarrier(0) got 0x%08x\n", (unsigned int)status);
+
+    status = RtlInitBarrier(&barrier, 1, 0);
+    ok(status == STATUS_SUCCESS, "RtlInitBarrier(1) got 0x%08x\n", (unsigned int)status);
+
+    b_ret = RtlBarrier(&barrier, 0);
+    ok(b_ret == 1, "single-thread RtlBarrier should return TRUE\n");
+
+    status = RtlDeleteBarrier(&barrier);
+    ok(status == STATUS_SUCCESS, "RtlDeleteBarrier failed\n");
+
+    RtlInitializeResource(&rwlock);
+    ok(RtlAcquireResourceExclusive(&rwlock, TRUE) == 1, "RtlAcquireResourceExclusive failed\n");
+    ok(RtlAcquireResourceShared(&rwlock, TRUE) == 1, "recursive shared on exclusive owner failed\n");
+    RtlReleaseResource(&rwlock);
+    RtlReleaseResource(&rwlock);
+
+    ok(RtlAcquireResourceShared(&rwlock, TRUE) == 1, "RtlAcquireResourceShared failed\n");
+    ok(RtlAcquireResourceExclusive(&rwlock, FALSE) == 0, "exclusive upgrade should fail\n");
+    RtlReleaseResource(&rwlock);
+    RtlDeleteResource(&rwlock);
+}
+
 START_TEST(ntdll)
 {
     WINETEST_RUN_SUBTEST(test_NtAllocateVirtualMemory);
@@ -647,4 +1029,11 @@ START_TEST(ntdll)
     WINETEST_RUN_SUBTEST(test_selectors);
     WINETEST_RUN_SUBTEST(test_cpu_area);
     WINETEST_RUN_SUBTEST(test_cross_process_work_list);
+    WINETEST_RUN_SUBTEST(test_event);
+    WINETEST_RUN_SUBTEST(test_semaphore);
+    WINETEST_RUN_SUBTEST(test_mutant);
+    WINETEST_RUN_SUBTEST(test_keyed_events);
+    WINETEST_RUN_SUBTEST(test_wait_on_address);
+    WINETEST_RUN_SUBTEST(test_tid_alert);
+    WINETEST_RUN_SUBTEST(test_barrier_and_resource);
 }

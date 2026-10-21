@@ -160,11 +160,16 @@ if [[ "$RUN_CI" -eq 1 || "$RUN_ALL" -eq 1 ]]; then
     python3 "$REPO_ROOT/scripts/lib/runner.py" --mode test --dll bcrypt --test test_symmetric_key --arch "$ARCH"
     python3 "$REPO_ROOT/scripts/lib/runner.py" --mode test --dll bcrypt --test test_crypto_primitives --arch "$ARCH"
     python3 "$REPO_ROOT/scripts/lib/runner.py" --mode test --dll ntdll --test test_apple_silicon_parity --arch "$ARCH"
+    python3 "$REPO_ROOT/scripts/lib/runner.py" --mode test --dll ntdll --test test_ntsync_macos_parity --arch "$ARCH"
+    python3 "$REPO_ROOT/scripts/lib/runner.py" --mode test --dll kernelbase --test test_wait_on_address --arch "$ARCH"
     python3 "$REPO_ROOT/scripts/lib/security_scanner.py" --dll bcrypt --test test_symmetric_key
     python3 "$REPO_ROOT/scripts/lib/security_scanner.py" --dll bcrypt --test test_crypto_primitives
     python3 "$REPO_ROOT/scripts/lib/security_scanner.py" --dll ntdll --test test_apple_silicon_parity
+    python3 "$REPO_ROOT/scripts/lib/security_scanner.py" --dll ntdll --test test_ntsync_macos_parity
+    python3 "$REPO_ROOT/scripts/lib/security_scanner.py" --dll kernelbase --test test_wait_on_address
     python3 "$REPO_ROOT/scripts/lib/winetest_runner.py" --mode test --dll bcrypt --arch "$ARCH"
     python3 "$REPO_ROOT/scripts/lib/winetest_runner.py" --mode test --dll ntdll --arch "$ARCH"
+    python3 "$REPO_ROOT/scripts/lib/winetest_runner.py" --mode test --dll kernelbase --arch "$ARCH"
     exit 0
 fi
 

@@ -1,0 +1,184 @@
+{
+  "dll": "ntdll",
+  "test_name": "test_ntsync_macos_parity",
+  "architecture": "x86_64",
+  "environment": "windows-11-ground-truth",
+  "assertions": [
+    {
+      "id": "ntsync_01_query_macos_backend_state",
+      "case": "NtdllQueryMacosNtsyncState_DarwinUlockAndMachSem",
+      "api": "NtdllQueryMacosNtsyncState",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 2,
+      "buffer_hex": "0101",
+      "handle_valid": true
+    },
+    {
+      "id": "ntsync_02_tid_alert_invalid_cid",
+      "case": "NtAlertThreadByThreadId_InvalidCidAndForeignDenied",
+      "api": "NtAlertThreadByThreadId",
+      "comparison_mode": "exact",
+      "status": "0xc000000b",
+      "last_error": 0,
+      "out_length": 1,
+      "buffer_hex": "0b22",
+      "handle_valid": false
+    },
+    {
+      "id": "ntsync_03_tid_alert_auto_reset_and_timeout",
+      "case": "NtWaitForAlertByThreadId_AutoResetAndTimeout",
+      "api": "NtWaitForAlertByThreadId",
+      "comparison_mode": "exact",
+      "status": "0x00000101",
+      "last_error": 0,
+      "out_length": 2,
+      "buffer_hex": "0102",
+      "handle_valid": true
+    },
+    {
+      "id": "ntsync_04_tid_alert_multiple_threads_validation",
+      "case": "NtAlertMultipleThreadByThreadId_ValidationAndBatch",
+      "api": "NtAlertMultipleThreadByThreadId",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 4,
+      "buffer_hex": "00050b01",
+      "handle_valid": true
+    },
+    {
+      "id": "ntsync_05_rtl_wait_on_address_invalid_sizes",
+      "case": "RtlWaitOnAddress_InvalidAddressSizes",
+      "api": "RtlWaitOnAddress",
+      "comparison_mode": "exact",
+      "status": "0xc000000d",
+      "last_error": 0,
+      "out_length": 5,
+      "buffer_hex": "0d0d0d0d0d",
+      "handle_valid": false
+    },
+    {
+      "id": "ntsync_06_rtl_wait_on_address_mismatch_fastpath",
+      "case": "RtlWaitOnAddress_ValueMismatchFastpath_1_2_4_8",
+      "api": "RtlWaitOnAddress",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 4,
+      "buffer_hex": "01020408",
+      "handle_valid": true
+    },
+    {
+      "id": "ntsync_07_rtl_wait_on_address_equal_timeout",
+      "case": "RtlWaitOnAddress_EqualValuesTimeout",
+      "api": "RtlWaitOnAddress",
+      "comparison_mode": "exact",
+      "status": "0x00000102",
+      "last_error": 0,
+      "out_length": 5,
+      "buffer_hex": "0202020202",
+      "handle_valid": false
+    },
+    {
+      "id": "ntsync_08_rtl_wait_wake_single_and_all_threaded",
+      "case": "RtlWaitOnAddress_WakeSingleAndAll_MultiThreaded",
+      "api": "RtlWakeAddressAll",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 3,
+      "buffer_hex": "010203",
+      "handle_valid": true
+    },
+    {
+      "id": "ntsync_09_event_notification_and_synchronization",
+      "case": "NtCreateEvent_ManualAndAutoResetSemantics",
+      "api": "NtCreateEvent",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 4,
+      "buffer_hex": "01010001",
+      "handle_valid": true
+    },
+    {
+      "id": "ntsync_10_semaphore_counting_and_limits",
+      "case": "NtCreateSemaphore_CountingAndLimitExceeded",
+      "api": "NtReleaseSemaphore",
+      "comparison_mode": "exact",
+      "status": "0xc0000047",
+      "last_error": 0,
+      "out_length": 2,
+      "buffer_hex": "0102",
+      "handle_valid": true
+    },
+    {
+      "id": "ntsync_11_mutant_recursive_ownership_and_abandonment",
+      "case": "NtCreateMutant_RecursiveAndAbandonedSemantics",
+      "api": "NtCreateMutant",
+      "comparison_mode": "exact",
+      "status": "0x00000080",
+      "last_error": 0,
+      "out_length": 3,
+      "buffer_hex": "ff4680",
+      "handle_valid": true
+    },
+    {
+      "id": "ntsync_12_wait_for_multiple_objects_any_and_all",
+      "case": "NtWaitForMultipleObjects_WaitAnyAndWaitAll",
+      "api": "NtWaitForMultipleObjects",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 3,
+      "buffer_hex": "010200",
+      "handle_valid": true
+    },
+    {
+      "id": "ntsync_13_keyed_event_handshake",
+      "case": "NtWaitForKeyedEvent_AlignmentTimeoutAndHandshake",
+      "api": "NtWaitForKeyedEvent",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 3,
+      "buffer_hex": "ef0200",
+      "handle_valid": true
+    },
+    {
+      "id": "ntsync_14_srwlock_and_condition_variable",
+      "case": "RtlSRWLock_And_ConditionVariable_SleepWake",
+      "api": "RtlSleepConditionVariableSRW",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 4,
+      "buffer_hex": "00010100",
+      "handle_valid": true
+    },
+    {
+      "id": "ntsync_15_run_once_sync_and_async",
+      "case": "RtlRunOnce_BeginCompleteAndExecuteOnce",
+      "api": "RtlRunOnceExecuteOnce",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 3,
+      "buffer_hex": "010300",
+      "handle_valid": true
+    },
+    {
+      "id": "ntsync_16_barrier_and_rtl_resource",
+      "case": "RtlBarrier_And_RtlResource_Parity",
+      "api": "RtlInitBarrier",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 2,
+      "buffer_hex": "0101",
+      "handle_valid": true
+    }
+  ]
+}

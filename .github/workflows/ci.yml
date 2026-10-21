@@ -44,12 +44,22 @@ jobs:
       - name: Run Upstream Wine winetest & A/B Anti-Regression Suite (bcrypt)
         run: ./scripts/test.sh --winetest --dll bcrypt
 
-      - name: Surgically Build & Test NTDLL Apple Silicon Execution Parity
+      - name: Surgically Build & Test NTDLL Apple Silicon & NTSync Parity
         run: |
           ./scripts/build.sh --dll ntdll --test test_apple_silicon_parity
           ./scripts/test.sh --dll ntdll --test test_apple_silicon_parity
           ./scripts/test.sh --security --dll ntdll --test test_apple_silicon_parity
+          ./scripts/build.sh --dll ntdll --test test_ntsync_macos_parity
+          ./scripts/test.sh --dll ntdll --test test_ntsync_macos_parity
+          ./scripts/test.sh --security --dll ntdll --test test_ntsync_macos_parity
           ./scripts/test.sh --winetest --dll ntdll
+
+      - name: Surgically Build & Test KernelBase Synchronization Parity
+        run: |
+          ./scripts/build.sh --dll kernelbase --test test_wait_on_address
+          ./scripts/test.sh --dll kernelbase --test test_wait_on_address
+          ./scripts/test.sh --security --dll kernelbase --test test_wait_on_address
+          ./scripts/test.sh --winetest --dll kernelbase
 
       - name: Run Full Architecture & Harness Unit Suite
         run: python3 -m unittest -v tests/unit/test_harness_suite.py

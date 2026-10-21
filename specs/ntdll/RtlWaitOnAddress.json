@@ -1,0 +1,28 @@
+{
+  "dll": "ntdll",
+  "api_name": "RtlWaitOnAddress",
+  "header": "ntdll.h",
+  "ms_learn_url": "https://learn.microsoft.com/en-us/windows/win32/api/synchapi/nf-synchapi-waitonaddress",
+  "signature": "NTSTATUS WINAPI RtlWaitOnAddress(const void *Address, const void *CompareAddress, SIZE_T AddressSize, const LARGE_INTEGER *Timeout)",
+  "return_codes": {
+    "STATUS_SUCCESS": "0x00000000",
+    "STATUS_TIMEOUT": "0x00000102",
+    "STATUS_INVALID_PARAMETER": "0xc000000d"
+  },
+  "empirical_windows_behavior": [
+    "Supports AddressSize values of 1, 2, 4, and 8 bytes; any other size returns STATUS_INVALID_PARAMETER (0xc000000d).",
+    "Atomically compares *Address and *CompareAddress inside a fair FIFO wait queue bucket; returns STATUS_SUCCESS immediately if values differ.",
+    "Supports both relative (< 0) and absolute (> 0, relative to NtQuerySystemTime) LARGE_INTEGER timeouts, returning STATUS_TIMEOUT (0x00000102) on expiration.",
+    "Translates STATUS_ALERTED from NtWaitForAlertByThreadId into STATUS_SUCCESS."
+  ],
+  "macos_backend_strategy": "Fair 256-bucket spinlocked FIFO wait queues backed by Darwin __ulock_wait2 / __ulock_wake and per-thread Mach semaphores.",
+  "clean_room_attestation": {
+    "sources": [
+      "Microsoft Learn WaitOnAddress / WakeByAddressSingle / WakeByAddressAll documentation",
+      "Public Wine include/winternl.h and dlls/ntdll/tests/sync.c declarations",
+      "Black-box Windows 11 differential conformance test observations"
+    ],
+    "no_leaked_source_exposure": true,
+    "no_proprietary_decompilation": true
+  }
+}

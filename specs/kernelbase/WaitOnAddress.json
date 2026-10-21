@@ -1,0 +1,28 @@
+{
+  "dll": "kernelbase",
+  "api_name": "WaitOnAddress",
+  "header": "kernelbase.h",
+  "ms_learn_url": "https://learn.microsoft.com/en-us/windows/win32/api/synchapi/nf-synchapi-waitonaddress",
+  "signature": "BOOL WINAPI WaitOnAddress(volatile void *Address, PVOID CompareAddress, SIZE_T AddressSize, DWORD dwMilliseconds)",
+  "return_codes": {
+    "TRUE": "1",
+    "FALSE": "0"
+  },
+  "empirical_windows_behavior": [
+    "Converts dwMilliseconds (unless INFINITE) to a relative negative 100ns LARGE_INTEGER (-dwMilliseconds * 10000) and delegates to RtlWaitOnAddress.",
+    "Does NOT modify GetLastError() when RtlWaitOnAddress returns STATUS_SUCCESS.",
+    "On STATUS_TIMEOUT, sets GetLastError() to ERROR_TIMEOUT (1460) and returns FALSE.",
+    "On STATUS_INVALID_PARAMETER (e.g. AddressSize not in {1, 2, 4, 8}), sets GetLastError() to ERROR_INVALID_PARAMETER (87) and returns FALSE.",
+    "WakeByAddressSingle and WakeByAddressAll accept NULL without crashing and never modify GetLastError()."
+  ],
+  "macos_backend_strategy": "Delegates to ntdll RtlWaitOnAddress / RtlWakeAddressSingle / RtlWakeAddressAll backed by Darwin __ulock_wait2 / __ulock_wake.",
+  "clean_room_attestation": {
+    "sources": [
+      "Microsoft Learn WaitOnAddress / WakeByAddressSingle / WakeByAddressAll documentation",
+      "Public Wine include/synchapi.h and dlls/kernelbase/tests/sync.c declarations",
+      "Black-box Windows 11 differential conformance test observations"
+    ],
+    "no_leaked_source_exposure": true,
+    "no_proprietary_decompilation": true
+  }
+}

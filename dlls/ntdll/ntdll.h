@@ -137,6 +137,299 @@ typedef const void *LPCVOID;
 #define STATUS_EXECUTABLE_MEMORY_WRITE    ((NTSTATUS)0xC0000602)
 #endif
 
+#undef STATUS_WAIT_0
+#define STATUS_WAIT_0                     ((NTSTATUS)0x00000000)
+#undef STATUS_ABANDONED_WAIT_0
+#define STATUS_ABANDONED_WAIT_0           ((NTSTATUS)0x00000080)
+#undef STATUS_USER_APC
+#define STATUS_USER_APC                   ((NTSTATUS)0x000000C0)
+#undef STATUS_KERNEL_APC
+#define STATUS_KERNEL_APC                 ((NTSTATUS)0x00000100)
+#undef STATUS_ALERTED
+#define STATUS_ALERTED                    ((NTSTATUS)0x00000101)
+#undef STATUS_TIMEOUT
+#define STATUS_TIMEOUT                    ((NTSTATUS)0x00000102)
+#undef STATUS_PENDING
+#define STATUS_PENDING                    ((NTSTATUS)0x00000103)
+#undef STATUS_OBJECT_NAME_EXISTS
+#define STATUS_OBJECT_NAME_EXISTS         ((NTSTATUS)0x40000000)
+#undef STATUS_INVALID_CID
+#define STATUS_INVALID_CID                ((NTSTATUS)0xC000000B)
+#undef STATUS_OBJECT_TYPE_MISMATCH
+#define STATUS_OBJECT_TYPE_MISMATCH       ((NTSTATUS)0xC0000024)
+#undef STATUS_OBJECT_NAME_INVALID
+#define STATUS_OBJECT_NAME_INVALID        ((NTSTATUS)0xC0000033)
+#undef STATUS_OBJECT_NAME_NOT_FOUND
+#define STATUS_OBJECT_NAME_NOT_FOUND      ((NTSTATUS)0xC0000034)
+#undef STATUS_OBJECT_NAME_COLLISION
+#define STATUS_OBJECT_NAME_COLLISION      ((NTSTATUS)0xC0000035)
+#undef STATUS_OBJECT_PATH_INVALID
+#define STATUS_OBJECT_PATH_INVALID        ((NTSTATUS)0xC0000039)
+#undef STATUS_OBJECT_PATH_NOT_FOUND
+#define STATUS_OBJECT_PATH_NOT_FOUND      ((NTSTATUS)0xC000003A)
+#undef STATUS_MUTANT_NOT_OWNED
+#define STATUS_MUTANT_NOT_OWNED           ((NTSTATUS)0xC0000046)
+#undef STATUS_SEMAPHORE_LIMIT_EXCEEDED
+#define STATUS_SEMAPHORE_LIMIT_EXCEEDED   ((NTSTATUS)0xC0000047)
+#undef STATUS_POSSIBLE_DEADLOCK
+#define STATUS_POSSIBLE_DEADLOCK          ((NTSTATUS)0xC0000194)
+#undef STATUS_RESOURCE_NOT_OWNED
+#define STATUS_RESOURCE_NOT_OWNED         ((NTSTATUS)0xC0000264)
+
+#ifndef _WIN32
+typedef LONG *PLONG;
+typedef LONG *LPLONG;
+typedef BOOL *PBOOL;
+typedef BOOL *LPBOOL;
+typedef DWORD ACCESS_MASK;
+typedef ACCESS_MASK *PACCESS_MASK;
+typedef WCHAR *PWSTR;
+typedef WCHAR *LPWSTR;
+
+typedef union _LARGE_INTEGER {
+    struct {
+        DWORD LowPart;
+        LONG  HighPart;
+    } u;
+    struct {
+        DWORD LowPart;
+        LONG  HighPart;
+    };
+    LONGLONG QuadPart;
+} LARGE_INTEGER, *PLARGE_INTEGER;
+
+typedef struct _SECURITY_ATTRIBUTES {
+    DWORD  nLength;
+    LPVOID lpSecurityDescriptor;
+    BOOL   bInheritHandle;
+} SECURITY_ATTRIBUTES, *PSECURITY_ATTRIBUTES, *LPSECURITY_ATTRIBUTES;
+
+typedef struct _RTL_SRWLOCK {
+    PVOID Ptr;
+} RTL_SRWLOCK, *PRTL_SRWLOCK, SRWLOCK, *PSRWLOCK;
+
+#define RTL_SRWLOCK_INIT {0}
+#define SRWLOCK_INIT RTL_SRWLOCK_INIT
+
+typedef struct _RTL_CONDITION_VARIABLE {
+    PVOID Ptr;
+} RTL_CONDITION_VARIABLE, *PRTL_CONDITION_VARIABLE, CONDITION_VARIABLE, *PCONDITION_VARIABLE;
+
+#define RTL_CONDITION_VARIABLE_INIT {0}
+#define CONDITION_VARIABLE_INIT RTL_CONDITION_VARIABLE_INIT
+#define RTL_CONDITION_VARIABLE_LOCKMODE_SHARED 1U
+#define CONDITION_VARIABLE_LOCKMODE_SHARED RTL_CONDITION_VARIABLE_LOCKMODE_SHARED
+
+typedef union _RTL_RUN_ONCE {
+    PVOID     Ptr;
+    ULONG_PTR Value;
+} RTL_RUN_ONCE, *PRTL_RUN_ONCE, INIT_ONCE, *PINIT_ONCE, *LPINIT_ONCE;
+
+typedef DWORD (WINAPI *PRTL_RUN_ONCE_INIT_FN)(PRTL_RUN_ONCE, PVOID, PVOID *);
+typedef BOOL (WINAPI *PINIT_ONCE_FN)(PINIT_ONCE, PVOID, PVOID *);
+
+#define RTL_RUN_ONCE_INIT {0}
+#define INIT_ONCE_STATIC_INIT RTL_RUN_ONCE_INIT
+#define RTL_RUN_ONCE_CHECK_ONLY 1U
+#define RTL_RUN_ONCE_ASYNC 2U
+#define RTL_RUN_ONCE_INIT_FAILED 4U
+#define RTL_RUN_ONCE_CTX_RESERVED_BITS 2
+#define INIT_ONCE_CHECK_ONLY RTL_RUN_ONCE_CHECK_ONLY
+#define INIT_ONCE_ASYNC RTL_RUN_ONCE_ASYNC
+#define INIT_ONCE_INIT_FAILED RTL_RUN_ONCE_INIT_FAILED
+#define INIT_ONCE_CTX_RESERVED_BITS RTL_RUN_ONCE_CTX_RESERVED_BITS
+
+typedef struct _RTL_BARRIER {
+    DWORD     Reserved1;
+    DWORD     Reserved2;
+    ULONG_PTR Reserved3[2];
+    DWORD     Reserved4;
+    DWORD     Reserved5;
+} RTL_BARRIER, *PRTL_BARRIER, SYNCHRONIZATION_BARRIER, *PSYNCHRONIZATION_BARRIER, *LPSYNCHRONIZATION_BARRIER;
+
+#define SYNCHRONIZATION_BARRIER_FLAGS_SPIN_ONLY  0x01U
+#define SYNCHRONIZATION_BARRIER_FLAGS_BLOCK_ONLY 0x02U
+#define SYNCHRONIZATION_BARRIER_FLAGS_NO_DELETE  0x04U
+
+typedef struct _RTL_CRITICAL_SECTION {
+    PVOID     DebugInfo;
+    LONG      LockCount;
+    LONG      RecursionCount;
+    HANDLE    OwningThread;
+    HANDLE    LockSemaphore;
+    ULONG_PTR SpinCount;
+} RTL_CRITICAL_SECTION, *PRTL_CRITICAL_SECTION, CRITICAL_SECTION, *PCRITICAL_SECTION, *LPCRITICAL_SECTION;
+
+#ifndef INFINITE
+#define INFINITE            0xFFFFFFFFU
+#endif
+#ifndef MAXIMUM_WAIT_OBJECTS
+#define MAXIMUM_WAIT_OBJECTS 64U
+#endif
+#ifndef WAIT_OBJECT_0
+#define WAIT_OBJECT_0       0x00000000U
+#define WAIT_ABANDONED      0x00000080U
+#define WAIT_ABANDONED_0    0x00000080U
+#define WAIT_IO_COMPLETION  0x000000C0U
+#define WAIT_TIMEOUT        0x00000102U
+#define WAIT_FAILED         0xFFFFFFFFU
+#endif
+
+#ifndef ERROR_SUCCESS
+#define ERROR_SUCCESS               0U
+#define ERROR_INVALID_FUNCTION      1U
+#define ERROR_FILE_NOT_FOUND        2U
+#define ERROR_PATH_NOT_FOUND        3U
+#define ERROR_ACCESS_DENIED         5U
+#define ERROR_INVALID_HANDLE        6U
+#define ERROR_NOT_ENOUGH_MEMORY     8U
+#define ERROR_INVALID_PARAMETER     87U
+#define ERROR_SEM_IS_SET            102U
+#define ERROR_INSUFFICIENT_BUFFER   122U
+#define ERROR_INVALID_NAME          123U
+#define ERROR_ALREADY_EXISTS        183U
+#define ERROR_NOT_OWNER             288U
+#define ERROR_TOO_MANY_POSTS        298U
+#define ERROR_TIMEOUT               1460U
+#endif
+
+#ifndef DELETE
+#define DELETE                      0x00010000U
+#define READ_CONTROL                0x00020000U
+#define WRITE_DAC                   0x00040000U
+#define WRITE_OWNER                 0x00080000U
+#define SYNCHRONIZE                 0x00100000U
+#define STANDARD_RIGHTS_REQUIRED    0x000F0000U
+#define EVENT_QUERY_STATE           0x0001U
+#define EVENT_MODIFY_STATE          0x0002U
+#define EVENT_ALL_ACCESS            (STANDARD_RIGHTS_REQUIRED | SYNCHRONIZE | 0x3U)
+#define MUTANT_QUERY_STATE          0x0001U
+#define MUTANT_ALL_ACCESS           (STANDARD_RIGHTS_REQUIRED | SYNCHRONIZE | MUTANT_QUERY_STATE)
+#define SEMAPHORE_QUERY_STATE       0x0001U
+#define SEMAPHORE_MODIFY_STATE      0x0002U
+#define SEMAPHORE_ALL_ACCESS        (STANDARD_RIGHTS_REQUIRED | SYNCHRONIZE | 0x3U)
+#endif
+
+#ifndef CREATE_EVENT_MANUAL_RESET
+#define CREATE_EVENT_MANUAL_RESET   0x00000001U
+#define CREATE_EVENT_INITIAL_SET    0x00000002U
+#define CREATE_MUTEX_INITIAL_OWNER  0x00000001U
+#endif
+#endif /* !_WIN32 */
+
+#ifndef EVENT_QUERY_STATE
+#define EVENT_QUERY_STATE           0x0001U
+#endif
+#ifndef SEMAPHORE_QUERY_STATE
+#define SEMAPHORE_QUERY_STATE       0x0001U
+#endif
+
+typedef struct _UNICODE_STRING {
+    USHORT Length;
+    USHORT MaximumLength;
+    PWSTR  Buffer;
+} UNICODE_STRING, *PUNICODE_STRING;
+typedef const UNICODE_STRING *PCUNICODE_STRING;
+
+typedef struct _OBJECT_ATTRIBUTES {
+    ULONG           Length;
+    HANDLE          RootDirectory;
+    PUNICODE_STRING ObjectName;
+    ULONG           Attributes;
+    PVOID           SecurityDescriptor;
+    PVOID           SecurityQualityOfService;
+} OBJECT_ATTRIBUTES, *POBJECT_ATTRIBUTES;
+
+#ifndef OBJ_INHERIT
+#define OBJ_INHERIT            0x00000002U
+#define OBJ_PERMANENT          0x00000010U
+#define OBJ_EXCLUSIVE          0x00000020U
+#define OBJ_CASE_INSENSITIVE   0x00000040U
+#define OBJ_OPENIF             0x00000080U
+#define OBJ_OPENLINK           0x00000100U
+#define OBJ_KERNEL_HANDLE      0x00000200U
+#define OBJ_VALID_ATTRIBUTES   0x000003F2U
+#endif
+
+#ifndef InitializeObjectAttributes
+#define InitializeObjectAttributes(p, n, a, r, s) \
+    do { \
+        (p)->Length = sizeof(OBJECT_ATTRIBUTES); \
+        (p)->RootDirectory = (r); \
+        (p)->Attributes = (a); \
+        (p)->ObjectName = (n); \
+        (p)->SecurityDescriptor = (s); \
+        (p)->SecurityQualityOfService = NULL; \
+    } while (0)
+#endif
+
+typedef enum _EVENT_TYPE {
+    NotificationEvent,
+    SynchronizationEvent
+} EVENT_TYPE;
+
+typedef enum _EVENT_INFORMATION_CLASS {
+    EventBasicInformation
+} EVENT_INFORMATION_CLASS;
+
+typedef struct _EVENT_BASIC_INFORMATION {
+    EVENT_TYPE EventType;
+    LONG       EventState;
+} EVENT_BASIC_INFORMATION, *PEVENT_BASIC_INFORMATION;
+
+typedef enum _SEMAPHORE_INFORMATION_CLASS {
+    SemaphoreBasicInformation
+} SEMAPHORE_INFORMATION_CLASS;
+
+typedef struct _SEMAPHORE_BASIC_INFORMATION {
+    LONG CurrentCount;
+    LONG MaximumCount;
+} SEMAPHORE_BASIC_INFORMATION, *PSEMAPHORE_BASIC_INFORMATION;
+
+typedef enum _MUTANT_INFORMATION_CLASS {
+    MutantBasicInformation
+} MUTANT_INFORMATION_CLASS;
+
+typedef struct _MUTANT_BASIC_INFORMATION {
+    LONG    CurrentCount;
+    BOOLEAN OwnedByCaller;
+    BOOLEAN AbandonedState;
+} MUTANT_BASIC_INFORMATION, *PMUTANT_BASIC_INFORMATION;
+
+typedef enum _WAIT_TYPE {
+    WaitAll,
+    WaitAny
+} WAIT_TYPE;
+
+typedef struct _RTL_RWLOCK {
+    RTL_CRITICAL_SECTION CriticalSection;
+    HANDLE               SharedSem;
+    ULONG                 SharedWaiters;
+    HANDLE               ExclusiveSem;
+    ULONG                ExclusiveWaiters;
+    LONG                 NumberActive;
+    HANDLE               OwningThreadId;
+    DWORD                TimeoutBoost;
+    PVOID                DebugInfo;
+} RTL_RWLOCK, *PRTL_RWLOCK, *LPRTL_RWLOCK;
+
+typedef void (WINAPI *PTIMER_APC_ROUTINE)(PVOID, ULONG, LONG);
+
+typedef struct _NTDLL_MACOS_NTSYNC_STATE {
+    ULONG ulock_available;
+    ULONG mach_semaphore_available;
+    ULONG ulock_wait_calls;
+    ULONG ulock_wake_calls;
+    ULONG mach_sem_wait_calls;
+    ULONG mach_sem_signal_calls;
+    ULONG wait_on_address_calls;
+    ULONG wake_by_address_single_calls;
+    ULONG wake_by_address_all_calls;
+    ULONG tid_alert_wait_calls;
+    ULONG tid_alert_wake_calls;
+    ULONG active_sync_objects;
+} NTDLL_MACOS_NTSYNC_STATE;
+
 #define NtCurrentProcess() ((HANDLE)(intptr_t)-1)
 #define NtCurrentThread()  ((HANDLE)(intptr_t)-2)
 
@@ -623,5 +916,230 @@ NTSTATUS WINAPI NtdllRosettaCheckInvalidGsbase(
     const BYTE *InstrBytes,
     SIZE_T InstrLen,
     NTDLL_ROSETTA_GSBASE_STATE *OutState);
+
+/* macOS Fast NT Synchronization (NTSync Parity) APIs (dlls/ntdll/sync.c) */
+NTSTATUS WINAPI NtWaitForAlertByThreadId(
+    const void *Address,
+    const LARGE_INTEGER *Timeout);
+
+NTSTATUS WINAPI NtAlertThreadByThreadId(
+    HANDLE ThreadId);
+
+NTSTATUS WINAPI NtAlertMultipleThreadByThreadId(
+    HANDLE *ThreadIds,
+    ULONG Count,
+    const void *Boost1,
+    const void *Boost2);
+
+NTSTATUS WINAPI RtlWaitOnAddress(
+    const void *Address,
+    const void *CompareAddress,
+    SIZE_T AddressSize,
+    const LARGE_INTEGER *Timeout);
+
+void WINAPI RtlWakeAddressSingle(
+    const void *Address);
+
+void WINAPI RtlWakeAddressAll(
+    const void *Address);
+
+NTSTATUS WINAPI NtCreateEvent(
+    HANDLE *EventHandle,
+    ACCESS_MASK DesiredAccess,
+    const OBJECT_ATTRIBUTES *ObjectAttributes,
+    EVENT_TYPE EventType,
+    BOOLEAN InitialState);
+
+NTSTATUS WINAPI NtOpenEvent(
+    HANDLE *EventHandle,
+    ACCESS_MASK DesiredAccess,
+    const OBJECT_ATTRIBUTES *ObjectAttributes);
+
+NTSTATUS WINAPI NtSetEvent(
+    HANDLE EventHandle,
+    LONG *PrevState);
+
+NTSTATUS WINAPI NtResetEvent(
+    HANDLE EventHandle,
+    LONG *PrevState);
+
+NTSTATUS WINAPI NtPulseEvent(
+    HANDLE EventHandle,
+    LONG *PrevState);
+
+NTSTATUS WINAPI NtQueryEvent(
+    HANDLE EventHandle,
+    EVENT_INFORMATION_CLASS EventInformationClass,
+    PVOID EventInformation,
+    ULONG EventInformationLength,
+    ULONG *ReturnLength);
+
+NTSTATUS WINAPI NtSetEventBoostPriority(
+    HANDLE EventHandle);
+
+NTSTATUS WINAPI NtCreateSemaphore(
+    HANDLE *SemaphoreHandle,
+    ACCESS_MASK DesiredAccess,
+    const OBJECT_ATTRIBUTES *ObjectAttributes,
+    LONG InitialCount,
+    LONG MaximumCount);
+
+NTSTATUS WINAPI NtOpenSemaphore(
+    HANDLE *SemaphoreHandle,
+    ACCESS_MASK DesiredAccess,
+    const OBJECT_ATTRIBUTES *ObjectAttributes);
+
+NTSTATUS WINAPI NtReleaseSemaphore(
+    HANDLE SemaphoreHandle,
+    ULONG ReleaseCount,
+    LONG *PreviousCount);
+
+NTSTATUS WINAPI NtQuerySemaphore(
+    HANDLE SemaphoreHandle,
+    SEMAPHORE_INFORMATION_CLASS SemaphoreInformationClass,
+    PVOID SemaphoreInformation,
+    ULONG SemaphoreInformationLength,
+    ULONG *ReturnLength);
+
+NTSTATUS WINAPI NtCreateMutant(
+    HANDLE *MutantHandle,
+    ACCESS_MASK DesiredAccess,
+    const OBJECT_ATTRIBUTES *ObjectAttributes,
+    BOOLEAN InitialOwner);
+
+NTSTATUS WINAPI NtOpenMutant(
+    HANDLE *MutantHandle,
+    ACCESS_MASK DesiredAccess,
+    const OBJECT_ATTRIBUTES *ObjectAttributes);
+
+NTSTATUS WINAPI NtReleaseMutant(
+    HANDLE MutantHandle,
+    LONG *PrevCount);
+
+NTSTATUS WINAPI NtQueryMutant(
+    HANDLE MutantHandle,
+    MUTANT_INFORMATION_CLASS MutantInformationClass,
+    PVOID MutantInformation,
+    ULONG MutantInformationLength,
+    ULONG *ReturnLength);
+
+NTSTATUS WINAPI NtCreateKeyedEvent(
+    HANDLE *KeyedEventHandle,
+    ACCESS_MASK DesiredAccess,
+    const OBJECT_ATTRIBUTES *ObjectAttributes,
+    ULONG Flags);
+
+NTSTATUS WINAPI NtOpenKeyedEvent(
+    HANDLE *KeyedEventHandle,
+    ACCESS_MASK DesiredAccess,
+    const OBJECT_ATTRIBUTES *ObjectAttributes);
+
+NTSTATUS WINAPI NtWaitForKeyedEvent(
+    HANDLE KeyedEventHandle,
+    const void *Key,
+    BOOLEAN Alertable,
+    const LARGE_INTEGER *Timeout);
+
+NTSTATUS WINAPI NtReleaseKeyedEvent(
+    HANDLE KeyedEventHandle,
+    const void *Key,
+    BOOLEAN Alertable,
+    const LARGE_INTEGER *Timeout);
+
+NTSTATUS WINAPI NtWaitForSingleObject(
+    HANDLE ObjectHandle,
+    BOOLEAN Alertable,
+    const LARGE_INTEGER *TimeOut);
+
+NTSTATUS WINAPI NtWaitForMultipleObjects(
+    DWORD ObjectCount,
+    const HANDLE *ObjectsArray,
+    WAIT_TYPE WaitType,
+    BOOLEAN Alertable,
+    const LARGE_INTEGER *TimeOut);
+
+NTSTATUS WINAPI NtSignalAndWaitForSingleObject(
+    HANDLE hObjectToSignal,
+    HANDLE hObjectToWaitOn,
+    BOOLEAN bAlertable,
+    const LARGE_INTEGER *TimeOut);
+
+NTSTATUS WINAPI NtDelayExecution(
+    BOOLEAN Alertable,
+    const LARGE_INTEGER *Interval);
+
+NTSTATUS WINAPI NtQuerySystemTime(
+    PLARGE_INTEGER SystemTime);
+
+NTSTATUS WINAPI NtQueryTimerResolution(
+    ULONG *MinimumResolution,
+    ULONG *MaximumResolution,
+    ULONG *ActualResolution);
+
+NTSTATUS WINAPI NtClose(
+    HANDLE Handle);
+
+void WINAPI RtlInitializeSRWLock(PRTL_SRWLOCK Lock);
+void WINAPI RtlAcquireSRWLockExclusive(PRTL_SRWLOCK Lock);
+void WINAPI RtlAcquireSRWLockShared(PRTL_SRWLOCK Lock);
+void WINAPI RtlReleaseSRWLockExclusive(PRTL_SRWLOCK Lock);
+void WINAPI RtlReleaseSRWLockShared(PRTL_SRWLOCK Lock);
+BOOLEAN WINAPI RtlTryAcquireSRWLockExclusive(PRTL_SRWLOCK Lock);
+BOOLEAN WINAPI RtlTryAcquireSRWLockShared(PRTL_SRWLOCK Lock);
+
+void WINAPI RtlInitializeConditionVariable(PRTL_CONDITION_VARIABLE Variable);
+NTSTATUS WINAPI RtlSleepConditionVariableCS(
+    PRTL_CONDITION_VARIABLE Variable,
+    PRTL_CRITICAL_SECTION Crit,
+    PLARGE_INTEGER Timeout);
+NTSTATUS WINAPI RtlSleepConditionVariableSRW(
+    PRTL_CONDITION_VARIABLE Variable,
+    PRTL_SRWLOCK Lock,
+    PLARGE_INTEGER Timeout,
+    ULONG Flags);
+void WINAPI RtlWakeConditionVariable(PRTL_CONDITION_VARIABLE Variable);
+void WINAPI RtlWakeAllConditionVariable(PRTL_CONDITION_VARIABLE Variable);
+
+void WINAPI RtlRunOnceInitialize(PRTL_RUN_ONCE Once);
+NTSTATUS WINAPI RtlRunOnceBeginInitialize(PRTL_RUN_ONCE Once, ULONG Flags, PVOID *Context);
+NTSTATUS WINAPI RtlRunOnceComplete(PRTL_RUN_ONCE Once, ULONG Flags, PVOID Context);
+NTSTATUS WINAPI RtlRunOnceExecuteOnce(
+    PRTL_RUN_ONCE Once,
+    PRTL_RUN_ONCE_INIT_FN Func,
+    PVOID Param,
+    PVOID *Context);
+
+NTSTATUS WINAPI RtlInitBarrier(PRTL_BARRIER Barrier, ULONG TotalThreads, ULONG SpinCount);
+BOOLEAN WINAPI RtlBarrier(PRTL_BARRIER Barrier, ULONG Flags);
+NTSTATUS WINAPI RtlDeleteBarrier(PRTL_BARRIER Barrier);
+
+void WINAPI RtlInitializeResource(LPRTL_RWLOCK RwLock);
+void WINAPI RtlDeleteResource(LPRTL_RWLOCK RwLock);
+BYTE WINAPI RtlAcquireResourceExclusive(LPRTL_RWLOCK RwLock, BYTE fWait);
+BYTE WINAPI RtlAcquireResourceShared(LPRTL_RWLOCK RwLock, BYTE fWait);
+void WINAPI RtlReleaseResource(LPRTL_RWLOCK RwLock);
+void WINAPI RtlDumpResource(LPRTL_RWLOCK RwLock);
+
+NTSTATUS WINAPI RtlInitializeCriticalSection(PRTL_CRITICAL_SECTION Crit);
+NTSTATUS WINAPI RtlDeleteCriticalSection(PRTL_CRITICAL_SECTION Crit);
+NTSTATUS WINAPI RtlEnterCriticalSection(PRTL_CRITICAL_SECTION Crit);
+NTSTATUS WINAPI RtlLeaveCriticalSection(PRTL_CRITICAL_SECTION Crit);
+BOOL WINAPI RtlTryEnterCriticalSection(PRTL_CRITICAL_SECTION Crit);
+
+void WINAPI RtlInitUnicodeString(PUNICODE_STRING DestinationString, LPCWSTR SourceString);
+ULONG WINAPI RtlNtStatusToDosError(NTSTATUS Status);
+
+DWORD WINAPI NtdllGetCurrentThreadId(void);
+void WINAPI NtdllRegisterForeignThreadId(DWORD ThreadId);
+NTSTATUS WINAPI NtdllAbandonMutantsForThread(DWORD ThreadId);
+NTSTATUS WINAPI NtdllQueryMacosNtsyncState(NTDLL_MACOS_NTSYNC_STATE *State);
+void WINAPI NtdllResetSyncState(void);
+
+#ifndef _WIN32
+static inline DWORD GetCurrentThreadId(void)
+{
+    return NtdllGetCurrentThreadId();
+}
+#endif
 
 #endif /* _WINE_NTDLL_H */

@@ -564,6 +564,127 @@ class TestWineParityArchitecture(unittest.TestCase):
         self.assertTrue(wt_report["ab_comparison"]["zero_regressions"])
         self.assertTrue(wt_report["ab_comparison"]["asan_ubsan_passed"])
 
+    def test_14_ntdll_and_kernelbase_macos_ntsync_parity(self) -> None:
+        """Verify macOS fast NT synchronization (NTSync parity) in dlls/ntdll/sync.c and dlls/kernelbase/sync.c."""
+        build_sh = REPO_ROOT / "scripts" / "build.sh"
+        test_sh = REPO_ROOT / "scripts" / "test.sh"
+
+        # 1. Verify upstream/manifest.json alignment for kernelbase and ntdll
+        for dll_name in ("ntdll", "kernelbase"):
+            res_check = subprocess.run(
+                [str(test_sh), "--check-upstream", "--dll", dll_name],
+                cwd=REPO_ROOT,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(res_check.returncode, 0, res_check.stdout + res_check.stderr)
+            check_report = json.loads(res_check.stdout)
+            self.assertEqual(check_report["dll"], dll_name)
+            self.assertTrue(check_report["manifest_verified"])
+
+        # 2. Surgically build and test ntdll:test_ntsync_macos_parity (RED stub vs GREEN macOS ulock/Mach)
+        res_build_nt = subprocess.run(
+            [str(build_sh), "--dll", "ntdll", "--test", "test_ntsync_macos_parity"],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(res_build_nt.returncode, 0, res_build_nt.stdout + res_build_nt.stderr)
+
+        res_red_nt = subprocess.run(
+            [str(test_sh), "--dll", "ntdll", "--test", "test_ntsync_macos_parity", "--simulate-stub"],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertNotEqual(res_red_nt.returncode, 0)
+
+        res_green_nt = subprocess.run(
+            [str(test_sh), "--dll", "ntdll", "--test", "test_ntsync_macos_parity"],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(
+            res_green_nt.returncode,
+            0,
+            f"test_ntsync_macos_parity failed:\n{res_green_nt.stdout}\n{res_green_nt.stderr}",
+        )
+        self.assertIn("MATCHED (0 discrepancies) [16 assertions]", res_green_nt.stdout)
+
+        # 3. Surgically build and test kernelbase:test_wait_on_address (RED stub vs GREEN)
+        res_build_kb = subprocess.run(
+            [str(build_sh), "--dll", "kernelbase", "--test", "test_wait_on_address"],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(res_build_kb.returncode, 0, res_build_kb.stdout + res_build_kb.stderr)
+
+        res_red_kb = subprocess.run(
+            [str(test_sh), "--dll", "kernelbase", "--test", "test_wait_on_address", "--simulate-stub"],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertNotEqual(res_red_kb.returncode, 0)
+
+        res_green_kb = subprocess.run(
+            [str(test_sh), "--dll", "kernelbase", "--test", "test_wait_on_address"],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(
+            res_green_kb.returncode,
+            0,
+            f"test_wait_on_address failed:\n{res_green_kb.stdout}\n{res_green_kb.stderr}",
+        )
+        self.assertIn("MATCHED (0 discrepancies) [12 assertions]", res_green_kb.stdout)
+
+        # 4. Verify 4-gate security audit (including ASan+UBSan) on both targets
+        for dll_name, test_name in (("ntdll", "test_ntsync_macos_parity"), ("kernelbase", "test_wait_on_address")):
+            res_sec = subprocess.run(
+                [str(test_sh), "--security", "--dll", dll_name, "--test", test_name],
+                cwd=REPO_ROOT,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(
+                res_sec.returncode,
+                0,
+                f"Security scan failed on {dll_name}:{test_name}:\n{res_sec.stdout}\n{res_sec.stderr}",
+            )
+
+        # 5. Verify mandatory follow-up upstream winetest & A/B anti-regression suite for kernelbase
+        res_wt_kb = subprocess.run(
+            [str(test_sh), "--winetest", "--dll", "kernelbase"],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(
+            res_wt_kb.returncode,
+            0,
+            f"winetest --dll kernelbase failed:\n{res_wt_kb.stdout}\n{res_wt_kb.stderr}",
+        )
+        wt_kb_report = json.loads(res_wt_kb.stdout)
+        self.assertTrue(wt_kb_report["passed"])
+        self.assertEqual(wt_kb_report["dll"], "kernelbase")
+        self.assertEqual(wt_kb_report["failures"], 0)
+        self.assertEqual(wt_kb_report["regressions_vs_upstream"], 0)
+        self.assertTrue(wt_kb_report["ab_comparison"]["zero_regressions"])
+        self.assertTrue(wt_kb_report["ab_comparison"]["asan_ubsan_passed"])
+
 
 if __name__ == "__main__":
     unittest.main()

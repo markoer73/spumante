@@ -1,0 +1,140 @@
+{
+  "dll": "kernelbase",
+  "test_name": "test_wait_on_address",
+  "architecture": "x86_64",
+  "environment": "windows-11-ground-truth",
+  "assertions": [
+    {
+      "id": "kb_sync_01_wait_on_address_invalid_sizes",
+      "case": "WaitOnAddress_InvalidAddressSizes_Error87",
+      "api": "WaitOnAddress",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 87,
+      "out_length": 5,
+      "buffer_hex": "5757575757",
+      "handle_valid": false
+    },
+    {
+      "id": "kb_sync_02_wait_on_address_mismatch_preserves_last_error",
+      "case": "WaitOnAddress_MismatchPreservesLastError",
+      "api": "WaitOnAddress",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 3735928559,
+      "out_length": 4,
+      "buffer_hex": "01020408",
+      "handle_valid": true
+    },
+    {
+      "id": "kb_sync_03_wait_on_address_timeout_sets_error_timeout",
+      "case": "WaitOnAddress_TimeoutSetsError1460",
+      "api": "WaitOnAddress",
+      "comparison_mode": "exact",
+      "status": "0x00000102",
+      "last_error": 1460,
+      "out_length": 4,
+      "buffer_hex": "01010101",
+      "handle_valid": false
+    },
+    {
+      "id": "kb_sync_04_wake_by_address_null_preserves_last_error",
+      "case": "WakeByAddressSingleAndAll_NullAndErrorPreservation",
+      "api": "WakeByAddressSingle",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 3735928559,
+      "out_length": 3,
+      "buffer_hex": "010101",
+      "handle_valid": true
+    },
+    {
+      "id": "kb_sync_05_wait_and_wake_single_all_threaded",
+      "case": "WaitOnAddress_MultiThreadedContention",
+      "api": "WakeByAddressAll",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 2,
+      "buffer_hex": "0104",
+      "handle_valid": true
+    },
+    {
+      "id": "kb_sync_06_synchronization_barrier_validation_and_enter",
+      "case": "InitializeAndEnterSynchronizationBarrier",
+      "api": "InitializeSynchronizationBarrier",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 87,
+      "out_length": 2,
+      "buffer_hex": "5701",
+      "handle_valid": true
+    },
+    {
+      "id": "kb_sync_07_init_once_begin_and_complete",
+      "case": "InitOnceBeginInitialize_SyncAndCheckOnly",
+      "api": "InitOnceBeginInitialize",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 87,
+      "out_length": 3,
+      "buffer_hex": "570101",
+      "handle_valid": true
+    },
+    {
+      "id": "kb_sync_08_init_once_async_and_execute_once",
+      "case": "InitOnceBeginInitialize_AsyncAndExecuteOnce",
+      "api": "InitOnceExecuteOnce",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 87,
+      "out_length": 2,
+      "buffer_hex": "0101",
+      "handle_valid": true
+    },
+    {
+      "id": "kb_sync_09_event_create_ex_wait_set_reset",
+      "case": "CreateEventExW_ValidationNamedAndAutoReset",
+      "api": "CreateEventExW",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 183,
+      "out_length": 3,
+      "buffer_hex": "57b701",
+      "handle_valid": true
+    },
+    {
+      "id": "kb_sync_10_mutex_create_ex_wait_release",
+      "case": "CreateMutexExW_RecursiveAndNotOwnerError288",
+      "api": "ReleaseMutex",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 288,
+      "out_length": 2,
+      "buffer_hex": "0101",
+      "handle_valid": true
+    },
+    {
+      "id": "kb_sync_11_semaphore_create_ex_wait_release",
+      "case": "CreateSemaphoreExW_And_ErrorTooManyPosts298",
+      "api": "ReleaseSemaphore",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 298,
+      "out_length": 2,
+      "buffer_hex": "5701",
+      "handle_valid": true
+    },
+    {
+      "id": "kb_sync_12_wait_for_multiple_and_signal_and_wait",
+      "case": "WaitForMultipleObjectsEx_And_SignalObjectAndWait",
+      "api": "WaitForMultipleObjectsEx",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 2,
+      "buffer_hex": "0101",
+      "handle_valid": true
+    }
+  ]
+}
