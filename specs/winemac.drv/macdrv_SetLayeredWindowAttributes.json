@@ -1,0 +1,26 @@
+{
+  "dll": "winemac.drv",
+  "api_name": "macdrv_SetLayeredWindowAttributes",
+  "header": "macdrv.h",
+  "ms_learn_url": "https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-setlayeredwindowattributes",
+  "signature": "void WINAPI macdrv_SetLayeredWindowAttributes(HWND hwnd, COLORREF key, BYTE alpha, DWORD flags)",
+  "return_codes": {
+    "TRUE": "1",
+    "FALSE": "0"
+  },
+  "empirical_windows_behavior": [
+    "Sets layered window transparency attributes (LWA_COLORKEY = 0x1, LWA_ALPHA = 0x2) on both same-process windows (get_win_data(hwnd) != NULL) and cross-process windows (get_win_data(hwnd) == NULL) via shared window state and WM_MACDRV_SET_LAYERED_ATTRIBUTES.",
+    "Synchronizes Cocoa window opacity (alpha / 255.0 when LWA_ALPHA is set, else 1.0) and shows the window if WS_VISIBLE is set and it was awaiting initial layered attributes.",
+    "Paired with macdrv_surface_create in opengl.c to allow SetPixelFormat / wglCreateContext / wglMakeCurrent / SwapBuffers on DCs of windows owned by another process backed by IOSurface."
+  ],
+  "macos_backend_strategy": "Cross-process shared window table + WM_MACDRV_SET_LAYERED_ATTRIBUTES driver message dispatch and IOSurface-backed cross-process OpenGL drawables.",
+  "clean_room_attestation": {
+    "sources": [
+      "Microsoft Learn SetLayeredWindowAttributes / GetLayeredWindowAttributes / UpdateLayeredWindow documentation",
+      "Public Wine dlls/winemac.drv/window.c and dlls/winemac.drv/opengl.c declarations",
+      "Black-box Windows 11 differential conformance test observations"
+    ],
+    "no_leaked_source_exposure": true,
+    "no_proprietary_decompilation": true
+  }
+}

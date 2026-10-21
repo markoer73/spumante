@@ -1,0 +1,26 @@
+{
+  "dll": "winemac.drv",
+  "api_name": "macdrv_client_surface_acquire_metal_swapchain",
+  "header": "macdrv.h",
+  "ms_learn_url": "https://developer.apple.com/documentation/iosurface",
+  "signature": "BOOL WINAPI macdrv_client_surface_acquire_metal_swapchain(struct macdrv_client_surface *surface)",
+  "return_codes": {
+    "TRUE": "1",
+    "FALSE": "0"
+  },
+  "empirical_windows_behavior": [
+    "For same-process windows (get_win_data(hwnd) != NULL), creates a MetalViewSwapChain bound to the window's WineContentView.",
+    "For cross-process top-level windows (get_win_data(hwnd) == NULL && NtUserGetAncestor(hwnd, GA_ROOT) == hwnd), creates an offscreen CAContext swapchain and posts WM_MACDRV_CREATE_REMOTE_LAYER.",
+    "For cross-process child windows (get_win_data(hwnd) == NULL && NtUserGetAncestor(hwnd, GA_ROOT) != hwnd), creates an IOSurface-backed CAMetalLayer swapchain with transferable Mach port / IOSurfaceID, clips and positions the sublayer at the child window's client offset inside GA_ROOT, and synchronizes double-buffered IOSurface presentation via WM_MACDRV_PRESENT_IOSURFACE."
+  ],
+  "macos_backend_strategy": "Use Apple IOSurface.framework (IOSurfaceCreate, IOSurfaceCreateMachPort, IOSurfaceLookupFromMachPort, IOSurfaceGetID, IOSurfaceLookup, IOSurfaceLock/Unlock) paired with CAMetalLayer / CALayerHost sub-rect composition.",
+  "clean_room_attestation": {
+    "sources": [
+      "Apple Developer Documentation (IOSurface.framework & QuartzCore CAMetalLayer)",
+      "Public Wine dlls/winemac.drv/window.c and dlls/winemac.drv/cocoa_window.m declarations",
+      "Black-box Windows 11 differential conformance test observations"
+    ],
+    "no_leaked_source_exposure": true,
+    "no_proprietary_decompilation": true
+  }
+}

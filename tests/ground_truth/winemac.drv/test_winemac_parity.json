@@ -1,0 +1,151 @@
+{
+  "dll": "winemac.drv",
+  "test_name": "test_winemac_parity",
+  "architecture": "x86_64",
+  "environment": "windows_11_23h2_ground_truth",
+  "assertions": [
+    {
+      "id": "err_swapchain_null",
+      "case": "InvalidParam_NullSurfaceSwapchain",
+      "api": "macdrv_client_surface_acquire_metal_swapchain",
+      "comparison_mode": "exact",
+      "status": "0xc000000d",
+      "last_error": 87,
+      "out_length": 0,
+      "buffer_hex": "",
+      "handle_valid": false
+    },
+    {
+      "id": "same_proc_swapchain",
+      "case": "SameProcess_TopLevelMetalSwapchain",
+      "api": "macdrv_client_surface_acquire_metal_swapchain",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 16,
+      "buffer_hex": "010000000000000080020000e0010000",
+      "handle_valid": true
+    },
+    {
+      "id": "xproc_toplevel_swapchain",
+      "case": "CrossProcess_TopLevelRemoteLayerSwapchain",
+      "api": "macdrv_client_surface_acquire_metal_swapchain",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 16,
+      "buffer_hex": "02000000010000000000000001000000",
+      "handle_valid": true
+    },
+    {
+      "id": "xproc_child_iosurface_swapchain",
+      "case": "CrossProcess_ChildWindowIOSurfaceSwapchain",
+      "api": "macdrv_client_surface_acquire_metal_swapchain",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 16,
+      "buffer_hex": "030000000100000040010000f0000000",
+      "handle_valid": true
+    },
+    {
+      "id": "xproc_child_iosurface_present",
+      "case": "CrossProcess_ChildIOSurfacePresentRoundTrip",
+      "api": "macdrv_swapchain_present_bgra",
+      "comparison_mode": "roundtrip",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 16,
+      "buffer_hex": "112233ff445566ff778899ffaabbccff",
+      "roundtrip_ok": true
+    },
+    {
+      "id": "xproc_child_iosurface_resize",
+      "case": "CrossProcess_ChildIOSurfaceDynamicResize",
+      "api": "macdrv_client_surface_acquire_metal_swapchain",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 16,
+      "buffer_hex": "900100002c0100004006000032000000",
+      "handle_valid": true
+    },
+    {
+      "id": "enum_multimon_devices",
+      "case": "MultiMonitor_EnumDisplayDevicesAndSettings",
+      "api": "macdrv_EnumDisplaySettingsExW",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 16,
+      "buffer_hex": "1500000001000000000a000080070000",
+      "handle_valid": true
+    },
+    {
+      "id": "cds_nonprimary_resolution_change",
+      "case": "MultiMonitor_ChangeDisplaySettingsNonPrimary",
+      "api": "macdrv_ChangeDisplaySettingsExW",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 16,
+      "buffer_hex": "00000000800700003804000080070000",
+      "handle_valid": true
+    },
+    {
+      "id": "cds_detach_reattach_secondary",
+      "case": "MultiMonitor_DetachAndReattachSecondaryAdapter",
+      "api": "macdrv_ChangeDisplaySettingsExW",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 16,
+      "buffer_hex": "fbffffff000000000000000001000000",
+      "handle_valid": true
+    },
+    {
+      "id": "cds_staged_noreset_commit",
+      "case": "MultiMonitor_StagedRegistryCommitAndBadMode",
+      "api": "macdrv_ChangeDisplaySettingsExW",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 16,
+      "buffer_hex": "feffffff0000000000050000b4000000",
+      "handle_valid": true
+    },
+    {
+      "id": "multimon_per_display_gamma",
+      "case": "MultiMonitor_PerDisplayGammaRampIsolation",
+      "api": "macdrv_SetDeviceGammaRampForDisplay",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 16,
+      "buffer_hex": "0100000040400000ffff000000000000",
+      "handle_valid": true
+    },
+    {
+      "id": "xproc_layered_window_attributes",
+      "case": "CrossProcess_SetLayeredWindowAttributesAndULW",
+      "api": "macdrv_SetLayeredWindowAttributes",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 16,
+      "buffer_hex": "0100000080000000f501000002000000",
+      "handle_valid": true
+    },
+    {
+      "id": "xproc_opengl_surface_create_and_swap",
+      "case": "CrossProcess_OpenGLSurfaceCreateAndSwapBuffers",
+      "api": "macdrv_surface_create",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 16,
+      "buffer_hex": "010000000100000001000000aabbccff",
+      "handle_valid": true
+    }
+  ]
+}

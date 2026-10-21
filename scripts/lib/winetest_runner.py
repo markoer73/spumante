@@ -85,7 +85,17 @@ def build_winetest(dll: str, arch: str = "x86_64") -> dict[str, Any]:
         ntdll_dir = REPO_ROOT / "dlls" / "ntdll"
         c_sources.extend(sorted(str(p) for p in ntdll_dir.glob("*.c")))
     darwin_frameworks = (
-        ["-framework", "Security", "-framework", "CoreFoundation", "-pthread"]
+        [
+            "-framework",
+            "Security",
+            "-framework",
+            "CoreFoundation",
+            "-framework",
+            "IOSurface",
+            "-framework",
+            "CoreGraphics",
+            "-pthread",
+        ]
         if sys.platform == "darwin"
         else ["-pthread"]
     )

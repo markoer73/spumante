@@ -61,6 +61,13 @@ jobs:
           ./scripts/test.sh --security --dll kernelbase --test test_wait_on_address
           ./scripts/test.sh --winetest --dll kernelbase
 
+      - name: Surgically Build & Test winemac.drv Windowing, Multi-Monitor & Metal Parity
+        run: |
+          ./scripts/build.sh --dll winemac.drv --test test_winemac_parity
+          ./scripts/test.sh --dll winemac.drv --test test_winemac_parity
+          ./scripts/test.sh --security --dll winemac.drv --test test_winemac_parity
+          ./scripts/test.sh --winetest --dll winemac.drv
+
       - name: Run Full Architecture & Harness Unit Suite
         run: python3 -m unittest -v tests/unit/test_harness_suite.py
 

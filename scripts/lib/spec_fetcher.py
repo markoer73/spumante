@@ -307,6 +307,96 @@ KNOWN_CLEAN_ROOM_SPECS: dict[str, dict[str, Any]] = {
             "no_proprietary_decompilation": True,
         },
     },
+    "winemac.drv:macdrv_client_surface_acquire_metal_swapchain": {
+        "dll": "winemac.drv",
+        "api_name": "macdrv_client_surface_acquire_metal_swapchain",
+        "header": "macdrv.h",
+        "ms_learn_url": "https://developer.apple.com/documentation/iosurface",
+        "signature": (
+            "BOOL WINAPI macdrv_client_surface_acquire_metal_swapchain("
+            "struct macdrv_client_surface *surface)"
+        ),
+        "return_codes": {
+            "TRUE": "1",
+            "FALSE": "0",
+        },
+        "empirical_windows_behavior": [
+            "For same-process windows (get_win_data(hwnd) != NULL), creates a MetalViewSwapChain bound to the window's WineContentView.",
+            "For cross-process top-level windows (get_win_data(hwnd) == NULL && NtUserGetAncestor(hwnd, GA_ROOT) == hwnd), creates an offscreen CAContext swapchain and posts WM_MACDRV_CREATE_REMOTE_LAYER.",
+            "For cross-process child windows (get_win_data(hwnd) == NULL && NtUserGetAncestor(hwnd, GA_ROOT) != hwnd), creates an IOSurface-backed CAMetalLayer swapchain with transferable Mach port / IOSurfaceID, clips and positions the sublayer at the child window's client offset inside GA_ROOT, and synchronizes double-buffered IOSurface presentation via WM_MACDRV_PRESENT_IOSURFACE.",
+        ],
+        "macos_backend_strategy": "Use Apple IOSurface.framework (IOSurfaceCreate, IOSurfaceCreateMachPort, IOSurfaceLookupFromMachPort, IOSurfaceGetID, IOSurfaceLookup, IOSurfaceLock/Unlock) paired with CAMetalLayer / CALayerHost sub-rect composition.",
+        "clean_room_attestation": {
+            "sources": [
+                "Apple Developer Documentation (IOSurface.framework & QuartzCore CAMetalLayer)",
+                "Public Wine dlls/winemac.drv/window.c and dlls/winemac.drv/cocoa_window.m declarations",
+                "Black-box Windows 11 differential conformance test observations",
+            ],
+            "no_leaked_source_exposure": True,
+            "no_proprietary_decompilation": True,
+        },
+    },
+    "winemac.drv:macdrv_ChangeDisplaySettings": {
+        "dll": "winemac.drv",
+        "api_name": "macdrv_ChangeDisplaySettings",
+        "header": "macdrv.h",
+        "ms_learn_url": "https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-changedisplaysettingsexw",
+        "signature": (
+            "LONG WINAPI macdrv_ChangeDisplaySettings("
+            "LPDEVMODEW displays, LPCWSTR primary_name, HWND hwnd, DWORD flags, LPVOID lpvoid)"
+        ),
+        "return_codes": {
+            "DISP_CHANGE_SUCCESSFUL": "0",
+            "DISP_CHANGE_FAILED": "-1",
+            "DISP_CHANGE_BADMODE": "-2",
+            "DISP_CHANGE_BADFLAGS": "-4",
+            "DISP_CHANGE_BADPARAM": "-5",
+        },
+        "empirical_windows_behavior": [
+            "Resolves each DEVMODEW entry's dmDeviceName (e.g. \\\\.\\DISPLAY1 primary, \\\\.\\DISPLAY2 and \\\\.\\DISPLAY3 non-primary adapters) to its corresponding CGDirectDisplayID rather than ignoring non-primary displays.",
+            "Validates hwnd == NULL (else DISP_CHANGE_BADPARAM), valid CDS_* flags (else DISP_CHANGE_BADFLAGS), and mode dimensions/frequency/orientation against the target adapter's mode list (else DISP_CHANGE_BADMODE).",
+            "Supports CDS_TEST (validating mode without applying), CDS_UPDATEREGISTRY | CDS_NORESET (staging registry mode without immediate mode switch), and detaching non-primary adapters (dmPelsWidth == 0 && dmPelsHeight == 0 with DM_POSITION | DM_PELSWIDTH | DM_PELSHEIGHT) while rejecting detaching the primary display with DISP_CHANGE_BADPARAM.",
+        ],
+        "macos_backend_strategy": "Use Apple CoreGraphics (CGMainDisplayID, CGGetActiveDisplayList, CGDisplayBounds, CGDisplayUnitNumber) with per-display mode descriptors and gamma tables.",
+        "clean_room_attestation": {
+            "sources": [
+                "Microsoft Learn ChangeDisplaySettingsExW / EnumDisplaySettingsExW / EnumDisplayDevicesW documentation",
+                "Public Wine dlls/winemac.drv/display.c and dlls/user32/tests/monitor.c declarations",
+                "Black-box Windows 11 differential conformance test observations",
+            ],
+            "no_leaked_source_exposure": True,
+            "no_proprietary_decompilation": True,
+        },
+    },
+    "winemac.drv:macdrv_SetLayeredWindowAttributes": {
+        "dll": "winemac.drv",
+        "api_name": "macdrv_SetLayeredWindowAttributes",
+        "header": "macdrv.h",
+        "ms_learn_url": "https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-setlayeredwindowattributes",
+        "signature": (
+            "void WINAPI macdrv_SetLayeredWindowAttributes("
+            "HWND hwnd, COLORREF key, BYTE alpha, DWORD flags)"
+        ),
+        "return_codes": {
+            "TRUE": "1",
+            "FALSE": "0",
+        },
+        "empirical_windows_behavior": [
+            "Sets layered window transparency attributes (LWA_COLORKEY = 0x1, LWA_ALPHA = 0x2) on both same-process windows (get_win_data(hwnd) != NULL) and cross-process windows (get_win_data(hwnd) == NULL) via shared window state and WM_MACDRV_SET_LAYERED_ATTRIBUTES.",
+            "Synchronizes Cocoa window opacity (alpha / 255.0 when LWA_ALPHA is set, else 1.0) and shows the window if WS_VISIBLE is set and it was awaiting initial layered attributes.",
+            "Paired with macdrv_surface_create in opengl.c to allow SetPixelFormat / wglCreateContext / wglMakeCurrent / SwapBuffers on DCs of windows owned by another process backed by IOSurface.",
+        ],
+        "macos_backend_strategy": "Cross-process shared window table + WM_MACDRV_SET_LAYERED_ATTRIBUTES driver message dispatch and IOSurface-backed cross-process OpenGL drawables.",
+        "clean_room_attestation": {
+            "sources": [
+                "Microsoft Learn SetLayeredWindowAttributes / GetLayeredWindowAttributes / UpdateLayeredWindow documentation",
+                "Public Wine dlls/winemac.drv/window.c and dlls/winemac.drv/opengl.c declarations",
+                "Black-box Windows 11 differential conformance test observations",
+            ],
+            "no_leaked_source_exposure": True,
+            "no_proprietary_decompilation": True,
+        },
+    },
 }
 
 

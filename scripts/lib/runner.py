@@ -62,7 +62,17 @@ def surgical_build(
     # 1. Build single shared library / Wine override module for target DLL
     shared_ext = ".dylib" if sys.platform == "darwin" else ".so"
     darwin_frameworks = (
-        ["-framework", "Security", "-framework", "CoreFoundation", "-pthread"]
+        [
+            "-framework",
+            "Security",
+            "-framework",
+            "CoreFoundation",
+            "-framework",
+            "IOSurface",
+            "-framework",
+            "CoreGraphics",
+            "-pthread",
+        ]
         if sys.platform == "darwin"
         else ["-pthread"]
     )

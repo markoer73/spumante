@@ -19,6 +19,7 @@ MACOS_FRAMEWORK_MAP: dict[str, str] = {
     "kernelbase": "Darwin libSystem / CoreFoundation / Mach",
     "ntdll": "Darwin XNU / Mach / libSystem",
     "mfplat": "VideoToolbox / CoreMedia / AVFoundation",
+    "winemac.drv": "IOSurface / Metal / CoreGraphics / QuartzCore / AppKit",
 }
 
 SPEC_STUB_RE = re.compile(r"^\s*(?:@|\d+)\s+stub(?:-[a-z0-9]+)?\s+([A-Za-z0-9_]+)", re.MULTILINE)
@@ -108,7 +109,7 @@ def discover_stubs(
     """Run the 3-layer stub scanner across target DLL directories."""
     dlls_root = REPO_ROOT / "dlls"
     relay_counts = parse_relay_log(relay_log)
-    target_names = [dll_filter] if dll_filter else ["bcrypt", "kernelbase", "mfplat", "ntdll"]
+    target_names = [dll_filter] if dll_filter else ["bcrypt", "kernelbase", "mfplat", "ntdll", "winemac.drv"]
 
     all_stubs: list[dict[str, Any]] = []
     for name in target_names:

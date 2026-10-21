@@ -76,6 +76,23 @@
         "test_apple_silicon_parity",
         "test_ntsync_macos_parity"
       ]
+    },
+    "winemac.drv": {
+      "upstream_path": "dlls/winemac.drv",
+      "upstream_tests_path": "dlls/user32/tests",
+      "base_upstream_commit": "wine-10.0-base",
+      "merge_strategy": "3-way-backport-preserving-macos-blocks",
+      "macos_acceleration": "IOSurface / Metal (CAMetalLayer) / CoreGraphics / QuartzCore / AppKit",
+      "tracked_files": [
+        "dlls/winemac.drv/macdrv.h",
+        "dlls/winemac.drv/winemac.drv.spec",
+        "dlls/winemac.drv/window.c",
+        "dlls/winemac.drv/display.c",
+        "dlls/winemac.drv/opengl.c"
+      ],
+      "required_conformance_tests": [
+        "test_winemac_parity"
+      ]
     }
   }
 }

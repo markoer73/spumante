@@ -1,0 +1,29 @@
+{
+  "dll": "winemac.drv",
+  "api_name": "macdrv_ChangeDisplaySettings",
+  "header": "macdrv.h",
+  "ms_learn_url": "https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-changedisplaysettingsexw",
+  "signature": "LONG WINAPI macdrv_ChangeDisplaySettings(LPDEVMODEW displays, LPCWSTR primary_name, HWND hwnd, DWORD flags, LPVOID lpvoid)",
+  "return_codes": {
+    "DISP_CHANGE_SUCCESSFUL": "0",
+    "DISP_CHANGE_FAILED": "-1",
+    "DISP_CHANGE_BADMODE": "-2",
+    "DISP_CHANGE_BADFLAGS": "-4",
+    "DISP_CHANGE_BADPARAM": "-5"
+  },
+  "empirical_windows_behavior": [
+    "Resolves each DEVMODEW entry's dmDeviceName (e.g. \\\\.\\DISPLAY1 primary, \\\\.\\DISPLAY2 and \\\\.\\DISPLAY3 non-primary adapters) to its corresponding CGDirectDisplayID rather than ignoring non-primary displays.",
+    "Validates hwnd == NULL (else DISP_CHANGE_BADPARAM), valid CDS_* flags (else DISP_CHANGE_BADFLAGS), and mode dimensions/frequency/orientation against the target adapter's mode list (else DISP_CHANGE_BADMODE).",
+    "Supports CDS_TEST (validating mode without applying), CDS_UPDATEREGISTRY | CDS_NORESET (staging registry mode without immediate mode switch), and detaching non-primary adapters (dmPelsWidth == 0 && dmPelsHeight == 0 with DM_POSITION | DM_PELSWIDTH | DM_PELSHEIGHT) while rejecting detaching the primary display with DISP_CHANGE_BADPARAM."
+  ],
+  "macos_backend_strategy": "Use Apple CoreGraphics (CGMainDisplayID, CGGetActiveDisplayList, CGDisplayBounds, CGDisplayUnitNumber) with per-display mode descriptors and gamma tables.",
+  "clean_room_attestation": {
+    "sources": [
+      "Microsoft Learn ChangeDisplaySettingsExW / EnumDisplaySettingsExW / EnumDisplayDevicesW documentation",
+      "Public Wine dlls/winemac.drv/display.c and dlls/user32/tests/monitor.c declarations",
+      "Black-box Windows 11 differential conformance test observations"
+    ],
+    "no_leaked_source_exposure": true,
+    "no_proprietary_decompilation": true
+  }
+}

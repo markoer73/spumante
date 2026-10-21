@@ -154,7 +154,17 @@ def gate_asan_ubsan_memory_safety(dll: str, test_name: str) -> dict[str, Any]:
     with tempfile.TemporaryDirectory(prefix="wine_asan_", dir="/tmp") as tmp_dir:
         asan_bin = Path(tmp_dir) / f"{test_name}_asan.bin"
         darwin_frameworks = (
-            ["-framework", "Security", "-framework", "CoreFoundation", "-pthread"]
+            [
+                "-framework",
+                "Security",
+                "-framework",
+                "CoreFoundation",
+                "-framework",
+                "IOSurface",
+                "-framework",
+                "CoreGraphics",
+                "-pthread",
+            ]
             if sys.platform == "darwin"
             else ["-pthread"]
         )
