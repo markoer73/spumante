@@ -466,6 +466,7 @@ def execute_full_wine_build(
         )
         if status_res.stdout.strip():
             subprocess.run(["git", "-C", str(sparse_dir), "checkout", "-f", "--", "dlls"], cwd=REPO_ROOT, check=True)
+            subprocess.run(["git", "-C", str(sparse_dir), "clean", "-fd", "--", "dlls"], cwd=REPO_ROOT, check=True)
 
     # Only run ./configure if not yet configured for this target architecture
     if not config_matches:
