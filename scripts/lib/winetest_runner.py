@@ -19,7 +19,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from scripts.lib.runner import select_compilers
+from scripts.lib.runner import is_artifact_up_to_date, select_compilers
 from scripts.lib.wine_borrow import load_manifest
 
 TEST_FUNC_RE = re.compile(r"^static\s+void\s+(test_[A-Za-z0-9_]+)\s*\(", re.MULTILINE)
@@ -81,9 +81,14 @@ def build_winetest(dll: str, arch: str = "x86_64") -> dict[str, Any]:
     build_dir = REPO_ROOT / "builds" / arch / dll
     build_dir.mkdir(parents=True, exist_ok=True)
     c_sources = sorted(str(p) for p in dll_dir.glob("*.c"))
+    dep_paths: list[Path] = [winetest_c, *dll_dir.glob("*.c"), *dll_dir.glob("*.h")]
     if dll == "kernelbase":
         ntdll_dir = REPO_ROOT / "dlls" / "ntdll"
         c_sources.extend(sorted(str(p) for p in ntdll_dir.glob("*.c")))
+        dep_paths.extend(list(ntdll_dir.glob("*.c")) + list(ntdll_dir.glob("*.h")))
+    include_dir = REPO_ROOT / "tests" / "include"
+    if include_dir.is_dir():
+        dep_paths.extend(include_dir.rglob("*.h"))
     darwin_frameworks = (
         [
             "-framework",
@@ -104,59 +109,62 @@ def build_winetest(dll: str, arch: str = "x86_64") -> dict[str, Any]:
 
     # 1. Standard optimized host binary
     winetest_bin = build_dir / f"winetest_{dll}.bin"
-    cmd_bin = [
-        host_cc,
-        "-std=c11",
-        "-Wall",
-        "-Wextra",
-        "-Werror",
-        "-O2",
-        str(winetest_c),
-        *c_sources,
-        *darwin_frameworks,
-        "-o",
-        str(winetest_bin),
-    ]
-    subprocess.run(cmd_bin, cwd=REPO_ROOT, check=True)
+    if not is_artifact_up_to_date(winetest_bin, dep_paths):
+        cmd_bin = [
+            host_cc,
+            "-std=c11",
+            "-Wall",
+            "-Wextra",
+            "-Werror",
+            "-O2",
+            str(winetest_c),
+            *c_sources,
+            *darwin_frameworks,
+            "-o",
+            str(winetest_bin),
+        ]
+        subprocess.run(cmd_bin, cwd=REPO_ROOT, check=True)
     built_artifacts.append(str(winetest_bin.relative_to(REPO_ROOT)))
 
     # 2. ASan + UBSan instrumented binary for memory-safe winetest verification
     winetest_asan = build_dir / f"winetest_{dll}_asan.bin"
-    cmd_asan = [
-        host_cc,
-        "-std=c11",
-        "-Wall",
-        "-Wextra",
-        "-Werror",
-        "-O1",
-        "-g",
-        "-fno-omit-frame-pointer",
-        "-fsanitize=address,undefined",
-        str(winetest_c),
-        *c_sources,
-        *darwin_frameworks,
-        "-o",
-        str(winetest_asan),
-    ]
-    subprocess.run(cmd_asan, cwd=REPO_ROOT, check=True)
+    if not is_artifact_up_to_date(winetest_asan, dep_paths):
+        cmd_asan = [
+            host_cc,
+            "-std=c11",
+            "-Wall",
+            "-Wextra",
+            "-Werror",
+            "-O1",
+            "-g",
+            "-fno-omit-frame-pointer",
+            "-fsanitize=address,undefined",
+            str(winetest_c),
+            *c_sources,
+            *darwin_frameworks,
+            "-o",
+            str(winetest_asan),
+        ]
+        subprocess.run(cmd_asan, cwd=REPO_ROOT, check=True)
     built_artifacts.append(str(winetest_asan.relative_to(REPO_ROOT)))
 
     # 3. Optional MinGW-w64 cross-compiled PE executable (.exe)
     mingw_cc = compilers["mingw_cc"]
     if mingw_cc:
         winetest_exe = build_dir / f"winetest_{dll}.exe"
-        cmd_pe = [
-            mingw_cc,
-            "-std=c11",
-            "-Wall",
-            "-Wextra",
-            "-O2",
-            str(winetest_c),
-            *c_sources,
-            "-o",
-            str(winetest_exe),
-        ]
-        subprocess.run(cmd_pe, cwd=REPO_ROOT, check=True)
+        if not is_artifact_up_to_date(winetest_exe, dep_paths):
+            cmd_pe = [
+                mingw_cc,
+                "-std=c11",
+                "-Wall",
+                "-Wextra",
+                "-O2",
+                str(winetest_c),
+                *c_sources,
+                "-o",
+                str(winetest_exe),
+            ]
+            subprocess.run(cmd_pe, cwd=REPO_ROOT, check=True)
         built_artifacts.append(str(winetest_exe.relative_to(REPO_ROOT)))
 
     return {

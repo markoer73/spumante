@@ -13,6 +13,11 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
+import platform
+import shutil
+import stat
+import subprocess
 import sys
 from pathlib import Path
 from typing import Any
@@ -143,18 +148,373 @@ def borrow_or_backport_dll(
     return plan
 
 
+def can_use_rosetta_x86_host() -> bool:
+    """Return True only if Rosetta 2 is active AND x86_64 Homebrew tools exist in /usr/local."""
+    if sys.platform != "darwin" or platform.machine() != "arm64":
+        return False
+    if not Path("/usr/local/bin/brew").is_file():
+        return False
+    try:
+        res = subprocess.run(["arch", "-x86_64", "/usr/bin/true"], capture_output=True, check=False)
+        return res.returncode == 0
+    except OSError:
+        return False
+
+
+def build_full_wine_plan(target: str, dry_run: bool = False) -> dict[str, Any]:
+    """Construct the build plan for a full upstream Wine + wine-parity installation."""
+    manifest = load_manifest()
+    cache_dir = manifest.get("local_sparse_cache", ".wine-upstream")
+    remote = manifest["upstream_remote"]
+    borrowed_dlls = sorted(manifest.get("borrowed_dlls", {}).keys())
+
+    if target == "x86":
+        arch = "x86_64"
+        target_mode = "full-x86"
+        enable_archs = "--enable-archs=i386,x86_64"
+        install_dir = REPO_ROOT / "builds" / "wine-install-x86"
+        build_dir = REPO_ROOT / "builds" / "wine-full-x86"
+        rosetta_prefix = ["arch", "-x86_64"] if can_use_rosetta_x86_host() else []
+    else:
+        arch = "arm64"
+        target_mode = "full-arm64"
+        enable_archs = "--enable-archs=arm64ec,i386"
+        install_dir = REPO_ROOT / "builds" / "wine-install-arm64"
+        build_dir = REPO_ROOT / "builds" / "wine-full-arm64"
+        rosetta_prefix = []
+
+    upstream_prepare_commands = [
+        f"git clone --filter=blob:none --no-checkout --sparse {remote} {cache_dir}",
+        f"git -C {cache_dir} remote set-url --push origin {READ_ONLY_PUSH_GUARD}",
+        f"git -C {cache_dir} sparse-checkout disable",
+        f"git -C {cache_dir} checkout -f master",
+    ]
+
+    configure_cmd = [
+        *rosetta_prefix,
+        str(REPO_ROOT / cache_dir / "configure"),
+        f"--prefix={install_dir}",
+        enable_archs,
+        "--without-x",
+        "--without-wayland",
+        "CC=clang",
+        "CXX=clang++",
+    ]
+
+    ncpu = os.cpu_count() or 4
+    make_cmd = [*rosetta_prefix, "make", f"-j{ncpu}"]
+    make_install_cmd = [*rosetta_prefix, "make", "install"]
+
+    return {
+        "target_mode": target_mode,
+        "arch": arch,
+        "implies_all_parity_builds": True,
+        "upstream_remote": remote,
+        "upstream_access_mode": manifest["upstream_access_mode"],
+        "upstream_push_guard": READ_ONLY_PUSH_GUARD,
+        "local_sparse_cache": cache_dir,
+        "parity_dlls": borrowed_dlls,
+        "build_dir": str(build_dir),
+        "install_dir": str(install_dir),
+        "launcher_path": str(install_dir / "bin" / "wine-parity"),
+        "upstream_prepare_commands": upstream_prepare_commands,
+        "configure_command": configure_cmd,
+        "make_command": make_cmd,
+        "make_install_command": make_install_cmd,
+        "dry_run": dry_run,
+    }
+
+
+def write_wine_parity_launcher(plan: dict[str, Any]) -> Path:
+    """Create the executable wine-parity launcher in builds/wine-install-<target>/bin/."""
+    install_dir = Path(plan["install_dir"])
+    bin_dir = install_dir / "bin"
+    bin_dir.mkdir(parents=True, exist_ok=True)
+    arch = plan["arch"]
+    dlls = plan["parity_dlls"]
+    dll_paths = ":".join(str(REPO_ROOT / "builds" / arch / d) for d in dlls)
+    dll_overrides = ",".join(dlls) + "=b"
+    is_x86 = plan["target_mode"] == "full-x86"
+
+    launcher = bin_dir / "wine-parity"
+    rosetta_exec = (
+        'ARCH_PREFIX=""\nif [ "$(uname -s)" = "Darwin" ] && [ "$(uname -m)" = "arm64" ] && arch -x86_64 /usr/bin/true >/dev/null 2>&1; then ARCH_PREFIX="arch -x86_64"; fi'
+        if is_x86
+        else 'ARCH_PREFIX=""'
+    )
+    script = f"""#!/usr/bin/env bash
+# SPDX-License-Identifier: LGPL-2.1-or-later
+# Auto-generated wine-parity launcher ({plan["target_mode"]}, arch={arch})
+set -euo pipefail
+
+export WINEDLLPATH="{dll_paths}${{WINEDLLPATH:+:$WINEDLLPATH}}"
+export WINEDLLOVERRIDES="{dll_overrides}${{WINEDLLOVERRIDES:+;$WINEDLLOVERRIDES}}"
+{rosetta_exec}
+
+if [ -x "{bin_dir}/wine64" ]; then
+    exec $ARCH_PREFIX "{bin_dir}/wine64" "$@"
+elif [ -x "{bin_dir}/wine" ]; then
+    exec $ARCH_PREFIX "{bin_dir}/wine" "$@"
+elif command -v wine64 >/dev/null 2>&1; then
+    exec $ARCH_PREFIX "$(command -v wine64)" "$@"
+elif command -v wine >/dev/null 2>&1; then
+    exec $ARCH_PREFIX "$(command -v wine)" "$@"
+else
+    echo "[wine-parity] Pre-configured WINEDLLPATH=$WINEDLLPATH WINEDLLOVERRIDES=$WINEDLLOVERRIDES" >&2
+    echo "[wine-parity] Run './scripts/build.sh --{plan["target_mode"]}' with Homebrew dependencies installed to complete monolithic wine64 binary compilation." >&2
+    exit 1
+fi
+"""
+    launcher.write_text(script, encoding="utf-8")
+    launcher.chmod(launcher.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+    return launcher
+
+
+def compute_parity_dll_hashes(dlls: list[str]) -> dict[str, dict[str, str]]:
+    """Compute SHA-256 digests of all files in dlls/<dll>/ for incremental build tracking."""
+    result: dict[str, dict[str, str]] = {}
+    for dll_name in sorted(dlls):
+        dll_dir = REPO_ROOT / "dlls" / dll_name
+        file_map: dict[str, str] = {}
+        if dll_dir.is_dir():
+            for item in sorted(dll_dir.iterdir()):
+                if item.is_file():
+                    file_map[item.name] = sha256_file(item)
+        result[dll_name] = file_map
+    return result
+
+
+def write_monolithic_build_stamp(
+    build_dir: Path,
+    target_mode: str,
+    enable_archs: str,
+    upstream_head: str,
+    dll_hashes: dict[str, dict[str, str]],
+) -> Path:
+    """Persist the build stamp so subsequent builds skip redundant configure/make steps."""
+    build_dir.mkdir(parents=True, exist_ok=True)
+    stamp_path = build_dir / ".wine-parity-stamp.json"
+    stamp_data = {
+        "target_mode": target_mode,
+        "enable_archs": enable_archs,
+        "upstream_head": upstream_head,
+        "dll_hashes": dll_hashes,
+    }
+    stamp_path.write_text(json.dumps(stamp_data, indent=2) + "\n", encoding="utf-8")
+    return stamp_path
+
+
+def load_monolithic_build_stamp(build_dir: Path) -> dict[str, Any] | None:
+    """Load the previous monolithic build stamp if present."""
+    stamp_path = build_dir / ".wine-parity-stamp.json"
+    if not stamp_path.is_file():
+        return None
+    try:
+        return json.loads(stamp_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+
+
+def sync_parity_overlay_incremental(sparse_dir: Path, dlls: list[str]) -> list[str]:
+    """Copy only modified files from dlls/<dll>/ into .wine-upstream/dlls/<dll>/, preserving mtimes."""
+    changed_dlls: list[str] = []
+    for dll_name in dlls:
+        src_dll = REPO_ROOT / "dlls" / dll_name
+        dst_dll = sparse_dir / "dlls" / dll_name
+        dll_changed = False
+        if src_dll.is_dir():
+            dst_dll.mkdir(parents=True, exist_ok=True)
+            for item in sorted(src_dll.iterdir()):
+                if item.is_file():
+                    dst_item = dst_dll / item.name
+                    if not dst_item.is_file() or sha256_file(item) != sha256_file(dst_item):
+                        shutil.copy2(item, dst_item)
+                        dll_changed = True
+        if dll_changed:
+            changed_dlls.append(dll_name)
+    return changed_dlls
+
+
+def execute_full_wine_build(
+    target: str,
+    dry_run: bool = False,
+    skip_monolithic_compile: bool = False,
+    build_dir_override: Path | None = None,
+    install_dir_override: Path | None = None,
+    upstream_head_override: str | None = None,
+) -> dict[str, Any]:
+    """Execute or preview a complete upstream Wine + wine-parity build with incremental caching."""
+    plan = build_full_wine_plan(target=target, dry_run=dry_run)
+    if build_dir_override is not None:
+        plan["build_dir"] = str(build_dir_override)
+    if install_dir_override is not None:
+        plan["install_dir"] = str(install_dir_override)
+        plan["launcher_path"] = str(install_dir_override / "bin" / "wine-parity")
+
+    if dry_run:
+        return plan
+
+    launcher = write_wine_parity_launcher(plan)
+    plan["launcher_created"] = str(launcher)
+
+    if skip_monolithic_compile:
+        plan["status"] = "parity_all_and_launcher_ready"
+        return plan
+
+    build_dir = Path(plan["build_dir"])
+    install_dir = Path(plan["install_dir"])
+    enable_archs = "--enable-archs=i386,x86_64" if plan["target_mode"] == "full-x86" else "--enable-archs=arm64ec,i386"
+    current_dll_hashes = compute_parity_dll_hashes(plan["parity_dlls"])
+    prev_stamp = load_monolithic_build_stamp(build_dir)
+
+    sparse_dir = REPO_ROOT / plan["local_sparse_cache"]
+    if upstream_head_override is not None:
+        upstream_head = upstream_head_override
+    else:
+        if not (sparse_dir / ".git").exists():
+            subprocess.run(
+                [
+                    "git",
+                    "clone",
+                    "--filter=blob:none",
+                    "--no-checkout",
+                    "--sparse",
+                    plan["upstream_remote"],
+                    str(sparse_dir),
+                ],
+                cwd=REPO_ROOT,
+                check=True,
+            )
+        subprocess.run(
+            ["git", "-C", str(sparse_dir), "remote", "set-url", "--push", "origin", READ_ONLY_PUSH_GUARD],
+            cwd=REPO_ROOT,
+            check=True,
+        )
+        # Only unsparse and checkout if the full upstream tree is not yet materialized on disk;
+        # never run `git checkout -f` on an already unsparsed tree to preserve object file mtimes.
+        if not (sparse_dir / "configure").is_file() or not (sparse_dir / "server").is_dir():
+            subprocess.run(["git", "-C", str(sparse_dir), "sparse-checkout", "disable"], cwd=REPO_ROOT, check=True)
+            subprocess.run(["git", "-C", str(sparse_dir), "checkout", "-f", "master"], cwd=REPO_ROOT, check=True)
+
+        head_res = subprocess.run(
+            ["git", "-C", str(sparse_dir), "rev-parse", "--short=10", "HEAD"],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        upstream_head = head_res.stdout.strip()
+
+    # Check if already configured and installed
+    makefile_exists = (build_dir / "Makefile").is_file()
+    config_status = build_dir / "config.status"
+    config_matches = (
+        makefile_exists
+        and config_status.is_file()
+        and enable_archs in config_status.read_text(encoding="utf-8", errors="replace")
+    )
+    installed_binary_exists = (install_dir / "bin" / "wine64").is_file() or (install_dir / "bin" / "wine").is_file()
+
+    # Determine which DLLs changed compared to the last successful build stamp
+    changed_dlls: list[str] = []
+    if prev_stamp is not None and prev_stamp.get("dll_hashes"):
+        prev_hashes = prev_stamp["dll_hashes"]
+        for dll_name, cur_files in current_dll_hashes.items():
+            if prev_hashes.get(dll_name) != cur_files:
+                changed_dlls.append(dll_name)
+    else:
+        changed_dlls = list(plan["parity_dlls"])
+
+    # Fast path: already configured, installed binary exists, upstream HEAD & all parity DLL hashes match
+    if (
+        config_matches
+        and installed_binary_exists
+        and prev_stamp is not None
+        and prev_stamp.get("upstream_head") == upstream_head
+        and prev_stamp.get("enable_archs") == enable_archs
+        and not changed_dlls
+    ):
+        plan["configure_executed"] = False
+        plan["make_executed"] = False
+        plan["changed_dlls"] = []
+        plan["status"] = "up_to_date_skipped_rebuild"
+        return plan
+
+    build_dir.mkdir(parents=True, exist_ok=True)
+    env = os.environ.copy()
+    extra_bins: list[str] = []
+    for brew_root in ("/opt/homebrew", "/usr/local"):
+        for pkg in ("bison", "flex"):
+            pkg_bin = Path(brew_root) / "opt" / pkg / "bin"
+            if pkg_bin.is_dir():
+                extra_bins.append(str(pkg_bin))
+        root_bin = Path(brew_root) / "bin"
+        if root_bin.is_dir():
+            extra_bins.append(str(root_bin))
+    if extra_bins:
+        env["PATH"] = ":".join(extra_bins) + f":{env.get('PATH', '')}"
+
+    # Ensure .wine-upstream/dlls stays clean so tools/makedep uses upstream Makefile.in headers;
+    # wine-parity DLL overrides are loaded via WINEDLLPATH/WINEDLLOVERRIDES in bin/wine-parity.
+    if (sparse_dir / ".git").exists():
+        status_res = subprocess.run(
+            ["git", "-C", str(sparse_dir), "status", "--porcelain", "--", "dlls"],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if status_res.stdout.strip():
+            subprocess.run(["git", "-C", str(sparse_dir), "checkout", "-f", "--", "dlls"], cwd=REPO_ROOT, check=True)
+
+    # Only run ./configure if not yet configured for this target architecture
+    if not config_matches:
+        subprocess.run(plan["configure_command"], cwd=build_dir, env=env, check=True)
+        plan["configure_executed"] = True
+    else:
+        plan["configure_executed"] = False
+
+    # Build and install upstream Wine incrementally (GNU Make tracks .o/.dll mtimes automatically)
+    subprocess.run(plan["make_command"], cwd=build_dir, env=env, check=True)
+    subprocess.run(plan["make_install_command"], cwd=build_dir, env=env, check=True)
+    plan["make_executed"] = True
+
+    write_monolithic_build_stamp(
+        build_dir=build_dir,
+        target_mode=plan["target_mode"],
+        enable_archs=enable_archs,
+        upstream_head=upstream_head,
+        dll_hashes=current_dll_hashes,
+    )
+    write_wine_parity_launcher(plan)
+    plan["changed_dlls"] = changed_dlls
+    plan["status"] = "full_monolithic_and_parity_installed"
+    return plan
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Wine-Borrow Sparse-Overlay & 3-Way Backport Engine")
-    parser.add_argument("--action", choices=["check", "borrow"], required=True)
-    parser.add_argument("--dll", required=True, help="Target Wine DLL (e.g. bcrypt)")
+    parser.add_argument("--action", choices=["check", "borrow", "full-build"], required=True)
+    parser.add_argument("--dll", default="", help="Target Wine DLL (e.g. bcrypt)")
+    parser.add_argument("--target", choices=["x86", "arm64"], default="x86", help="Full Wine build target")
     parser.add_argument("--upstream-ref", default=None, help="Optional upstream commit SHA or tag")
     parser.add_argument("--dry-run", action="store_true", help="Preview sparse-checkout & merge commands")
+    parser.add_argument("--skip-monolithic-compile", action="store_true", help="Prepare parity DLLs and launcher without running 30-min upstream make")
     args = parser.parse_args(argv)
 
     if args.action == "check":
         report = check_upstream_alignment(args.dll)
         print(json.dumps(report, indent=2))
         return 0 if report["manifest_verified"] else 1
+
+    if args.action == "full-build":
+        report = execute_full_wine_build(
+            target=args.target,
+            dry_run=args.dry_run,
+            skip_monolithic_compile=args.skip_monolithic_compile,
+        )
+        print(json.dumps(report, indent=2))
+        return 0
 
     result = borrow_or_backport_dll(
         dll=args.dll,

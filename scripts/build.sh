@@ -15,11 +15,15 @@ BORROW_DLL=""
 UPSTREAM_REF=""
 DRY_RUN=0
 BUILD_WINETEST=0
+FULL_WINE_TARGET=""
+SKIP_MONOLITHIC_COMPILE=0
 
 usage() {
     cat <<EOF
 Usage: ./scripts/build.sh --dll <dll_name> [--test <test_name>] [--winetest] [--arch x86_64|arm64] [--export-patch] [--all]
        ./scripts/build.sh --borrow <dll_name> [--upstream-ref <sha_or_tag>] [--dry-run]
+       ./scripts/build.sh --full-x86|--x86 [--dry-run] [--skip-monolithic-compile]
+       ./scripts/build.sh --full-arm64|--arm64 [--dry-run] [--skip-monolithic-compile]
 
 Surgical single-target build & upstream Wine borrow script (macOS First, Linux Second).
 Examples:
@@ -28,6 +32,8 @@ Examples:
   ./scripts/build.sh --dll bcrypt --arch arm64
   ./scripts/build.sh --borrow bcrypt --dry-run
   ./scripts/build.sh --dll bcrypt --export-patch
+  ./scripts/build.sh --full-x86
+  ./scripts/build.sh --full-arm64
 EOF
 }
 
@@ -69,6 +75,22 @@ while [[ $# -gt 0 ]]; do
             BUILD_ALL=1
             shift
             ;;
+        --full-x86|--x86|--full-x86_64)
+            FULL_WINE_TARGET="x86"
+            ARCH="x86_64"
+            BUILD_ALL=1
+            shift
+            ;;
+        --full-arm64|--arm64)
+            FULL_WINE_TARGET="arm64"
+            ARCH="arm64"
+            BUILD_ALL=1
+            shift
+            ;;
+        --skip-monolithic-compile)
+            SKIP_MONOLITHIC_COMPILE=1
+            shift
+            ;;
         -h|--help)
             usage
             exit 0
@@ -93,6 +115,11 @@ if [[ -n "$BORROW_DLL" ]]; then
     exit 0
 fi
 
+if [[ -n "$FULL_WINE_TARGET" && "$DRY_RUN" -eq 1 ]]; then
+    python3 "$REPO_ROOT/scripts/lib/wine_borrow.py" --action full-build --target "$FULL_WINE_TARGET" --dry-run
+    exit 0
+fi
+
 if [[ -z "$DLL" && "$BUILD_ALL" -eq 0 ]]; then
     echo "[SURGICAL BUILD GUARD] Refusing unscoped build! Specify --dll <name> [--test <test_name>] or --borrow <name> to avoid rebuilding 1000+ targets, or pass --all explicitly." >&2
     usage >&2
@@ -114,6 +141,13 @@ if [[ "$BUILD_ALL" -eq 1 && -z "$DLL" ]]; then
     python3 "$REPO_ROOT/scripts/lib/winetest_runner.py" --mode build --dll kernelbase --arch "$ARCH"
     python3 "$REPO_ROOT/scripts/lib/runner.py" --mode build --dll winemac.drv --test test_winemac_parity --arch "$ARCH"
     python3 "$REPO_ROOT/scripts/lib/winetest_runner.py" --mode build --dll winemac.drv --arch "$ARCH"
+    if [[ -n "$FULL_WINE_TARGET" ]]; then
+        FULL_ARGS=(--action full-build --target "$FULL_WINE_TARGET")
+        if [[ "$SKIP_MONOLITHIC_COMPILE" -eq 1 ]]; then
+            FULL_ARGS+=(--skip-monolithic-compile)
+        fi
+        python3 "$REPO_ROOT/scripts/lib/wine_borrow.py" "${FULL_ARGS[@]}"
+    fi
     exit 0
 fi
 

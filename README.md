@@ -101,6 +101,14 @@ All host/VM orchestration, compilation, differential testing, stub discovery, an
 
 # 7. Run WineHQ C99/C11, Markdown & KaTeX badge, and script boundary linter
 ./scripts/test.sh --lint
+
+# 8. Complete Turnkey Build (All wine-parity DLLs/tests + Upstream Wine Installation)
+#    --full-x86 / --x86      : Builds --all (x86_64) + upstream Wine (--enable-archs=i386,x86_64)
+#                              to run 32-bit & 64-bit x86 Windows binaries on macOS (Rosetta 2 / Intel)
+#    --full-arm64 / --arm64  : Builds --all (arm64) + upstream Wine (--enable-archs=arm64ec,i386)
+#                              for native Apple Silicon ARM64 & ARM64EC execution
+./scripts/build.sh --full-x86
+./scripts/build.sh --full-arm64
 ```
 
 ---

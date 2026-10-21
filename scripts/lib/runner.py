@@ -34,6 +34,17 @@ def select_compilers(arch: str) -> dict[str, str | None]:
     return {"mingw_cc": mingw_cc, "host_cc": host_cc}
 
 
+def is_artifact_up_to_date(target: Path, inputs: list[Path]) -> bool:
+    """Return True if target exists and its mtime is newer than or equal to all input files."""
+    if os.environ.get("WINE_PARITY_FORCE_REBUILD") == "1" or not target.is_file():
+        return False
+    target_mtime = target.stat().st_mtime
+    for inp in inputs:
+        if inp.is_file() and inp.stat().st_mtime > target_mtime:
+            return False
+    return True
+
+
 def surgical_build(
     dll: str,
     test_name: str | None = None,
@@ -54,9 +65,14 @@ def surgical_build(
     build_dir.mkdir(parents=True, exist_ok=True)
 
     c_sources = sorted(str(p) for p in dll_dir.glob("*.c"))
+    dep_paths: list[Path] = list(dll_dir.glob("*.c")) + list(dll_dir.glob("*.h"))
     if dll == "kernelbase":
         ntdll_dir = REPO_ROOT / "dlls" / "ntdll"
         c_sources.extend(sorted(str(p) for p in ntdll_dir.glob("*.c")))
+        dep_paths.extend(list(ntdll_dir.glob("*.c")) + list(ntdll_dir.glob("*.h")))
+    include_dir = REPO_ROOT / "tests" / "include"
+    if include_dir.is_dir():
+        dep_paths.extend(include_dir.rglob("*.h"))
     built_artifacts: list[str] = []
 
     # 1. Build single shared library / Wine override module for target DLL
@@ -78,21 +94,22 @@ def surgical_build(
     )
     dll_out = build_dir / f"{dll}{shared_ext}"
     if c_sources:
-        cmd_dll = [
-            host_cc,
-            "-std=c11",
-            "-Wall",
-            "-Wextra",
-            "-Werror",
-            "-O2",
-            "-fPIC",
-            "-shared",
-            *c_sources,
-            *darwin_frameworks,
-            "-o",
-            str(dll_out),
-        ]
-        subprocess.run(cmd_dll, check=True)
+        if not is_artifact_up_to_date(dll_out, dep_paths):
+            cmd_dll = [
+                host_cc,
+                "-std=c11",
+                "-Wall",
+                "-Wextra",
+                "-Werror",
+                "-O2",
+                "-fPIC",
+                "-shared",
+                *c_sources,
+                *darwin_frameworks,
+                "-o",
+                str(dll_out),
+            ]
+            subprocess.run(cmd_dll, check=True)
         built_artifacts.append(str(dll_out.relative_to(REPO_ROOT)))
 
     # 2. Surgically compile ONLY the requested single conformance test binary
@@ -100,41 +117,44 @@ def surgical_build(
         test_c = REPO_ROOT / "tests" / "conformance" / dll / f"{test_name}.c"
         if not test_c.is_file():
             raise FileNotFoundError(f"Conformance test source not found: {test_c}")
+        test_deps = [*dep_paths, test_c]
 
         # Host-linked conformance runner for fast deterministic macOS/Linux Wine execution
         test_bin = build_dir / f"{test_name}.bin"
-        cmd_test = [
-            host_cc,
-            "-std=c11",
-            "-Wall",
-            "-Wextra",
-            "-Werror",
-            "-O2",
-            str(test_c),
-            *c_sources,
-            *darwin_frameworks,
-            "-o",
-            str(test_bin),
-        ]
-        subprocess.run(cmd_test, check=True)
+        if not is_artifact_up_to_date(test_bin, test_deps):
+            cmd_test = [
+                host_cc,
+                "-std=c11",
+                "-Wall",
+                "-Wextra",
+                "-Werror",
+                "-O2",
+                str(test_c),
+                *c_sources,
+                *darwin_frameworks,
+                "-o",
+                str(test_bin),
+            ]
+            subprocess.run(cmd_test, check=True)
         built_artifacts.append(str(test_bin.relative_to(REPO_ROOT)))
 
         # Optional MinGW-w64 PE executable (.exe) when cross-compiler is present
         mingw_cc = compilers["mingw_cc"]
         if mingw_cc:
             pe_out = build_dir / f"{test_name}.exe"
-            cmd_pe = [
-                mingw_cc,
-                "-std=c11",
-                "-Wall",
-                "-Wextra",
-                "-O2",
-                str(test_c),
-                *c_sources,
-                "-o",
-                str(pe_out),
-            ]
-            subprocess.run(cmd_pe, check=True)
+            if not is_artifact_up_to_date(pe_out, test_deps):
+                cmd_pe = [
+                    mingw_cc,
+                    "-std=c11",
+                    "-Wall",
+                    "-Wextra",
+                    "-O2",
+                    str(test_c),
+                    *c_sources,
+                    "-o",
+                    str(pe_out),
+                ]
+                subprocess.run(cmd_pe, check=True)
             built_artifacts.append(str(pe_out.relative_to(REPO_ROOT)))
 
     if export_patch:

@@ -685,6 +685,107 @@ class TestWineParityArchitecture(unittest.TestCase):
         self.assertTrue(wt_kb_report["ab_comparison"]["zero_regressions"])
         self.assertTrue(wt_kb_report["ab_comparison"]["asan_ubsan_passed"])
 
+    def test_15_full_wine_x86_and_arm64_build_modes(self) -> None:
+        """Verify ./scripts/build.sh --full-x86/--x86 and --full-arm64/--arm64 build --all parity targets plus upstream Wine installation."""
+        build_sh = REPO_ROOT / "scripts" / "build.sh"
+
+        # 1. Verify --full-x86 and --x86 dry-run plans
+        for flag in ("--full-x86", "--x86"):
+            res_dry_x86 = subprocess.run(
+                [str(build_sh), flag, "--dry-run"],
+                cwd=REPO_ROOT,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(res_dry_x86.returncode, 0, res_dry_x86.stdout + res_dry_x86.stderr)
+            plan_x86 = json.loads(res_dry_x86.stdout)
+            self.assertEqual(plan_x86["target_mode"], "full-x86")
+            self.assertEqual(plan_x86["arch"], "x86_64")
+            self.assertTrue(plan_x86["implies_all_parity_builds"])
+            self.assertEqual(plan_x86["upstream_access_mode"], "read-only")
+            self.assertIn("--enable-archs=i386,x86_64", " ".join(plan_x86["configure_command"]))
+            self.assertIn("DISABLE_PUSH_READ_ONLY_UPSTREAM", " ".join(plan_x86["upstream_prepare_commands"]))
+
+        # 2. Verify --full-arm64 and --arm64 dry-run plans
+        for flag in ("--full-arm64", "--arm64"):
+            res_dry_arm = subprocess.run(
+                [str(build_sh), flag, "--dry-run"],
+                cwd=REPO_ROOT,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(res_dry_arm.returncode, 0, res_dry_arm.stdout + res_dry_arm.stderr)
+            plan_arm = json.loads(res_dry_arm.stdout)
+            self.assertEqual(plan_arm["target_mode"], "full-arm64")
+            self.assertEqual(plan_arm["arch"], "arm64")
+            self.assertTrue(plan_arm["implies_all_parity_builds"])
+            self.assertEqual(plan_arm["upstream_access_mode"], "read-only")
+            self.assertIn("--enable-archs=arm64ec,i386", " ".join(plan_arm["configure_command"]))
+
+        # 3. Execute --full-x86 and verify all parity DLLs + wine-install-x86 launcher are built
+        res_exec_x86 = subprocess.run(
+            [str(build_sh), "--full-x86", "--skip-monolithic-compile"],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(res_exec_x86.returncode, 0, res_exec_x86.stdout + res_exec_x86.stderr)
+        launcher_x86 = REPO_ROOT / "builds" / "wine-install-x86" / "bin" / "wine-parity"
+        self.assertTrue(launcher_x86.is_file(), "builds/wine-install-x86/bin/wine-parity must be created")
+        self.assertTrue(os.access(launcher_x86, os.X_OK), "wine-parity launcher must be executable")
+        launcher_txt = launcher_x86.read_text(encoding="utf-8")
+        self.assertIn("WINEDLLOVERRIDES", launcher_txt)
+        self.assertIn("WINEDLLPATH", launcher_txt)
+        for dll_name in ("bcrypt", "ntdll", "kernelbase", "winemac.drv"):
+            self.assertIn(dll_name, launcher_txt)
+
+        # 4. Verify incremental build intelligence: when already configured & built with matching stamp,
+        # running execute_full_wine_build WITHOUT --skip-monolithic-compile detects up-to-date state
+        # and avoids re-running configure or full make.
+        from scripts.lib.wine_borrow import (
+            compute_parity_dll_hashes,
+            execute_full_wine_build,
+            load_manifest,
+            write_monolithic_build_stamp,
+        )
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+            fake_build_dir = tmp_path / "wine-full-x86"
+            fake_install_dir = tmp_path / "wine-install-x86"
+            (fake_build_dir).mkdir(parents=True, exist_ok=True)
+            (fake_install_dir / "bin").mkdir(parents=True, exist_ok=True)
+            (fake_build_dir / "Makefile").write_text("# Fake Wine Makefile\n", encoding="utf-8")
+            (fake_build_dir / "config.status").write_text("# --enable-archs=i386,x86_64\n", encoding="utf-8")
+            fake_wine64 = fake_install_dir / "bin" / "wine64"
+            fake_wine64.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+            fake_wine64.chmod(0o755)
+
+            all_borrowed_dlls = list(load_manifest().get("borrowed_dlls", {}).keys())
+            write_monolithic_build_stamp(
+                build_dir=fake_build_dir,
+                target_mode="full-x86",
+                enable_archs="--enable-archs=i386,x86_64",
+                upstream_head="a312fc87a5",
+                dll_hashes=compute_parity_dll_hashes(all_borrowed_dlls),
+            )
+
+            inc_result = execute_full_wine_build(
+                target="x86",
+                dry_run=False,
+                skip_monolithic_compile=False,
+                build_dir_override=fake_build_dir,
+                install_dir_override=fake_install_dir,
+                upstream_head_override="a312fc87a5",
+            )
+            self.assertEqual(inc_result["status"], "up_to_date_skipped_rebuild")
+            self.assertFalse(inc_result["configure_executed"])
+            self.assertFalse(inc_result["make_executed"])
+            self.assertEqual(inc_result["changed_dlls"], [])
 
     def test_16_winemac_drv_iosurface_swapchain_multimon_and_xproc_parity(self) -> None:
         """Verify dlls/winemac.drv IOSurface child CAMetalLayer swapchains, multi-monitor ChangeDisplaySettingsEx, and cross-process DCs/layered windows."""
@@ -775,8 +876,6 @@ class TestWineParityArchitecture(unittest.TestCase):
         self.assertGreaterEqual(wt_report["total_assertions"], 50)
         self.assertTrue(wt_report["ab_comparison"]["zero_regressions"])
         self.assertTrue(wt_report["ab_comparison"]["asan_ubsan_passed"])
-
-
 
 if __name__ == "__main__":
     unittest.main()

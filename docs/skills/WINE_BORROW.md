@@ -23,8 +23,10 @@ This document defines the mandatory architecture and workflow for keeping `wine-
    - Simultaneously, we continuously borrow and re-backport upstream Wine bug fixes, `.spec` updates, and new `winetest` cases from `.wine-upstream/` into `dlls/<name>/`.
 
 4. **Centralized Script Execution Only (Gate 4)**:
-   - Never create standalone shell scripts for upstream syncing. Use only the canonical entrypoints:
+   - Never create standalone shell scripts for upstream syncing or full builds. Use only the canonical entrypoints:
      - `./scripts/build.sh --borrow <dll> [--upstream-ref <sha_or_tag>] [--dry-run]`
+     - `./scripts/build.sh --full-x86` (or `--x86` / `--full-x86_64`) — Builds all `wine-parity` DLLs/tests (`--all --arch x86_64`) + complete upstream Wine + parity overlay configured to run 32-bit `i386` and 64-bit `x86_64` Windows binaries on macOS (`--enable-archs=i386,x86_64 --without-x --without-wayland`, installing into `builds/wine-install-x86/` with `builds/wine-install-x86/bin/wine-parity`).
+     - `./scripts/build.sh --full-arm64` (or `--arm64`) — Builds all `wine-parity` DLLs/tests (`--all --arch arm64`) + complete upstream Wine + parity overlay configured for native Apple Silicon ARM64 + ARM64EC/i386 (`--enable-archs=arm64ec,i386 --without-x --without-wayland`, installing into `builds/wine-install-arm64/` with `builds/wine-install-arm64/bin/wine-parity`).
      - `./scripts/test.sh --check-upstream --dll <dll>`
 
 ---
