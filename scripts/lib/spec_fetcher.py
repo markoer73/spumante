@@ -397,6 +397,173 @@ KNOWN_CLEAN_ROOM_SPECS: dict[str, dict[str, Any]] = {
             "no_proprietary_decompilation": True,
         },
     },
+    "kernelbase:GetSystemTimePreciseAsFileTime": {
+        "dll": "kernelbase",
+        "api_name": "GetSystemTimePreciseAsFileTime",
+        "header": "kernelbase.h",
+        "ms_learn_url": "https://learn.microsoft.com/en-us/windows/win32/api/sysinfoapi/nf-sysinfoapi-getsystemtimepreciseasfiletime",
+        "signature": "void WINAPI GetSystemTimePreciseAsFileTime(LPFILETIME lpSystemTimeAsFileTime)",
+        "return_codes": {"VOID": "0x00000000"},
+        "empirical_windows_behavior": [
+            "Populates lpSystemTimeAsFileTime with the current UTC date and time in 100-nanosecond intervals since January 1, 1601 UTC (+116444736000000000 ticks from Unix 1970 epoch).",
+            "Guarantees strict monotonicity across consecutive calls on the same or different threads (t2 >= t1).",
+            "Provides sub-microsecond (<1us) resolution without modifying GetLastError().",
+        ],
+        "macos_backend_strategy": "Use Darwin clock_gettime_nsec_np(CLOCK_REALTIME) and mach_continuous_time()/mach_timebase_info nanosecond interpolation with atomic monotonic floor.",
+        "clean_room_attestation": {
+            "sources": [
+                "Microsoft Learn GetSystemTimePreciseAsFileTime documentation",
+                "Public Wine dlls/kernelbase/file.c declarations",
+                "Black-box Windows 11 differential conformance test observations",
+            ],
+            "no_leaked_source_exposure": True,
+            "no_proprietary_decompilation": True,
+        },
+    },
+    "kernelbase:SetThreadDescription": {
+        "dll": "kernelbase",
+        "api_name": "SetThreadDescription",
+        "header": "kernelbase.h",
+        "ms_learn_url": "https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-setthreaddescription",
+        "signature": "HRESULT WINAPI SetThreadDescription(HANDLE hThread, PCWSTR lpThreadDescription)",
+        "return_codes": {
+            "HRESULT_FROM_NT(STATUS_SUCCESS)": "0x10000000",
+            "HRESULT_FROM_NT(STATUS_INVALID_HANDLE)": "0xd0000008",
+            "HRESULT_FROM_NT(STATUS_INVALID_PARAMETER)": "0xd000000d",
+        },
+        "empirical_windows_behavior": [
+            "Returns HRESULT_FROM_NT(STATUS_SUCCESS) (0x10000000, SUCCEEDED(hr) == true) when setting a valid UTF-16 description on GetCurrentThread() or a valid thread handle.",
+            "When lpThreadDescription == NULL, clears the thread description to an empty string (L\"\") and returns 0x10000000.",
+            "When hThread is NULL, INVALID_HANDLE_VALUE, GetCurrentProcess(), or a non-thread handle, returns HRESULT_FROM_NT(STATUS_INVALID_HANDLE) (0xd0000008).",
+        ],
+        "macos_backend_strategy": "Store full UTF-16 UNICODE_STRING per thread slot and synchronize with Darwin pthread_setname_np(utf8_name) on __APPLE__.",
+        "clean_room_attestation": {
+            "sources": [
+                "Microsoft Learn SetThreadDescription documentation",
+                "Public Wine dlls/kernelbase/thread.c declarations",
+                "Black-box Windows 11 differential conformance test observations",
+            ],
+            "no_leaked_source_exposure": True,
+            "no_proprietary_decompilation": True,
+        },
+    },
+    "kernelbase:GetThreadDescription": {
+        "dll": "kernelbase",
+        "api_name": "GetThreadDescription",
+        "header": "kernelbase.h",
+        "ms_learn_url": "https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-getthreaddescription",
+        "signature": "HRESULT WINAPI GetThreadDescription(HANDLE hThread, PWSTR *ppszThreadDescription)",
+        "return_codes": {
+            "HRESULT_FROM_NT(STATUS_SUCCESS)": "0x10000000",
+            "HRESULT_FROM_NT(STATUS_INVALID_HANDLE)": "0xd0000008",
+            "HRESULT_FROM_NT(STATUS_INVALID_PARAMETER)": "0xd000000d",
+        },
+        "empirical_windows_behavior": [
+            "Allocates a LocalAlloc buffer (freed via LocalFree) containing the null-terminated UTF-16 thread description (or L\"\" if none was set) and returns 0x10000000.",
+            "Returns HRESULT_FROM_NT(STATUS_INVALID_PARAMETER) (0xd000000d) if ppszThreadDescription is NULL.",
+            "Returns HRESULT_FROM_NT(STATUS_INVALID_HANDLE) (0xd0000008) if hThread is invalid or not a thread handle.",
+        ],
+        "macos_backend_strategy": "Retrieve UTF-16 thread name from thread table (with Darwin pthread_getname_np fallback) and allocate via LocalAlloc.",
+        "clean_room_attestation": {
+            "sources": [
+                "Microsoft Learn GetThreadDescription documentation",
+                "Public Wine dlls/kernelbase/thread.c declarations",
+                "Black-box Windows 11 differential conformance test observations",
+            ],
+            "no_leaked_source_exposure": True,
+            "no_proprietary_decompilation": True,
+        },
+    },
+    "kernelbase:CompareObjectHandles": {
+        "dll": "kernelbase",
+        "api_name": "CompareObjectHandles",
+        "header": "kernelbase.h",
+        "ms_learn_url": "https://learn.microsoft.com/en-us/windows/win32/api/handleapi/nf-handleapi-compareobjecthandles",
+        "signature": "BOOL WINAPI CompareObjectHandles(HANDLE hFirstObjectHandle, HANDLE hSecondObjectHandle)",
+        "return_codes": {
+            "TRUE": "1",
+            "ERROR_INVALID_HANDLE": "6",
+            "ERROR_NOT_SAME_OBJECT": "1656",
+        },
+        "empirical_windows_behavior": [
+            "Returns TRUE when both handles reference the same underlying kernel object (including GetCurrentProcess() vs DuplicateHandle of GetCurrentProcess(), GetCurrentThread() vs DuplicateHandle of GetCurrentThread(), or two handles to the same named Event/Mutex/Semaphore/Section with different access masks).",
+            "Returns FALSE with GetLastError() == ERROR_NOT_SAME_OBJECT (1656, mapped from STATUS_NOT_SAME_OBJECT 0xC00001AC) when both handles are valid but refer to different kernel objects.",
+            "Returns FALSE with GetLastError() == ERROR_INVALID_HANDLE (6) when either handle is NULL or closed/invalid.",
+        ],
+        "macos_backend_strategy": "Compare canonical underlying kernel object identity across process/thread pseudo-handles, duplicated handles, NTSync objects, and Mach VM section handles.",
+        "clean_room_attestation": {
+            "sources": [
+                "Microsoft Learn CompareObjectHandles documentation",
+                "Public Wine dlls/kernelbase/process.c and tests/process.c declarations",
+                "Black-box Windows 11 differential conformance test observations",
+            ],
+            "no_leaked_source_exposure": True,
+            "no_proprietary_decompilation": True,
+        },
+    },
+    "kernelbase:VirtualAlloc2": {
+        "dll": "kernelbase",
+        "api_name": "VirtualAlloc2",
+        "header": "kernelbase.h",
+        "ms_learn_url": "https://learn.microsoft.com/en-us/windows/win32/api/memoryapi/nf-memoryapi-virtualalloc2",
+        "signature": (
+            "PVOID WINAPI VirtualAlloc2(HANDLE Process, PVOID BaseAddress, SIZE_T Size, "
+            "ULONG AllocationType, ULONG PageProtection, MEM_EXTENDED_PARAMETER *ExtendedParameters, ULONG ParameterCount)"
+        ),
+        "return_codes": {
+            "ERROR_SUCCESS": "0",
+            "ERROR_INVALID_PARAMETER": "87",
+            "ERROR_INVALID_ADDRESS": "487",
+        },
+        "empirical_windows_behavior": [
+            "Supports MEM_RESERVE | MEM_RESERVE_PLACEHOLDER (0x00042000) with PAGE_NOACCESS to create splittable/replaceable virtual address placeholders.",
+            "Supports splitting a placeholder via VirtualFree(split_addr, split_size, MEM_RELEASE | MEM_PRESERVE_PLACEHOLDER) into independent adjacent placeholder regions.",
+            "Supports MEM_EXTENDED_PARAMETER with MemExtendedParameterAddressRequirements (LowestStartingAddress, HighestEndingAddress, power-of-two Alignment >= 64KB).",
+            "VirtualAlloc2FromApp rejects executable page protections (PAGE_EXECUTE, PAGE_EXECUTE_READ, PAGE_EXECUTE_READWRITE, PAGE_EXECUTE_WRITECOPY) with ERROR_INVALID_PARAMETER (87).",
+        ],
+        "macos_backend_strategy": "Use Darwin Mach VM (mach_vm_allocate / mach_vm_map / mmap) with a 64KB-aligned placeholder & region tracker supporting splitting, coalescing, and custom alignment.",
+        "clean_room_attestation": {
+            "sources": [
+                "Microsoft Learn VirtualAlloc2 / VirtualAlloc2FromApp documentation",
+                "Public Wine dlls/kernelbase/memory.c and tests/process.c declarations",
+                "Black-box Windows 11 differential conformance test observations",
+            ],
+            "no_leaked_source_exposure": True,
+            "no_proprietary_decompilation": True,
+        },
+    },
+    "kernelbase:MapViewOfFile3": {
+        "dll": "kernelbase",
+        "api_name": "MapViewOfFile3",
+        "header": "kernelbase.h",
+        "ms_learn_url": "https://learn.microsoft.com/en-us/windows/win32/api/memoryapi/nf-memoryapi-mapviewoffile3",
+        "signature": (
+            "PVOID WINAPI MapViewOfFile3(HANDLE FileMapping, HANDLE Process, PVOID BaseAddress, "
+            "ULONG64 Offset, SIZE_T ViewSize, ULONG AllocationType, ULONG PageProtection, "
+            "MEM_EXTENDED_PARAMETER *ExtendedParameters, ULONG ParameterCount)"
+        ),
+        "return_codes": {
+            "ERROR_SUCCESS": "0",
+            "ERROR_INVALID_HANDLE": "6",
+            "ERROR_INVALID_PARAMETER": "87",
+            "ERROR_INVALID_ADDRESS": "487",
+            "ERROR_MAPPED_ALIGNMENT": "1132",
+        },
+        "empirical_windows_behavior": [
+            "Without MEM_REPLACE_PLACEHOLDER, requires both BaseAddress (if non-NULL) and Offset to be 64KB (dwAllocationGranularity) aligned, else returns NULL with GetLastError() == ERROR_MAPPED_ALIGNMENT (1132).",
+            "With MEM_REPLACE_PLACEHOLDER (0x00004000), relaxes BaseAddress and Offset alignment to 4KB (dwPageSize), requires BaseAddress and ViewSize to exactly match an existing MEM_RESERVE_PLACEHOLDER region, atomically replaces the placeholder with a MEM_MAPPED view, and restores the placeholder when unmapped with UnmapViewOfFile2(process, view, MEM_PRESERVE_PLACEHOLDER).",
+        ],
+        "macos_backend_strategy": "Use Darwin Mach VM (mach_vm_remap / mmap MAP_FIXED) over shared memory section backing with 4KB/64KB alignment validation and atomic placeholder replacement/preservation.",
+        "clean_room_attestation": {
+            "sources": [
+                "Microsoft Learn MapViewOfFile3 / UnmapViewOfFile2 documentation",
+                "Public Wine dlls/kernelbase/memory.c and tests/process.c declarations",
+                "Black-box Windows 11 differential conformance test observations",
+            ],
+            "no_leaked_source_exposure": True,
+            "no_proprietary_decompilation": True,
+        },
+    },
 }
 
 

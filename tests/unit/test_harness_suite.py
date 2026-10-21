@@ -877,6 +877,95 @@ class TestWineParityArchitecture(unittest.TestCase):
         self.assertTrue(wt_report["ab_comparison"]["zero_regressions"])
         self.assertTrue(wt_report["ab_comparison"]["asan_ubsan_passed"])
 
+    def test_17_kernelbase_win32_utility_apis_darwin_mach_parity(self) -> None:
+        """Verify dlls/kernelbase Win32 utility APIs (GetSystemTimePreciseAsFileTime, Set/GetThreadDescription, CompareObjectHandles, VirtualAlloc2, MapViewOfFile3)."""
+        build_sh = REPO_ROOT / "scripts" / "build.sh"
+        test_sh = REPO_ROOT / "scripts" / "test.sh"
+
+        # 1. Verify clean-room spec packets exist for all 6 APIs
+        for api in (
+            "GetSystemTimePreciseAsFileTime",
+            "SetThreadDescription",
+            "GetThreadDescription",
+            "CompareObjectHandles",
+            "VirtualAlloc2",
+            "MapViewOfFile3",
+        ):
+            spec_file = REPO_ROOT / "specs" / "kernelbase" / f"{api}.json"
+            self.assertTrue(spec_file.is_file(), f"Missing clean-room spec packet: {spec_file}")
+
+        # 2. Surgically build kernelbase + test_win32_utility_apis
+        res_build = subprocess.run(
+            [str(build_sh), "--dll", "kernelbase", "--test", "test_win32_utility_apis"],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(res_build.returncode, 0, res_build.stdout + res_build.stderr)
+
+        # 3. Verify RED failure when running with --simulate-stub
+        res_red = subprocess.run(
+            [str(test_sh), "--dll", "kernelbase", "--test", "test_win32_utility_apis", "--simulate-stub"],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertNotEqual(res_red.returncode, 0)
+
+        # 4. Verify GREEN match against Windows Ground Truth (12 assertions)
+        res_green = subprocess.run(
+            [str(test_sh), "--dll", "kernelbase", "--test", "test_win32_utility_apis"],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(
+            res_green.returncode,
+            0,
+            f"test_win32_utility_apis failed:\n{res_green.stdout}\n{res_green.stderr}",
+        )
+        self.assertIn("MATCHED (0 discrepancies) [12 assertions]", res_green.stdout)
+
+        # 5. Verify 4-gate security audit (including ASan+UBSan) on test_win32_utility_apis
+        res_sec = subprocess.run(
+            [str(test_sh), "--security", "--dll", "kernelbase", "--test", "test_win32_utility_apis"],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(
+            res_sec.returncode,
+            0,
+            f"Security scan failed on test_win32_utility_apis:\n{res_sec.stdout}\n{res_sec.stderr}",
+        )
+
+        # 6. Verify expanded winetest_kernelbase suite (8 subtests, >= 115 assertions)
+        res_wt = subprocess.run(
+            [str(test_sh), "--winetest", "--dll", "kernelbase"],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(
+            res_wt.returncode,
+            0,
+            f"winetest --dll kernelbase failed:\n{res_wt.stdout}\n{res_wt.stderr}",
+        )
+        wt_report = json.loads(res_wt.stdout)
+        self.assertTrue(wt_report["passed"])
+        self.assertEqual(wt_report["failures"], 0)
+        self.assertGreaterEqual(wt_report["total_assertions"], 115)
+        self.assertIn("test_GetSystemTimePreciseAsFileTime", wt_report["subtests_executed"])
+        self.assertIn("test_ThreadDescription", wt_report["subtests_executed"])
+        self.assertIn("test_CompareObjectHandles", wt_report["subtests_executed"])
+        self.assertIn("test_VirtualAlloc2_and_MapViewOfFile3", wt_report["subtests_executed"])
+
+
 if __name__ == "__main__":
     unittest.main()
 

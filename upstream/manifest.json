@@ -40,10 +40,12 @@
         "dlls/kernelbase/kernelbase.h",
         "dlls/kernelbase/kernelbase.spec",
         "dlls/kernelbase/kernelbase_stubs.c",
-        "dlls/kernelbase/sync.c"
+        "dlls/kernelbase/sync.c",
+        "dlls/kernelbase/utility.c"
       ],
       "required_conformance_tests": [
-        "test_wait_on_address"
+        "test_wait_on_address",
+        "test_win32_utility_apis"
       ]
     },
     "mfplat": {

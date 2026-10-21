@@ -353,6 +353,9 @@ HANDLE WINAPI CreateEventExW(
     } else {
         SetLastError(RtlNtStatusToDosError(status));
     }
+    if (status >= 0 && ret != NULL) {
+        kb_register_sync_handle(ret, KB_SYNC_OBJ_EVENT, lpName);
+    }
     return (status >= 0) ? ret : NULL;
 }
 
@@ -391,6 +394,7 @@ HANDLE WINAPI OpenEventW(DWORD dwDesiredAccess, BOOL bInheritHandle, LPCWSTR lpN
     if (!kb_set_ntstatus(NtOpenEvent(&ret, dwDesiredAccess, &attr))) {
         return NULL;
     }
+    kb_register_sync_handle(ret, KB_SYNC_OBJ_EVENT, lpName);
     return ret;
 }
 
@@ -448,6 +452,9 @@ HANDLE WINAPI CreateMutexExW(
     } else {
         SetLastError(RtlNtStatusToDosError(status));
     }
+    if (status >= 0 && ret != NULL) {
+        kb_register_sync_handle(ret, KB_SYNC_OBJ_MUTEX, lpName);
+    }
     return (status >= 0) ? ret : NULL;
 }
 
@@ -482,6 +489,7 @@ HANDLE WINAPI OpenMutexW(DWORD dwDesiredAccess, BOOL bInheritHandle, LPCWSTR lpN
     if (!kb_set_ntstatus(NtOpenMutant(&ret, dwDesiredAccess, &attr))) {
         return NULL;
     }
+    kb_register_sync_handle(ret, KB_SYNC_OBJ_MUTEX, lpName);
     return ret;
 }
 
@@ -521,6 +529,9 @@ HANDLE WINAPI CreateSemaphoreExW(
     } else {
         SetLastError(RtlNtStatusToDosError(status));
     }
+    if (status >= 0 && ret != NULL) {
+        kb_register_sync_handle(ret, KB_SYNC_OBJ_SEMAPHORE, lpName);
+    }
     return (status >= 0) ? ret : NULL;
 }
 
@@ -558,6 +569,7 @@ HANDLE WINAPI OpenSemaphoreW(DWORD dwDesiredAccess, BOOL bInheritHandle, LPCWSTR
     if (!kb_set_ntstatus(NtOpenSemaphore(&ret, dwDesiredAccess, &attr))) {
         return NULL;
     }
+    kb_register_sync_handle(ret, KB_SYNC_OBJ_SEMAPHORE, lpName);
     return ret;
 }
 
@@ -571,8 +583,13 @@ BOOL WINAPI ReleaseSemaphore(HANDLE hSemaphore, LONG lReleaseCount, LPLONG lpPre
 
 BOOL WINAPI CloseHandle(HANDLE hObject)
 {
+    BOOL custom_res = FALSE;
+
     if (kb_is_stub_simulated()) {
         return FALSE;
+    }
+    if (kb_close_registered_handle(hObject, &custom_res)) {
+        return custom_res;
     }
     return kb_set_ntstatus(NtClose(hObject));
 }

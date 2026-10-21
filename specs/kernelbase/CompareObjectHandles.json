@@ -1,0 +1,27 @@
+{
+  "dll": "kernelbase",
+  "api_name": "CompareObjectHandles",
+  "header": "kernelbase.h",
+  "ms_learn_url": "https://learn.microsoft.com/en-us/windows/win32/api/handleapi/nf-handleapi-compareobjecthandles",
+  "signature": "BOOL WINAPI CompareObjectHandles(HANDLE hFirstObjectHandle, HANDLE hSecondObjectHandle)",
+  "return_codes": {
+    "TRUE": "1",
+    "ERROR_INVALID_HANDLE": "6",
+    "ERROR_NOT_SAME_OBJECT": "1656"
+  },
+  "empirical_windows_behavior": [
+    "Returns TRUE when both handles reference the same underlying kernel object (including GetCurrentProcess() vs DuplicateHandle of GetCurrentProcess(), GetCurrentThread() vs DuplicateHandle of GetCurrentThread(), or two handles to the same named Event/Mutex/Semaphore/Section with different access masks).",
+    "Returns FALSE with GetLastError() == ERROR_NOT_SAME_OBJECT (1656, mapped from STATUS_NOT_SAME_OBJECT 0xC00001AC) when both handles are valid but refer to different kernel objects.",
+    "Returns FALSE with GetLastError() == ERROR_INVALID_HANDLE (6) when either handle is NULL or closed/invalid."
+  ],
+  "macos_backend_strategy": "Compare canonical underlying kernel object identity across process/thread pseudo-handles, duplicated handles, NTSync objects, and Mach VM section handles.",
+  "clean_room_attestation": {
+    "sources": [
+      "Microsoft Learn CompareObjectHandles documentation",
+      "Public Wine dlls/kernelbase/process.c and tests/process.c declarations",
+      "Black-box Windows 11 differential conformance test observations"
+    ],
+    "no_leaked_source_exposure": true,
+    "no_proprietary_decompilation": true
+  }
+}

@@ -54,11 +54,14 @@ jobs:
           ./scripts/test.sh --security --dll ntdll --test test_ntsync_macos_parity
           ./scripts/test.sh --winetest --dll ntdll
 
-      - name: Surgically Build & Test KernelBase Synchronization Parity
+      - name: Surgically Build & Test KernelBase Synchronization & Utility API Parity
         run: |
           ./scripts/build.sh --dll kernelbase --test test_wait_on_address
           ./scripts/test.sh --dll kernelbase --test test_wait_on_address
           ./scripts/test.sh --security --dll kernelbase --test test_wait_on_address
+          ./scripts/build.sh --dll kernelbase --test test_win32_utility_apis
+          ./scripts/test.sh --dll kernelbase --test test_win32_utility_apis
+          ./scripts/test.sh --security --dll kernelbase --test test_win32_utility_apis
           ./scripts/test.sh --winetest --dll kernelbase
 
       - name: Surgically Build & Test winemac.drv Windowing, Multi-Monitor & Metal Parity

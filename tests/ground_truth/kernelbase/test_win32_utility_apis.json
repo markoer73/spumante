@@ -1,0 +1,140 @@
+{
+  "dll": "kernelbase",
+  "test_name": "test_win32_utility_apis",
+  "architecture": "x86_64",
+  "environment": "windows-11-ground-truth",
+  "assertions": [
+    {
+      "id": "kb_util_01_precise_time_epoch_and_monotonic",
+      "case": "GetSystemTimePreciseAsFileTime_EpochAndMonotonicity",
+      "api": "GetSystemTimePreciseAsFileTime",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 3735928559,
+      "out_length": 3,
+      "buffer_hex": "010101",
+      "handle_valid": true
+    },
+    {
+      "id": "kb_util_02_precise_time_submicrosecond_progression",
+      "case": "GetSystemTimePreciseAsFileTime_SubMillisecondProgression",
+      "api": "GetSystemTimePreciseAsFileTime",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 2,
+      "buffer_hex": "0101",
+      "handle_valid": true
+    },
+    {
+      "id": "kb_util_03_thread_description_default_and_null_validation",
+      "case": "ThreadDescription_DefaultEmptyAndValidation",
+      "api": "GetThreadDescription",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 3,
+      "buffer_hex": "010101",
+      "handle_valid": true
+    },
+    {
+      "id": "kb_util_04_thread_description_set_get_and_clear",
+      "case": "SetAndGetThreadDescription_RoundTripAndClear",
+      "api": "SetThreadDescription",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 2,
+      "buffer_hex": "0101",
+      "handle_valid": true
+    },
+    {
+      "id": "kb_util_05_thread_description_duplicated_handle",
+      "case": "ThreadDescription_DuplicatedThreadHandle",
+      "api": "SetThreadDescription",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 2,
+      "buffer_hex": "0101",
+      "handle_valid": true
+    },
+    {
+      "id": "kb_util_06_compare_object_handles_invalid_and_pseudo",
+      "case": "CompareObjectHandles_InvalidAndPseudoHandles",
+      "api": "CompareObjectHandles",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 1656,
+      "out_length": 3,
+      "buffer_hex": "060101",
+      "handle_valid": true
+    },
+    {
+      "id": "kb_util_07_compare_object_handles_duplicated_and_named_sync",
+      "case": "CompareObjectHandles_DuplicatedAndNamedSyncObjects",
+      "api": "CompareObjectHandles",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 1656,
+      "out_length": 3,
+      "buffer_hex": "010106",
+      "handle_valid": true
+    },
+    {
+      "id": "kb_util_08_virtual_alloc2_basic_and_from_app",
+      "case": "VirtualAlloc2_BasicAndFromAppWxEnforcement",
+      "api": "VirtualAlloc2",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 87,
+      "out_length": 2,
+      "buffer_hex": "0157",
+      "handle_valid": true
+    },
+    {
+      "id": "kb_util_09_virtual_alloc2_address_requirements_alignment",
+      "case": "VirtualAlloc2_AddressRequirementsAlignment",
+      "api": "VirtualAlloc2",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 87,
+      "out_length": 2,
+      "buffer_hex": "0157",
+      "handle_valid": true
+    },
+    {
+      "id": "kb_util_10_virtual_alloc2_placeholder_split_and_coalesce",
+      "case": "VirtualAlloc2_PlaceholderSplitAndCoalesce",
+      "api": "VirtualAlloc2",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 87,
+      "out_length": 3,
+      "buffer_hex": "570101",
+      "handle_valid": true
+    },
+    {
+      "id": "kb_util_11_map_view_of_file3_alignment_and_shared_section",
+      "case": "MapViewOfFile3_Alignment1132AndSharedSection",
+      "api": "MapViewOfFile3",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 1132,
+      "out_length": 2,
+      "buffer_hex": "0101",
+      "handle_valid": true
+    },
+    {
+      "id": "kb_util_12_map_view_of_file3_replace_and_preserve_placeholder",
+      "case": "MapViewOfFile3_ReplaceAndPreservePlaceholder",
+      "api": "MapViewOfFile3",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 2,
+      "buffer_hex": "0101",
+      "handle_valid": true
+    }
+  ]
+}

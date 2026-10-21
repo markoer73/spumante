@@ -82,6 +82,8 @@ All host/VM orchestration, compilation, differential testing, stub discovery, an
 ./scripts/test.sh --winetest --dll ntdll
 ./scripts/build.sh --dll kernelbase --test test_wait_on_address
 ./scripts/test.sh --dll kernelbase --test test_wait_on_address
+./scripts/build.sh --dll kernelbase --test test_win32_utility_apis
+./scripts/test.sh --dll kernelbase --test test_win32_utility_apis
 ./scripts/test.sh --winetest --dll kernelbase
 
 # 5. Build & verify macOS windowing, multi-monitor ChangeDisplaySettingsEx & IOSurface Metal swapchains in winemac.drv

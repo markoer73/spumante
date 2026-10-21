@@ -1,0 +1,27 @@
+{
+  "dll": "kernelbase",
+  "api_name": "SetThreadDescription",
+  "header": "kernelbase.h",
+  "ms_learn_url": "https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-setthreaddescription",
+  "signature": "HRESULT WINAPI SetThreadDescription(HANDLE hThread, PCWSTR lpThreadDescription)",
+  "return_codes": {
+    "HRESULT_FROM_NT(STATUS_SUCCESS)": "0x10000000",
+    "HRESULT_FROM_NT(STATUS_INVALID_HANDLE)": "0xd0000008",
+    "HRESULT_FROM_NT(STATUS_INVALID_PARAMETER)": "0xd000000d"
+  },
+  "empirical_windows_behavior": [
+    "Returns HRESULT_FROM_NT(STATUS_SUCCESS) (0x10000000, SUCCEEDED(hr) == true) when setting a valid UTF-16 description on GetCurrentThread() or a valid thread handle.",
+    "When lpThreadDescription == NULL, clears the thread description to an empty string (L\"\") and returns 0x10000000.",
+    "When hThread is NULL, INVALID_HANDLE_VALUE, GetCurrentProcess(), or a non-thread handle, returns HRESULT_FROM_NT(STATUS_INVALID_HANDLE) (0xd0000008)."
+  ],
+  "macos_backend_strategy": "Store full UTF-16 UNICODE_STRING per thread slot and synchronize with Darwin pthread_setname_np(utf8_name) on __APPLE__.",
+  "clean_room_attestation": {
+    "sources": [
+      "Microsoft Learn SetThreadDescription documentation",
+      "Public Wine dlls/kernelbase/thread.c declarations",
+      "Black-box Windows 11 differential conformance test observations"
+    ],
+    "no_leaked_source_exposure": true,
+    "no_proprietary_decompilation": true
+  }
+}

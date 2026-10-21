@@ -1,0 +1,28 @@
+{
+  "dll": "kernelbase",
+  "api_name": "MapViewOfFile3",
+  "header": "kernelbase.h",
+  "ms_learn_url": "https://learn.microsoft.com/en-us/windows/win32/api/memoryapi/nf-memoryapi-mapviewoffile3",
+  "signature": "PVOID WINAPI MapViewOfFile3(HANDLE FileMapping, HANDLE Process, PVOID BaseAddress, ULONG64 Offset, SIZE_T ViewSize, ULONG AllocationType, ULONG PageProtection, MEM_EXTENDED_PARAMETER *ExtendedParameters, ULONG ParameterCount)",
+  "return_codes": {
+    "ERROR_SUCCESS": "0",
+    "ERROR_INVALID_HANDLE": "6",
+    "ERROR_INVALID_PARAMETER": "87",
+    "ERROR_INVALID_ADDRESS": "487",
+    "ERROR_MAPPED_ALIGNMENT": "1132"
+  },
+  "empirical_windows_behavior": [
+    "Without MEM_REPLACE_PLACEHOLDER, requires both BaseAddress (if non-NULL) and Offset to be 64KB (dwAllocationGranularity) aligned, else returns NULL with GetLastError() == ERROR_MAPPED_ALIGNMENT (1132).",
+    "With MEM_REPLACE_PLACEHOLDER (0x00004000), relaxes BaseAddress and Offset alignment to 4KB (dwPageSize), requires BaseAddress and ViewSize to exactly match an existing MEM_RESERVE_PLACEHOLDER region, atomically replaces the placeholder with a MEM_MAPPED view, and restores the placeholder when unmapped with UnmapViewOfFile2(process, view, MEM_PRESERVE_PLACEHOLDER)."
+  ],
+  "macos_backend_strategy": "Use Darwin Mach VM (mach_vm_remap / mmap MAP_FIXED) over shared memory section backing with 4KB/64KB alignment validation and atomic placeholder replacement/preservation.",
+  "clean_room_attestation": {
+    "sources": [
+      "Microsoft Learn MapViewOfFile3 / UnmapViewOfFile2 documentation",
+      "Public Wine dlls/kernelbase/memory.c and tests/process.c declarations",
+      "Black-box Windows 11 differential conformance test observations"
+    ],
+    "no_leaked_source_exposure": true,
+    "no_proprietary_decompilation": true
+  }
+}

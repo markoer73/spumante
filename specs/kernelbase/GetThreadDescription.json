@@ -1,0 +1,27 @@
+{
+  "dll": "kernelbase",
+  "api_name": "GetThreadDescription",
+  "header": "kernelbase.h",
+  "ms_learn_url": "https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-getthreaddescription",
+  "signature": "HRESULT WINAPI GetThreadDescription(HANDLE hThread, PWSTR *ppszThreadDescription)",
+  "return_codes": {
+    "HRESULT_FROM_NT(STATUS_SUCCESS)": "0x10000000",
+    "HRESULT_FROM_NT(STATUS_INVALID_HANDLE)": "0xd0000008",
+    "HRESULT_FROM_NT(STATUS_INVALID_PARAMETER)": "0xd000000d"
+  },
+  "empirical_windows_behavior": [
+    "Allocates a LocalAlloc buffer (freed via LocalFree) containing the null-terminated UTF-16 thread description (or L\"\" if none was set) and returns 0x10000000.",
+    "Returns HRESULT_FROM_NT(STATUS_INVALID_PARAMETER) (0xd000000d) if ppszThreadDescription is NULL.",
+    "Returns HRESULT_FROM_NT(STATUS_INVALID_HANDLE) (0xd0000008) if hThread is invalid or not a thread handle."
+  ],
+  "macos_backend_strategy": "Retrieve UTF-16 thread name from thread table (with Darwin pthread_getname_np fallback) and allocate via LocalAlloc.",
+  "clean_room_attestation": {
+    "sources": [
+      "Microsoft Learn GetThreadDescription documentation",
+      "Public Wine dlls/kernelbase/thread.c declarations",
+      "Black-box Windows 11 differential conformance test observations"
+    ],
+    "no_leaked_source_exposure": true,
+    "no_proprietary_decompilation": true
+  }
+}

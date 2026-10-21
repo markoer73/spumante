@@ -1,0 +1,25 @@
+{
+  "dll": "kernelbase",
+  "api_name": "GetSystemTimePreciseAsFileTime",
+  "header": "kernelbase.h",
+  "ms_learn_url": "https://learn.microsoft.com/en-us/windows/win32/api/sysinfoapi/nf-sysinfoapi-getsystemtimepreciseasfiletime",
+  "signature": "void WINAPI GetSystemTimePreciseAsFileTime(LPFILETIME lpSystemTimeAsFileTime)",
+  "return_codes": {
+    "VOID": "0x00000000"
+  },
+  "empirical_windows_behavior": [
+    "Populates lpSystemTimeAsFileTime with the current UTC date and time in 100-nanosecond intervals since January 1, 1601 UTC (+116444736000000000 ticks from Unix 1970 epoch).",
+    "Guarantees strict monotonicity across consecutive calls on the same or different threads (t2 >= t1).",
+    "Provides sub-microsecond (<1us) resolution without modifying GetLastError()."
+  ],
+  "macos_backend_strategy": "Use Darwin clock_gettime_nsec_np(CLOCK_REALTIME) and mach_continuous_time()/mach_timebase_info nanosecond interpolation with atomic monotonic floor.",
+  "clean_room_attestation": {
+    "sources": [
+      "Microsoft Learn GetSystemTimePreciseAsFileTime documentation",
+      "Public Wine dlls/kernelbase/file.c declarations",
+      "Black-box Windows 11 differential conformance test observations"
+    ],
+    "no_leaked_source_exposure": true,
+    "no_proprietary_decompilation": true
+  }
+}

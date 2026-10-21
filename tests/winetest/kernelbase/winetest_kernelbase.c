@@ -289,10 +289,187 @@ static void test_EventsMutexesSemaphores(void)
     ok(CloseHandle(h_sem), "CloseHandle failed\n");
 }
 
+static void test_GetSystemTimePreciseAsFileTime(void)
+{
+    FILETIME ft1;
+    FILETIME ft2;
+    uint64_t t1;
+    uint64_t t2;
+    int i;
+
+    SetLastError(0xdeadbeefU);
+    GetSystemTimePreciseAsFileTime(&ft1);
+    ok(GetLastError() == 0xdeadbeefU, "GetSystemTimePreciseAsFileTime modified LastError\n");
+
+    t1 = ((uint64_t)ft1.dwHighDateTime << 32) | (uint64_t)ft1.dwLowDateTime;
+    ok(t1 > 132854688000000000ULL, "unexpected FILETIME epoch value\n");
+
+    for (i = 0; i < 32; i++) {
+        GetSystemTimePreciseAsFileTime(&ft2);
+        t2 = ((uint64_t)ft2.dwHighDateTime << 32) | (uint64_t)ft2.dwLowDateTime;
+        ok(t2 >= t1, "GetSystemTimePreciseAsFileTime went backwards\n");
+        t1 = t2;
+    }
+}
+
+static void test_ThreadDescription(void)
+{
+    static const WCHAR desc_str[] = {'w', 'i', 'n', 'e', '_', 't', 'h', 'r', 'e', 'a', 'd', 0};
+    PWSTR ptr = NULL;
+    HRESULT hr;
+    HANDLE dup_thread = NULL;
+
+    KernelBaseResetUtilityState();
+
+    hr = GetThreadDescription(GetCurrentThread(), &ptr);
+    ok(hr == HRESULT_FROM_NT(STATUS_SUCCESS), "GetThreadDescription failed: %08x\n", (unsigned int)hr);
+    ok(ptr != NULL && ptr[0] == 0, "expected empty initial thread description\n");
+    LocalFree(ptr);
+
+    hr = GetThreadDescription(GetCurrentThread(), NULL);
+    ok(hr == HRESULT_FROM_NT(STATUS_INVALID_PARAMETER), "expected STATUS_INVALID_PARAMETER\n");
+
+    hr = SetThreadDescription(NULL, desc_str);
+    ok(hr == HRESULT_FROM_NT(STATUS_INVALID_HANDLE), "expected STATUS_INVALID_HANDLE\n");
+
+    hr = SetThreadDescription(GetCurrentThread(), desc_str);
+    ok(hr == HRESULT_FROM_NT(STATUS_SUCCESS), "SetThreadDescription failed\n");
+
+    ptr = NULL;
+    hr = GetThreadDescription(GetCurrentThread(), &ptr);
+    ok(hr == HRESULT_FROM_NT(STATUS_SUCCESS), "GetThreadDescription failed\n");
+    ok(ptr != NULL && ptr[0] == 'w' && ptr[4] == '_', "unexpected thread description content\n");
+    LocalFree(ptr);
+
+    ok(DuplicateHandle(
+           GetCurrentProcess(),
+           GetCurrentThread(),
+           GetCurrentProcess(),
+           &dup_thread,
+           0,
+           FALSE,
+           DUPLICATE_SAME_ACCESS),
+       "DuplicateHandle(GetCurrentThread) failed\n");
+    hr = SetThreadDescription(dup_thread, NULL);
+    ok(hr == HRESULT_FROM_NT(STATUS_SUCCESS), "SetThreadDescription(NULL) on dup handle failed\n");
+    CloseHandle(dup_thread);
+
+    ptr = NULL;
+    hr = GetThreadDescription(GetCurrentThread(), &ptr);
+    ok(hr == HRESULT_FROM_NT(STATUS_SUCCESS) && ptr != NULL && ptr[0] == 0, "expected cleared thread description\n");
+    LocalFree(ptr);
+}
+
+static void test_CompareObjectHandles(void)
+{
+    static const WCHAR ev_name[] = {'w', 't', '_', 'c', 'm', 'p', '_', 'e', 'v', 0};
+    HANDLE h_dup = NULL;
+    HANDLE h1;
+    HANDLE h2;
+    HANDLE h3;
+
+    SetLastError(0xdeadbeefU);
+    ok(!CompareObjectHandles(NULL, NULL), "CompareObjectHandles(NULL, NULL) succeeded\n");
+    ok(GetLastError() == ERROR_INVALID_HANDLE, "expected ERROR_INVALID_HANDLE\n");
+
+    ok(CompareObjectHandles(GetCurrentProcess(), GetCurrentProcess()), "CompareObjectHandles process failed\n");
+    ok(CompareObjectHandles(GetCurrentThread(), GetCurrentThread()), "CompareObjectHandles thread failed\n");
+
+    SetLastError(0xdeadbeefU);
+    ok(!CompareObjectHandles(GetCurrentProcess(), GetCurrentThread()), "process vs thread succeeded\n");
+    ok(GetLastError() == ERROR_NOT_SAME_OBJECT, "expected ERROR_NOT_SAME_OBJECT\n");
+
+    ok(DuplicateHandle(
+           GetCurrentProcess(),
+           GetCurrentProcess(),
+           GetCurrentProcess(),
+           &h_dup,
+           0,
+           FALSE,
+           DUPLICATE_SAME_ACCESS),
+       "DuplicateHandle failed\n");
+    ok(CompareObjectHandles(GetCurrentProcess(), h_dup), "CompareObjectHandles dup process failed\n");
+    CloseHandle(h_dup);
+
+    h1 = CreateEventW(NULL, TRUE, FALSE, ev_name);
+    h2 = OpenEventW(EVENT_MODIFY_STATE, FALSE, ev_name);
+    h3 = CreateEventW(NULL, TRUE, FALSE, NULL);
+    ok(CompareObjectHandles(h1, h2), "CompareObjectHandles on same named event failed\n");
+    SetLastError(0xdeadbeefU);
+    ok(!CompareObjectHandles(h1, h3) && GetLastError() == ERROR_NOT_SAME_OBJECT,
+       "CompareObjectHandles on distinct events failed\n");
+    CloseHandle(h1);
+    CloseHandle(h2);
+    CloseHandle(h3);
+}
+
+static void test_VirtualAlloc2_and_MapViewOfFile3(void)
+{
+    MEM_ADDRESS_REQUIREMENTS req;
+    MEM_EXTENDED_PARAMETER ext;
+    PVOID p_aligned;
+    PVOID ph;
+    MEMORY_BASIC_INFORMATION mbi;
+    HANDLE sec;
+    PVOID view1;
+    PVOID view2;
+
+    memset(&req, 0, sizeof(req));
+    req.Alignment = 0x40000;
+    memset(&ext, 0, sizeof(ext));
+    ext.Type = MemExtendedParameterAddressRequirements;
+    ext.Pointer = &req;
+
+    p_aligned = VirtualAlloc2(NULL, NULL, 0x10000, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE, &ext, 1);
+    ok(p_aligned != NULL && (((uintptr_t)p_aligned & 0x3FFFFU) == 0), "VirtualAlloc2 256KB alignment failed\n");
+    VirtualFree(p_aligned, 0, MEM_RELEASE);
+
+    SetLastError(0xdeadbeefU);
+    ok(VirtualAlloc2FromApp(NULL, NULL, 0x10000, MEM_RESERVE | MEM_COMMIT, PAGE_EXECUTE_READWRITE, NULL, 0) == NULL &&
+       GetLastError() == ERROR_INVALID_PARAMETER,
+       "VirtualAlloc2FromApp should reject PAGE_EXECUTE_READWRITE\n");
+
+    ph = VirtualAlloc2(NULL, NULL, 0x10000, MEM_RESERVE | MEM_RESERVE_PLACEHOLDER, PAGE_NOACCESS, NULL, 0);
+    ok(ph != NULL, "VirtualAlloc2 placeholder failed\n");
+    ok(VirtualFree(ph, 0x1000, MEM_RELEASE | MEM_PRESERVE_PLACEHOLDER), "placeholder split failed\n");
+
+    sec = CreateFileMappingW(INVALID_HANDLE_VALUE, NULL, PAGE_READWRITE, 0, 0x10000, NULL);
+    ok(sec != NULL, "CreateFileMappingW failed\n");
+
+    SetLastError(0xdeadbeefU);
+    ok(MapViewOfFile3(sec, NULL, NULL, 0x1000, 0x1000, 0, PAGE_READWRITE, NULL, 0) == NULL &&
+       GetLastError() == ERROR_MAPPED_ALIGNMENT,
+       "MapViewOfFile3 unaligned 4KB offset without MEM_REPLACE_PLACEHOLDER should fail with 1132\n");
+
+    view1 = MapViewOfFile3(sec, NULL, NULL, 0, 0x10000, 0, PAGE_READWRITE, NULL, 0);
+    ok(view1 != NULL, "MapViewOfFile3 full view failed\n");
+    ((volatile uint32_t *)((char *)view1 + 0x1000))[0] = 0xABCDEF01U;
+
+    view2 = MapViewOfFile3(sec, GetCurrentProcess(), ph, 0x1000, 0x1000, MEM_REPLACE_PLACEHOLDER, PAGE_READWRITE, NULL, 0);
+    ok(view2 == ph, "MapViewOfFile3 MEM_REPLACE_PLACEHOLDER failed\n");
+    ok(((volatile uint32_t *)view2)[0] == 0xABCDEF01U, "shared section view data mismatch\n");
+
+    ok(UnmapViewOfFile2(GetCurrentProcess(), view2, MEM_PRESERVE_PLACEHOLDER),
+       "UnmapViewOfFile2 MEM_PRESERVE_PLACEHOLDER failed\n");
+    memset(&mbi, 0, sizeof(mbi));
+    ok(VirtualQuery(ph, &mbi, sizeof(mbi)) == sizeof(mbi) &&
+       mbi.State == MEM_RESERVE && mbi.Protect == PAGE_NOACCESS,
+       "placeholder not restored after UnmapViewOfFile2\n");
+
+    VirtualFree(ph, 0, MEM_RELEASE);
+    VirtualFree((char *)ph + 0x1000, 0, MEM_RELEASE);
+    UnmapViewOfFile(view1);
+    CloseHandle(sec);
+}
+
 START_TEST(kernelbase)
 {
     WINETEST_RUN_SUBTEST(test_WaitOnAddress);
     WINETEST_RUN_SUBTEST(test_SynchronizationBarrier);
     WINETEST_RUN_SUBTEST(test_InitOnce);
     WINETEST_RUN_SUBTEST(test_EventsMutexesSemaphores);
+    WINETEST_RUN_SUBTEST(test_GetSystemTimePreciseAsFileTime);
+    WINETEST_RUN_SUBTEST(test_ThreadDescription);
+    WINETEST_RUN_SUBTEST(test_CompareObjectHandles);
+    WINETEST_RUN_SUBTEST(test_VirtualAlloc2_and_MapViewOfFile3);
 }
