@@ -57,6 +57,7 @@
 @ stdcall NtSignalAndWaitForSingleObject(ptr ptr long ptr)
 @ stdcall NtDelayExecution(long ptr)
 @ stdcall NtQuerySystemTime(ptr)
+@ stdcall NtQueryPerformanceCounter(ptr ptr)
 @ stdcall NtQueryTimerResolution(ptr ptr ptr)
 @ stdcall NtClose(ptr)
 @ stdcall RtlInitializeSRWLock(ptr)

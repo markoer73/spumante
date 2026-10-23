@@ -1,0 +1,140 @@
+{
+  "dll": "ntdll",
+  "test_name": "test_arm64x_loader_parity",
+  "architecture": "arm64",
+  "environment": "windows_vm",
+  "assertions": [
+    {
+      "id": "arm64x_dvrt_v1_dynamic_relocations",
+      "case": "Arm64x_DvRtV1_DynamicRelocations",
+      "api": "NtdllArm64xApplyDynamicRelocations",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 34404,
+      "buffer_hex": "64aa000064860000002000000000000000300080",
+      "handle_valid": true
+    },
+    {
+      "id": "arm64x_dvrt_v2_dynamic_relocations_and_negative_delta",
+      "case": "Arm64x_DvRtV2_DynamicRelocations_And_NegativeDelta",
+      "api": "NtdllArm64xApplyDynamicRelocations",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 2,
+      "buffer_hex": "6486000000200000004c00000000000001000000",
+      "handle_valid": true
+    },
+    {
+      "id": "ntreadfile_system32_arm64x_pe_header_relocated_view_amd64_and_arm64ec",
+      "case": "NtReadFile_System32_Arm64xPeHeaderRelocatedView_Amd64AndArm64Ec",
+      "api": "NtReadFileArm64xPeView",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 512,
+      "buffer_hex": "6486000000200000648600000020000040000000",
+      "handle_valid": true
+    },
+    {
+      "id": "ntreadfile_arm64_native_caller_and_non_system32_bypass",
+      "case": "NtReadFile_Arm64NativeCaller_And_NonSystem32Bypass",
+      "api": "NtReadFileArm64xPeView",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 43620,
+      "buffer_hex": "64aa00000010000064aa000000100000110000c0",
+      "handle_valid": true
+    },
+    {
+      "id": "arm64x_loader_invalid_parameter_and_corrupt_pe_guards",
+      "case": "Arm64xLoader_InvalidParameter_And_CorruptPeGuards",
+      "api": "NtdllArm64xApplyDynamicRelocations",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 4,
+      "buffer_hex": "0d0000c0230000c07b0000c00d0000c0",
+      "handle_valid": true
+    },
+    {
+      "id": "tsc_scale_configure_apple_silicon_24mhz_to_3600mhz",
+      "case": "TscScale_Configure_AppleSilicon24MhzTo3600Mhz",
+      "api": "NtdllTscScaleConfigure",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 3600,
+      "buffer_hex": "9600000001000000100e000000a493d600000000",
+      "handle_valid": true
+    },
+    {
+      "id": "tsc_registry_mhz_query_and_ntqueryperformancecounter_consistency",
+      "case": "TscRegistryMhzQuery_And_NtQueryPerformanceCounterConsistency",
+      "api": "NtQueryPerformanceCounter",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 3600,
+      "buffer_hex": "100e0000100e0000340000c08096980001000000",
+      "handle_valid": true
+    },
+    {
+      "id": "tsc_scale_non_integer_ratio_19_2mhz_to_3400mhz_no_overflow",
+      "case": "TscScale_NonIntegerRatio_19_2MhzTo3400Mhz_NoOverflow",
+      "api": "NtdllTscScaleReadTicks",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 3400,
+      "buffer_hex": "4d0800000c0000000020ec3dec1e00000d0000c0",
+      "handle_valid": true
+    },
+    {
+      "id": "jit_cache_init_store_and_lookup_hit_with_icache_flush",
+      "case": "JitCache_InitStore_And_LookupHitWithIcacheFlush",
+      "api": "NtdllJitCacheLookupBlock",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 16,
+      "buffer_hex": "10000000010000000100000001000000400580d2",
+      "handle_valid": true
+    },
+    {
+      "id": "jit_cache_miss_on_pe_timestamp_or_checksum_change",
+      "case": "JitCache_Miss_OnPeTimestampOrChecksumChange",
+      "api": "NtdllJitCacheLookupBlock",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 3,
+      "buffer_hex": "340000c0340000c0340000c003000000",
+      "handle_valid": true
+    },
+    {
+      "id": "jit_cache_corruption_detection_and_rejection",
+      "case": "JitCache_CorruptionDetection_And_Rejection",
+      "api": "NtdllJitCacheLookupBlock",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 1,
+      "buffer_hex": "000000003f0000c00100000002000000",
+      "handle_valid": true
+    },
+    {
+      "id": "jit_cache_module_invalidation_and_buffer_too_small_guard",
+      "case": "JitCache_ModuleInvalidation_And_BufferTooSmallGuard",
+      "api": "NtdllJitCacheInvalidateModule",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 1,
+      "buffer_hex": "230000c01000000001000000340000c001000000",
+      "handle_valid": true
+    }
+  ]
+}

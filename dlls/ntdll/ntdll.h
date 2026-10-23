@@ -136,6 +136,15 @@ typedef const void *LPCVOID;
 #ifndef STATUS_EXECUTABLE_MEMORY_WRITE
 #define STATUS_EXECUTABLE_MEMORY_WRITE    ((NTSTATUS)0xC0000602)
 #endif
+#ifndef STATUS_END_OF_FILE
+#define STATUS_END_OF_FILE                ((NTSTATUS)0xC0000011)
+#endif
+#ifndef STATUS_CRC_ERROR
+#define STATUS_CRC_ERROR                  ((NTSTATUS)0xC000003F)
+#endif
+#ifndef STATUS_INVALID_IMAGE_FORMAT
+#define STATUS_INVALID_IMAGE_FORMAT       ((NTSTATUS)0xC000007B)
+#endif
 
 #undef STATUS_WAIT_0
 #define STATUS_WAIT_0                     ((NTSTATUS)0x00000000)
@@ -1134,6 +1143,108 @@ void WINAPI NtdllRegisterForeignThreadId(DWORD ThreadId);
 NTSTATUS WINAPI NtdllAbandonMutantsForThread(DWORD ThreadId);
 NTSTATUS WINAPI NtdllQueryMacosNtsyncState(NTDLL_MACOS_NTSYNC_STATE *State);
 void WINAPI NtdllResetSyncState(void);
+
+/* =========================================================================
+ * ARM64EC / ARM64X Loader Edge Cases (WineConf 2025 ARM64 Roadmap):
+ *   1. ARM64X Dynamic Value Relocation Table (DVRT v1/v2) & NtReadFile system32 PE Header View
+ *   2. TSC Registry Frequency Rescaling (~MHz & NtQueryPerformanceCounter)
+ *   3. On-Disk JIT Code Caching (WJTC integrity-checked ARM64 translation cache)
+ * ========================================================================= */
+
+#define NTDLL_IMAGE_DYNAMIC_RELOCATION_ARM64X       0x00000006ULL
+#define NTDLL_DVRT_ARM64X_FIXUP_TYPE_ZEROFILL       0U
+#define NTDLL_DVRT_ARM64X_FIXUP_TYPE_VALUE          1U
+#define NTDLL_DVRT_ARM64X_FIXUP_TYPE_DELTA          2U
+
+typedef struct _NTDLL_TSC_SCALE_STATE {
+    ULONGLONG host_cntfrq_hz;
+    ULONGLONG target_tsc_hz;
+    ULONGLONG scale_numerator;
+    ULONGLONG scale_denominator;
+    ULONG     registry_mhz;
+    ULONG     configured;
+} NTDLL_TSC_SCALE_STATE;
+
+typedef struct _NTDLL_JIT_MODULE_KEY {
+    ULONG  time_date_stamp;
+    ULONG  checksum;
+    ULONG  size_of_image;
+    USHORT guest_machine;
+    USHORT emulator_id;
+} NTDLL_JIT_MODULE_KEY;
+
+typedef struct _NTDLL_JIT_CACHE_STATS {
+    ULONG initialized;
+    ULONG cache_stores;
+    ULONG cache_hits;
+    ULONG cache_misses;
+    ULONG corrupt_rejections;
+    ULONG invalidated_entries;
+    ULONG icache_flushes;
+} NTDLL_JIT_CACHE_STATS;
+
+NTSTATUS WINAPI NtdllArm64xBuildSyntheticImage(
+    PVOID Buffer,
+    SIZE_T BufferSize,
+    ULONG DvRtVersion,
+    SIZE_T *OutImageSize);
+
+NTSTATUS WINAPI NtdllArm64xApplyDynamicRelocations(
+    PVOID ImageBase,
+    SIZE_T ImageSize);
+
+NTSTATUS WINAPI NtReadFileArm64xPeView(
+    const WCHAR *FilePath,
+    USHORT CallerMachine,
+    const void *RawFileBytes,
+    SIZE_T RawFileSize,
+    ULONGLONG ByteOffset,
+    PVOID Buffer,
+    ULONG Length,
+    ULONG *BytesRead);
+
+NTSTATUS WINAPI NtdllTscScaleConfigure(
+    ULONGLONG HostCntFrqHz,
+    ULONGLONG TargetTscHz,
+    NTDLL_TSC_SCALE_STATE *OutState);
+
+NTSTATUS WINAPI NtdllTscScaleReadTicks(
+    ULONGLONG RawHostCntVct,
+    ULONGLONG *OutScaledRdtsc);
+
+NTSTATUS WINAPI NtdllTscQueryRegistryMhz(
+    const WCHAR *SubKeyPath,
+    const WCHAR *ValueName,
+    ULONG *OutMhz);
+
+NTSTATUS WINAPI NtQueryPerformanceCounter(
+    PLARGE_INTEGER PerformanceCounter,
+    PLARGE_INTEGER PerformanceFrequency);
+
+NTSTATUS WINAPI NtdllJitCacheInit(const char *CacheDirPath);
+
+NTSTATUS WINAPI NtdllJitCacheStoreBlock(
+    const NTDLL_JIT_MODULE_KEY *ModuleKey,
+    ULONG GuestRva,
+    const void *Arm64Code,
+    SIZE_T CodeSize);
+
+NTSTATUS WINAPI NtdllJitCacheLookupBlock(
+    const NTDLL_JIT_MODULE_KEY *ModuleKey,
+    ULONG GuestRva,
+    PVOID OutArm64Code,
+    SIZE_T BufferSize,
+    SIZE_T *OutCodeSize);
+
+NTSTATUS WINAPI NtdllJitCacheCorruptBlockForTest(
+    const NTDLL_JIT_MODULE_KEY *ModuleKey,
+    ULONG GuestRva);
+
+NTSTATUS WINAPI NtdllJitCacheInvalidateModule(
+    const NTDLL_JIT_MODULE_KEY *ModuleKey,
+    ULONG *OutRemovedCount);
+
+NTSTATUS WINAPI NtdllJitCacheQueryStats(NTDLL_JIT_CACHE_STATS *OutStats);
 
 #ifndef _WIN32
 static inline DWORD GetCurrentThreadId(void)

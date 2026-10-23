@@ -52,6 +52,9 @@ jobs:
           ./scripts/build.sh --dll ntdll --test test_ntsync_macos_parity
           ./scripts/test.sh --dll ntdll --test test_ntsync_macos_parity
           ./scripts/test.sh --security --dll ntdll --test test_ntsync_macos_parity
+          ./scripts/build.sh --dll ntdll --test test_arm64x_loader_parity
+          ./scripts/test.sh --dll ntdll --test test_arm64x_loader_parity
+          ./scripts/test.sh --security --dll ntdll --test test_arm64x_loader_parity
           ./scripts/test.sh --winetest --dll ntdll
 
       - name: Surgically Build & Test KernelBase Synchronization & Utility API Parity

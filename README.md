@@ -74,11 +74,13 @@ All host/VM orchestration, compilation, differential testing, stub discovery, an
 ./scripts/test.sh --security --dll bcrypt --test test_crypto_primitives
 ./scripts/test.sh --winetest --dll bcrypt
 
-# 4. Build & verify Apple Silicon (arm64) execution parity & macOS NTSync in ntdll and kernelbase
+# 4. Build & verify Apple Silicon (arm64) execution parity, ARM64X loader/TSC/JIT cache & macOS NTSync in ntdll and kernelbase
 ./scripts/build.sh --dll ntdll --test test_apple_silicon_parity
 ./scripts/test.sh --dll ntdll --test test_apple_silicon_parity
 ./scripts/build.sh --dll ntdll --test test_ntsync_macos_parity
 ./scripts/test.sh --dll ntdll --test test_ntsync_macos_parity
+./scripts/build.sh --dll ntdll --test test_arm64x_loader_parity
+./scripts/test.sh --dll ntdll --test test_arm64x_loader_parity
 ./scripts/test.sh --winetest --dll ntdll
 ./scripts/build.sh --dll kernelbase --test test_wait_on_address
 ./scripts/test.sh --dll kernelbase --test test_wait_on_address

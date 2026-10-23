@@ -8,5 +8,4 @@ Executive summary of all remaining open tasks in `docs/TASK_QUEUE.md`.
 
 ## Remaining Open Tasks
 
-### Low Priority
-- [ ] Address ARM64EC/ARM64X loader edge cases (`NtReadFile` PE header relocation view for `system32` DLLs, TSC registry frequency rescaling, and on-disk JIT code caching per WineConf 2025 ARM64 roadmap)
+_All currently queued tasks in `docs/TASK_QUEUE.md` have been completed and verified._

@@ -1019,6 +1019,152 @@ static void test_barrier_and_resource(void)
     RtlDeleteResource(&rwlock);
 }
 
+static void test_arm64x_dvrt_and_ntreadfile_system32_pe_view(void)
+{
+    uint8_t img_v1[4096];
+    uint8_t img_v2[4096];
+    uint8_t raw_sys32[4096];
+    uint8_t read_buf[512];
+    SIZE_T img_size = 0;
+    ULONG bytes_read = 0;
+    NTSTATUS status;
+    static const WCHAR sys32_path[] = {
+        'C',':','\\','W','i','n','d','o','w','s','\\','S','y','s','t','e','m','3','2','\\','k','e','r','n','e','l','3','2','.','d','l','l',0
+    };
+    static const WCHAR app_path[] = {
+        'C',':','\\','A','p','p','\\','p','l','u','g','i','n','.','d','l','l',0
+    };
+
+    memset(img_v1, 0, sizeof(img_v1));
+    memset(img_v2, 0, sizeof(img_v2));
+    memset(raw_sys32, 0, sizeof(raw_sys32));
+    memset(read_buf, 0, sizeof(read_buf));
+
+    todo_wine {
+        status = NtdllArm64xBuildSyntheticImage(img_v1, sizeof(img_v1), 1U, &img_size);
+        ok(status == STATUS_SUCCESS && img_size == 4096U, "NtdllArm64xBuildSyntheticImage v1 failed: 0x%08x\n", (unsigned int)status);
+        ok(*(uint16_t *)(img_v1 + 0x84) == IMAGE_FILE_MACHINE_ARM64, "expected pre-DVRT Machine=0xAA64\n");
+
+        status = NtdllArm64xApplyDynamicRelocations(img_v1, img_size);
+        ok(status == STATUS_SUCCESS, "NtdllArm64xApplyDynamicRelocations v1 failed: 0x%08x\n", (unsigned int)status);
+        ok(*(uint16_t *)(img_v1 + 0x84) == IMAGE_FILE_MACHINE_AMD64, "expected post-DVRT Machine=0x8664\n");
+        ok(*(uint32_t *)(img_v1 + 0xA8) == 0x2000U, "expected post-DVRT AddressOfEntryPoint=0x2000\n");
+        ok(*(uint32_t *)(img_v1 + 0x130) == 0U && *(uint32_t *)(img_v1 + 0x134) == 0U,
+           "expected DataDirectory[5] BASERELOC zero-filled by DVRT\n");
+
+        status = NtdllArm64xBuildSyntheticImage(img_v2, sizeof(img_v2), 2U, &img_size);
+        ok(status == STATUS_SUCCESS, "NtdllArm64xBuildSyntheticImage v2 failed: 0x%08x\n", (unsigned int)status);
+        status = NtdllArm64xApplyDynamicRelocations(img_v2, img_size);
+        ok(status == STATUS_SUCCESS && *(uint32_t *)(img_v2 + 0x2E0) == 0x4C00U,
+           "expected DVRT v2 negative 8-byte-scaled delta 0x4C00\n");
+
+        /* NtReadFile PE header relocation view for system32 DLLs */
+        (void)NtdllArm64xBuildSyntheticImage(raw_sys32, sizeof(raw_sys32), 1U, &img_size);
+        status = NtReadFileArm64xPeView(
+            sys32_path, IMAGE_FILE_MACHINE_AMD64, raw_sys32, img_size, 0ULL, read_buf, sizeof(read_buf), &bytes_read);
+        ok(status == STATUS_SUCCESS && *(uint16_t *)(read_buf + 0x84) == IMAGE_FILE_MACHINE_AMD64,
+           "expected AMD64 caller on system32 DLL to see Machine=0x8664\n");
+
+        status = NtReadFileArm64xPeView(
+            sys32_path, IMAGE_FILE_MACHINE_ARM64EC, raw_sys32, img_size, 0ULL, read_buf, sizeof(read_buf), &bytes_read);
+        ok(status == STATUS_SUCCESS && *(uint16_t *)(read_buf + 0x84) == IMAGE_FILE_MACHINE_AMD64,
+           "expected ARM64EC caller on system32 DLL to see Machine=0x8664\n");
+
+        status = NtReadFileArm64xPeView(
+            sys32_path, IMAGE_FILE_MACHINE_ARM64, raw_sys32, img_size, 0ULL, read_buf, sizeof(read_buf), &bytes_read);
+        ok(status == STATUS_SUCCESS && *(uint16_t *)(read_buf + 0x84) == IMAGE_FILE_MACHINE_ARM64,
+           "expected native ARM64 caller on system32 DLL to see raw Machine=0xAA64\n");
+
+        status = NtReadFileArm64xPeView(
+            app_path, IMAGE_FILE_MACHINE_AMD64, raw_sys32, img_size, 0ULL, read_buf, sizeof(read_buf), &bytes_read);
+        ok(status == STATUS_SUCCESS && *(uint16_t *)(read_buf + 0x84) == IMAGE_FILE_MACHINE_ARM64,
+           "expected non-system32 DLL read to bypass ARM64X PE header relocation\n");
+    }
+}
+
+static void test_tsc_registry_rescaling_and_qpc(void)
+{
+    NTDLL_TSC_SCALE_STATE state;
+    ULONGLONG scaled = 0;
+    ULONG mhz = 0;
+    LARGE_INTEGER qpc1, qpc2, qpf;
+    NTSTATUS status;
+    static const WCHAR cpu0_key[] = {
+        'H','A','R','D','W','A','R','E','\\','D','E','S','C','R','I','P','T','I','O','N','\\',
+        'S','y','s','t','e','m','\\','C','e','n','t','r','a','l','P','r','o','c','e','s','s','o','r','\\','0',0
+    };
+    static const WCHAR mhz_val[] = { '~','M','H','z',0 };
+
+    memset(&state, 0, sizeof(state));
+    qpc1.QuadPart = 0;
+    qpc2.QuadPart = 0;
+    qpf.QuadPart = 0;
+
+    status = NtQueryPerformanceCounter(&qpc1, &qpf);
+    ok(status == STATUS_SUCCESS && qpf.QuadPart == 10000000LL, "NtQueryPerformanceCounter failed: 0x%08x\n", (unsigned int)status);
+    status = NtQueryPerformanceCounter(&qpc2, NULL);
+    ok(status == STATUS_SUCCESS && qpc2.QuadPart >= qpc1.QuadPart, "NtQueryPerformanceCounter non-monotonic\n");
+
+    todo_wine {
+        status = NtdllTscScaleConfigure(24000000ULL, 3600000000ULL, &state);
+        ok(status == STATUS_SUCCESS && state.scale_numerator == 150ULL && state.scale_denominator == 1ULL,
+           "NtdllTscScaleConfigure 24MHz->3600MHz failed\n");
+
+        status = NtdllTscScaleReadTicks(24000000ULL, &scaled);
+        ok(status == STATUS_SUCCESS && scaled == 3600000000ULL, "NtdllTscScaleReadTicks 1s mismatch\n");
+
+        status = NtdllTscQueryRegistryMhz(cpu0_key, mhz_val, &mhz);
+        ok(status == STATUS_SUCCESS && mhz == 3600U, "NtdllTscQueryRegistryMhz expected 3600, got %u\n", (unsigned int)mhz);
+    }
+}
+
+static void test_arm64ec_jit_disk_cache(void)
+{
+    NTDLL_JIT_MODULE_KEY key;
+    NTDLL_JIT_CACHE_STATS stats;
+    uint32_t code_in[4] = { 0xD2800540U, 0x91000400U, 0xD503201FU, 0xD65F03C0U };
+    uint32_t code_out[4];
+    SIZE_T out_size = 0;
+    ULONG removed = 0;
+    NTSTATUS status;
+
+    memset(&key, 0, sizeof(key));
+    memset(&stats, 0, sizeof(stats));
+    memset(code_out, 0, sizeof(code_out));
+
+    key.time_date_stamp = 0x6710ABCDU;
+    key.checksum = 0x00123456U;
+    key.size_of_image = 0x00040000U;
+    key.guest_machine = IMAGE_FILE_MACHINE_AMD64;
+    key.emulator_id = 1U;
+
+    todo_wine {
+        status = NtdllJitCacheInit("/tmp/wine_parity_winetest_ntdll_jit_cache");
+        ok(status == STATUS_SUCCESS, "NtdllJitCacheInit failed: 0x%08x\n", (unsigned int)status);
+
+        status = NtdllJitCacheStoreBlock(&key, 0x1040U, code_in, sizeof(code_in));
+        ok(status == STATUS_SUCCESS, "NtdllJitCacheStoreBlock failed: 0x%08x\n", (unsigned int)status);
+
+        status = NtdllJitCacheLookupBlock(&key, 0x1040U, code_out, sizeof(code_out), &out_size);
+        ok(status == STATUS_SUCCESS && out_size == sizeof(code_in) && memcmp(code_in, code_out, sizeof(code_in)) == 0,
+           "NtdllJitCacheLookupBlock hit mismatch\n");
+
+        status = NtdllJitCacheCorruptBlockForTest(&key, 0x1040U);
+        ok(status == STATUS_SUCCESS, "NtdllJitCacheCorruptBlockForTest failed\n");
+
+        status = NtdllJitCacheLookupBlock(&key, 0x1040U, code_out, sizeof(code_out), &out_size);
+        ok(status == STATUS_CRC_ERROR, "expected STATUS_CRC_ERROR on corrupted JIT cache block, got 0x%08x\n", (unsigned int)status);
+
+        (void)NtdllJitCacheStoreBlock(&key, 0x2080U, code_in, sizeof(code_in));
+        status = NtdllJitCacheInvalidateModule(&key, &removed);
+        ok(status == STATUS_SUCCESS && removed == 1U, "NtdllJitCacheInvalidateModule failed\n");
+
+        status = NtdllJitCacheQueryStats(&stats);
+        ok(status == STATUS_SUCCESS && stats.corrupt_rejections == 1U && stats.invalidated_entries == 1U,
+           "NtdllJitCacheQueryStats mismatch\n");
+    }
+}
+
 START_TEST(ntdll)
 {
     WINETEST_RUN_SUBTEST(test_NtAllocateVirtualMemory);
@@ -1036,4 +1182,7 @@ START_TEST(ntdll)
     WINETEST_RUN_SUBTEST(test_wait_on_address);
     WINETEST_RUN_SUBTEST(test_tid_alert);
     WINETEST_RUN_SUBTEST(test_barrier_and_resource);
+    WINETEST_RUN_SUBTEST(test_arm64x_dvrt_and_ntreadfile_system32_pe_view);
+    WINETEST_RUN_SUBTEST(test_tsc_registry_rescaling_and_qpc);
+    WINETEST_RUN_SUBTEST(test_arm64ec_jit_disk_cache);
 }

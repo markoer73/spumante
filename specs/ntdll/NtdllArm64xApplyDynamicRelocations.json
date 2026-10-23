@@ -1,0 +1,26 @@
+{
+  "dll": "ntdll",
+  "api_name": "NtdllArm64xApplyDynamicRelocations",
+  "header": "ntdll.h",
+  "ms_learn_url": "https://learn.microsoft.com/en-us/windows/arm/arm64x-pe",
+  "signature": "NTSTATUS WINAPI NtdllArm64xApplyDynamicRelocations(PVOID ImageBase, SIZE_T ImageSize, ULONG DvRtVersion, const void *RelocBlock, SIZE_T RelocBlockSize)",
+  "return_codes": {
+    "STATUS_SUCCESS": "0x00000000",
+    "STATUS_INVALID_PARAMETER": "0xc000000d",
+    "STATUS_INVALID_IMAGE_FORMAT": "0xc000007b"
+  },
+  "empirical_windows_behavior": [
+    "Processes IMAGE_DYNAMIC_RELOCATION_ARM64X (symbol 6) Dynamic Value Relocation Table (DVRT) v1 and v2 entries on hybrid ARM64X PE images.",
+    "Applies IMAGE_DVRT_ARM64X_FIXUP_TYPE_ZEROFILL (0), IMAGE_DVRT_ARM64X_FIXUP_TYPE_VALUE (1), and IMAGE_DVRT_ARM64X_FIXUP_TYPE_DELTA (2, signed +/-4 or +/-8 scale) fixups to transform an IMAGE_FILE_MACHINE_ARM64 (0xaa64) PE header into an IMAGE_FILE_MACHINE_AMD64 (0x8664) / ARM64EC view."
+  ],
+  "macos_backend_strategy": "Apply ARM64X DVRT fixups in-memory during SEC_IMAGE mapping and NtReadFile system32 PE header reads.",
+  "clean_room_attestation": {
+    "sources": [
+      "Microsoft Learn ARM64X PE files and Dynamic Value Relocation Table specification",
+      "Public Wine dlls/ntdll/unix/virtual.c and wiki/ARM64EC-Toolchain.md",
+      "Black-box Windows 11 ARM64 differential conformance test observations"
+    ],
+    "no_leaked_source_exposure": true,
+    "no_proprietary_decompilation": true
+  }
+}

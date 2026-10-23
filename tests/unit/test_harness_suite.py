@@ -1237,6 +1237,91 @@ class TestWineParityArchitecture(unittest.TestCase):
         self.assertIn("test_gradient_brushes", wt_report["subtests_executed"])
         self.assertIn("test_vkd3d_shader_msl", wt_report["subtests_executed"])
 
+    def test_21_ntdll_arm64x_loader_tsc_and_jit_cache_parity(self) -> None:
+        """Verify ARM64EC/ARM64X loader edge cases (DVRT relocations, NtReadFile system32 PE view, TSC rescaling, and on-disk JIT cache) in dlls/ntdll."""
+        build_sh = REPO_ROOT / "scripts" / "build.sh"
+        test_sh = REPO_ROOT / "scripts" / "test.sh"
+
+        # 1. Verify clean-room spec packets exist for the new ARM64EC/ARM64X ntdll APIs
+        for api in (
+            "NtdllArm64xApplyDynamicRelocations",
+            "NtReadFileArm64xPeView",
+            "NtdllTscScaleConfigure",
+            "NtdllJitCacheLookupBlock",
+        ):
+            spec_file = REPO_ROOT / "specs" / "ntdll" / f"{api}.json"
+            self.assertTrue(spec_file.is_file(), f"Missing clean-room spec packet: {spec_file}")
+
+        # 2. Surgically build ntdll + test_arm64x_loader_parity
+        res_build = subprocess.run(
+            [str(build_sh), "--dll", "ntdll", "--test", "test_arm64x_loader_parity"],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(res_build.returncode, 0, res_build.stdout + res_build.stderr)
+
+        # 3. Verify RED failure when running with --simulate-stub
+        res_red = subprocess.run(
+            [str(test_sh), "--dll", "ntdll", "--test", "test_arm64x_loader_parity", "--simulate-stub"],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertNotEqual(res_red.returncode, 0)
+
+        # 4. Verify GREEN match against Windows Ground Truth (12 assertions)
+        res_green = subprocess.run(
+            [str(test_sh), "--dll", "ntdll", "--test", "test_arm64x_loader_parity"],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(
+            res_green.returncode,
+            0,
+            f"test_arm64x_loader_parity failed:\n{res_green.stdout}\n{res_green.stderr}",
+        )
+        self.assertIn("MATCHED (0 discrepancies) [12 assertions]", res_green.stdout)
+
+        # 5. Verify 4-gate security audit (including ASan+UBSan) on test_arm64x_loader_parity
+        res_sec = subprocess.run(
+            [str(test_sh), "--security", "--dll", "ntdll", "--test", "test_arm64x_loader_parity"],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(
+            res_sec.returncode,
+            0,
+            f"Security scan failed on test_arm64x_loader_parity:\n{res_sec.stdout}\n{res_sec.stderr}",
+        )
+
+        # 6. Verify expanded winetest_ntdll suite (18 subtests, >= 1000 assertions)
+        res_wt = subprocess.run(
+            [str(test_sh), "--winetest", "--dll", "ntdll"],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(
+            res_wt.returncode,
+            0,
+            f"winetest --dll ntdll failed:\n{res_wt.stdout}\n{res_wt.stderr}",
+        )
+        wt_report = json.loads(res_wt.stdout)
+        self.assertTrue(wt_report["passed"])
+        self.assertEqual(wt_report["failures"], 0)
+        self.assertGreaterEqual(wt_report["total_assertions"], 1000)
+        self.assertIn("test_arm64x_dvrt_and_ntreadfile_system32_pe_view", wt_report["subtests_executed"])
+        self.assertIn("test_tsc_registry_rescaling_and_qpc", wt_report["subtests_executed"])
+        self.assertIn("test_arm64ec_jit_disk_cache", wt_report["subtests_executed"])
+
 
 if __name__ == "__main__":
     unittest.main()

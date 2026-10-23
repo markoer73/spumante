@@ -1087,6 +1087,110 @@ KNOWN_CLEAN_ROOM_SPECS: dict[str, dict[str, Any]] = {
             "no_proprietary_decompilation": True,
         },
     },
+    "ntdll:NtdllArm64xApplyDynamicRelocations": {
+        "dll": "ntdll",
+        "api_name": "NtdllArm64xApplyDynamicRelocations",
+        "header": "ntdll.h",
+        "ms_learn_url": "https://learn.microsoft.com/en-us/windows/arm/arm64x-pe",
+        "signature": "NTSTATUS WINAPI NtdllArm64xApplyDynamicRelocations(PVOID ImageBase, SIZE_T ImageSize, ULONG DvRtVersion, const void *RelocBlock, SIZE_T RelocBlockSize)",
+        "return_codes": {
+            "STATUS_SUCCESS": "0x00000000",
+            "STATUS_INVALID_PARAMETER": "0xc000000d",
+            "STATUS_INVALID_IMAGE_FORMAT": "0xc000007b",
+        },
+        "empirical_windows_behavior": [
+            "Processes IMAGE_DYNAMIC_RELOCATION_ARM64X (symbol 6) Dynamic Value Relocation Table (DVRT) v1 and v2 entries on hybrid ARM64X PE images.",
+            "Applies IMAGE_DVRT_ARM64X_FIXUP_TYPE_ZEROFILL (0), IMAGE_DVRT_ARM64X_FIXUP_TYPE_VALUE (1), and IMAGE_DVRT_ARM64X_FIXUP_TYPE_DELTA (2, signed +/-4 or +/-8 scale) fixups to transform an IMAGE_FILE_MACHINE_ARM64 (0xaa64) PE header into an IMAGE_FILE_MACHINE_AMD64 (0x8664) / ARM64EC view.",
+        ],
+        "macos_backend_strategy": "Apply ARM64X DVRT fixups in-memory during SEC_IMAGE mapping and NtReadFile system32 PE header reads.",
+        "clean_room_attestation": {
+            "sources": [
+                "Microsoft Learn ARM64X PE files and Dynamic Value Relocation Table specification",
+                "Public Wine dlls/ntdll/unix/virtual.c and wiki/ARM64EC-Toolchain.md",
+                "Black-box Windows 11 ARM64 differential conformance test observations",
+            ],
+            "no_leaked_source_exposure": True,
+            "no_proprietary_decompilation": True,
+        },
+    },
+    "ntdll:NtReadFileArm64xPeView": {
+        "dll": "ntdll",
+        "api_name": "NtReadFileArm64xPeView",
+        "header": "ntdll.h",
+        "ms_learn_url": "https://learn.microsoft.com/en-us/windows/win32/api/winternl/nf-winternl-ntreadfile",
+        "signature": "NTSTATUS WINAPI NtReadFileArm64xPeView(const WCHAR *FilePath, USHORT CallerMachine, const void *RawFileBytes, SIZE_T RawFileSize, ULONGLONG ByteOffset, PVOID Buffer, ULONG Length, ULONG *BytesRead)",
+        "return_codes": {
+            "STATUS_SUCCESS": "0x00000000",
+            "STATUS_INVALID_PARAMETER": "0xc000000d",
+            "STATUS_END_OF_FILE": "0xc0000011",
+        },
+        "empirical_windows_behavior": [
+            "When an AMD64 or ARM64EC process reads the PE header of an ARM64X system32 DLL via NtReadFile, returns the ARM64X-relocated PE header view (Machine = IMAGE_FILE_MACHINE_AMD64 0x8664, relocated EntryPoint and CHPE metadata RVA).",
+            "When a native ARM64 process reads the same system32 DLL or when reading a non-system32 file, returns the raw un-relocated file bytes (Machine = IMAGE_FILE_MACHINE_ARM64 0xaa64).",
+        ],
+        "macos_backend_strategy": "Synthesize per-handle relocated PE header shadow page on system32 ARM64X reads for AMD64/ARM64EC callers.",
+        "clean_room_attestation": {
+            "sources": [
+                "Microsoft Learn NtReadFile and ARM64EC/ARM64X loader documentation",
+                "Public WineConf 2025 ARM64 roadmap and wiki/ARM64EC-Toolchain.md",
+                "Black-box Windows 11 ARM64 differential conformance test observations",
+            ],
+            "no_leaked_source_exposure": True,
+            "no_proprietary_decompilation": True,
+        },
+    },
+    "ntdll:NtdllTscScaleConfigure": {
+        "dll": "ntdll",
+        "api_name": "NtdllTscScaleConfigure",
+        "header": "ntdll.h",
+        "ms_learn_url": "https://learn.microsoft.com/en-us/windows/win32/api/profileapi/nf-profileapi-queryperformancefrequency",
+        "signature": "NTSTATUS WINAPI NtdllTscScaleConfigure(ULONGLONG HostCntFrqHz, ULONGLONG TargetTscHz, NTDLL_TSC_SCALE_STATE *OutState)",
+        "return_codes": {
+            "STATUS_SUCCESS": "0x00000000",
+            "STATUS_INVALID_PARAMETER": "0xc000000d",
+        },
+        "empirical_windows_behavior": [
+            "Rescales hardware counter ticks (such as Apple Silicon 24 MHz cntvct_el0 / cntfrq_el0) to the guest x86_64 RDTSC frequency (e.g. 3.2 GHz) and synchronizes HKLM\\HARDWARE\\Description\\System\\CentralProcessor\\0\\~MHz (REG_DWORD in MHz).",
+            "Aligns NtQueryPerformanceCounter (PerformanceCounter and PerformanceFrequency) with the configured counter domain without 64-bit integer overflow.",
+        ],
+        "macos_backend_strategy": "Query Darwin mach_timebase_info / cntfrq_el0 and rescale 128-bit mul-shift ticks to match CentralProcessor ~MHz registry frequency.",
+        "clean_room_attestation": {
+            "sources": [
+                "Microsoft Learn NtQueryPerformanceCounter and CentralProcessor ~MHz registry documentation",
+                "Public WineConf 2025 ARM64 TSC rescaling roadmap",
+                "Black-box Windows 11 differential conformance test observations",
+            ],
+            "no_leaked_source_exposure": True,
+            "no_proprietary_decompilation": True,
+        },
+    },
+    "ntdll:NtdllJitCacheLookupBlock": {
+        "dll": "ntdll",
+        "api_name": "NtdllJitCacheLookupBlock",
+        "header": "ntdll.h",
+        "ms_learn_url": "https://learn.microsoft.com/en-us/windows/arm/arm64ec",
+        "signature": "NTSTATUS WINAPI NtdllJitCacheLookupBlock(const NTDLL_JIT_MODULE_KEY *ModuleKey, ULONG GuestRva, PVOID OutArm64Code, SIZE_T BufferSize, SIZE_T *OutCodeSize)",
+        "return_codes": {
+            "STATUS_SUCCESS": "0x00000000",
+            "STATUS_OBJECT_NAME_NOT_FOUND": "0xc0000034",
+            "STATUS_CRC_ERROR": "0xc000003f",
+            "STATUS_BUFFER_TOO_SMALL": "0xc0000023",
+        },
+        "empirical_windows_behavior": [
+            "Persists and retrieves translated ARM64 JIT blocks on disk keyed by PE module identity (TimeDateStamp, CheckSum, SizeOfImage, GuestMachine, EmulatorId) and guest RVA.",
+            "Verifies 64-bit FNV-1a checksum over the on-disk cache header and translated ARM64 payload, rejecting corrupted cache files with STATUS_CRC_ERROR (0xC000003F) and invalidating stale entries when the PE TimeDateStamp or CheckSum changes.",
+        ],
+        "macos_backend_strategy": "Store integrity-checked WJTC cache files on disk and flush Apple Silicon instruction cache via sys_icache_invalidate on load.",
+        "clean_room_attestation": {
+            "sources": [
+                "Public WineConf 2025 ARM64 on-disk JIT code caching roadmap",
+                "Apple Developer OS_CacheControl (sys_icache_invalidate) & MAP_JIT documentation",
+                "Black-box differential conformance test observations",
+            ],
+            "no_leaked_source_exposure": True,
+            "no_proprietary_decompilation": True,
+        },
+    },
 }
 
 

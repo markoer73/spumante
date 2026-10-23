@@ -74,6 +74,7 @@
       "tracked_files": [
         "dlls/ntdll/ntdll.h",
         "dlls/ntdll/ntdll.spec",
+        "dlls/ntdll/arm64x_loader.c",
         "dlls/ntdll/signal_x86_64.c",
         "dlls/ntdll/signal_arm64.c",
         "dlls/ntdll/sync.c",
@@ -81,7 +82,8 @@
       ],
       "required_conformance_tests": [
         "test_apple_silicon_parity",
-        "test_ntsync_macos_parity"
+        "test_ntsync_macos_parity",
+        "test_arm64x_loader_parity"
       ]
     },
     "winemac.drv": {

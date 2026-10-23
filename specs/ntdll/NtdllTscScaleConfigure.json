@@ -1,0 +1,25 @@
+{
+  "dll": "ntdll",
+  "api_name": "NtdllTscScaleConfigure",
+  "header": "ntdll.h",
+  "ms_learn_url": "https://learn.microsoft.com/en-us/windows/win32/api/profileapi/nf-profileapi-queryperformancefrequency",
+  "signature": "NTSTATUS WINAPI NtdllTscScaleConfigure(ULONGLONG HostCntFrqHz, ULONGLONG TargetTscHz, NTDLL_TSC_SCALE_STATE *OutState)",
+  "return_codes": {
+    "STATUS_SUCCESS": "0x00000000",
+    "STATUS_INVALID_PARAMETER": "0xc000000d"
+  },
+  "empirical_windows_behavior": [
+    "Rescales hardware counter ticks (such as Apple Silicon 24 MHz cntvct_el0 / cntfrq_el0) to the guest x86_64 RDTSC frequency (e.g. 3.2 GHz) and synchronizes HKLM\\HARDWARE\\Description\\System\\CentralProcessor\\0\\~MHz (REG_DWORD in MHz).",
+    "Aligns NtQueryPerformanceCounter (PerformanceCounter and PerformanceFrequency) with the configured counter domain without 64-bit integer overflow."
+  ],
+  "macos_backend_strategy": "Query Darwin mach_timebase_info / cntfrq_el0 and rescale 128-bit mul-shift ticks to match CentralProcessor ~MHz registry frequency.",
+  "clean_room_attestation": {
+    "sources": [
+      "Microsoft Learn NtQueryPerformanceCounter and CentralProcessor ~MHz registry documentation",
+      "Public WineConf 2025 ARM64 TSC rescaling roadmap",
+      "Black-box Windows 11 differential conformance test observations"
+    ],
+    "no_leaked_source_exposure": true,
+    "no_proprietary_decompilation": true
+  }
+}

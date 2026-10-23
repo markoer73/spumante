@@ -1,0 +1,26 @@
+{
+  "dll": "ntdll",
+  "api_name": "NtReadFileArm64xPeView",
+  "header": "ntdll.h",
+  "ms_learn_url": "https://learn.microsoft.com/en-us/windows/win32/api/winternl/nf-winternl-ntreadfile",
+  "signature": "NTSTATUS WINAPI NtReadFileArm64xPeView(const WCHAR *FilePath, USHORT CallerMachine, const void *RawFileBytes, SIZE_T RawFileSize, ULONGLONG ByteOffset, PVOID Buffer, ULONG Length, ULONG *BytesRead)",
+  "return_codes": {
+    "STATUS_SUCCESS": "0x00000000",
+    "STATUS_INVALID_PARAMETER": "0xc000000d",
+    "STATUS_END_OF_FILE": "0xc0000011"
+  },
+  "empirical_windows_behavior": [
+    "When an AMD64 or ARM64EC process reads the PE header of an ARM64X system32 DLL via NtReadFile, returns the ARM64X-relocated PE header view (Machine = IMAGE_FILE_MACHINE_AMD64 0x8664, relocated EntryPoint and CHPE metadata RVA).",
+    "When a native ARM64 process reads the same system32 DLL or when reading a non-system32 file, returns the raw un-relocated file bytes (Machine = IMAGE_FILE_MACHINE_ARM64 0xaa64)."
+  ],
+  "macos_backend_strategy": "Synthesize per-handle relocated PE header shadow page on system32 ARM64X reads for AMD64/ARM64EC callers.",
+  "clean_room_attestation": {
+    "sources": [
+      "Microsoft Learn NtReadFile and ARM64EC/ARM64X loader documentation",
+      "Public WineConf 2025 ARM64 roadmap and wiki/ARM64EC-Toolchain.md",
+      "Black-box Windows 11 ARM64 differential conformance test observations"
+    ],
+    "no_leaked_source_exposure": true,
+    "no_proprietary_decompilation": true
+  }
+}

@@ -136,6 +136,7 @@ if [[ "$BUILD_ALL" -eq 1 && -z "$DLL" ]]; then
     python3 "$REPO_ROOT/scripts/lib/winetest_runner.py" --mode build --dll bcrypt --arch "$ARCH"
     python3 "$REPO_ROOT/scripts/lib/runner.py" --mode build --dll ntdll --test test_apple_silicon_parity --arch "$ARCH"
     python3 "$REPO_ROOT/scripts/lib/runner.py" --mode build --dll ntdll --test test_ntsync_macos_parity --arch "$ARCH"
+    python3 "$REPO_ROOT/scripts/lib/runner.py" --mode build --dll ntdll --test test_arm64x_loader_parity --arch "$ARCH"
     python3 "$REPO_ROOT/scripts/lib/winetest_runner.py" --mode build --dll ntdll --arch "$ARCH"
     python3 "$REPO_ROOT/scripts/lib/runner.py" --mode build --dll kernelbase --test test_wait_on_address --arch "$ARCH"
     python3 "$REPO_ROOT/scripts/lib/runner.py" --mode build --dll kernelbase --test test_win32_utility_apis --arch "$ARCH"

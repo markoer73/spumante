@@ -1,0 +1,27 @@
+{
+  "dll": "ntdll",
+  "api_name": "NtdllJitCacheLookupBlock",
+  "header": "ntdll.h",
+  "ms_learn_url": "https://learn.microsoft.com/en-us/windows/arm/arm64ec",
+  "signature": "NTSTATUS WINAPI NtdllJitCacheLookupBlock(const NTDLL_JIT_MODULE_KEY *ModuleKey, ULONG GuestRva, PVOID OutArm64Code, SIZE_T BufferSize, SIZE_T *OutCodeSize)",
+  "return_codes": {
+    "STATUS_SUCCESS": "0x00000000",
+    "STATUS_OBJECT_NAME_NOT_FOUND": "0xc0000034",
+    "STATUS_CRC_ERROR": "0xc000003f",
+    "STATUS_BUFFER_TOO_SMALL": "0xc0000023"
+  },
+  "empirical_windows_behavior": [
+    "Persists and retrieves translated ARM64 JIT blocks on disk keyed by PE module identity (TimeDateStamp, CheckSum, SizeOfImage, GuestMachine, EmulatorId) and guest RVA.",
+    "Verifies 64-bit FNV-1a checksum over the on-disk cache header and translated ARM64 payload, rejecting corrupted cache files with STATUS_CRC_ERROR (0xC000003F) and invalidating stale entries when the PE TimeDateStamp or CheckSum changes."
+  ],
+  "macos_backend_strategy": "Store integrity-checked WJTC cache files on disk and flush Apple Silicon instruction cache via sys_icache_invalidate on load.",
+  "clean_room_attestation": {
+    "sources": [
+      "Public WineConf 2025 ARM64 on-disk JIT code caching roadmap",
+      "Apple Developer OS_CacheControl (sys_icache_invalidate) & MAP_JIT documentation",
+      "Black-box differential conformance test observations"
+    ],
+    "no_leaked_source_exposure": true,
+    "no_proprietary_decompilation": true
+  }
+}
