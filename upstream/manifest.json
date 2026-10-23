@@ -53,12 +53,17 @@
       "upstream_tests_path": "dlls/mfplat/tests",
       "base_upstream_commit": "wine-10.0-base",
       "merge_strategy": "3-way-backport-preserving-macos-blocks",
-      "macos_acceleration": "VideoToolbox / CoreMedia / AVFoundation",
+      "macos_acceleration": "VideoToolbox / CoreMedia / CoreVideo / IOSurface",
       "tracked_files": [
+        "dlls/mfplat/mfplat.h",
         "dlls/mfplat/mfplat.spec",
-        "dlls/mfplat/mfplat_stubs.c"
+        "dlls/mfplat/mfplat_main.c",
+        "dlls/mfplat/mfplat_stubs.c",
+        "dlls/mfplat/videotoolbox.c"
       ],
-      "required_conformance_tests": []
+      "required_conformance_tests": [
+        "test_mfplat_parity"
+      ]
     },
     "ntdll": {
       "upstream_path": "dlls/ntdll",

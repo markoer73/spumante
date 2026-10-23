@@ -71,6 +71,13 @@ jobs:
           ./scripts/test.sh --security --dll winemac.drv --test test_winemac_parity
           ./scripts/test.sh --winetest --dll winemac.drv
 
+      - name: Surgically Build & Test mfplat Core Media Foundation & VideoToolbox Parity
+        run: |
+          ./scripts/build.sh --dll mfplat --test test_mfplat_parity
+          ./scripts/test.sh --dll mfplat --test test_mfplat_parity
+          ./scripts/test.sh --security --dll mfplat --test test_mfplat_parity
+          ./scripts/test.sh --winetest --dll mfplat
+
       - name: Run Full Architecture & Harness Unit Suite
         run: python3 -m unittest -v tests/unit/test_harness_suite.py
 

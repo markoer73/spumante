@@ -1,0 +1,25 @@
+{
+  "dll": "mfplat",
+  "api_name": "MFCreateGuid",
+  "header": "mfplat.h",
+  "ms_learn_url": "https://learn.microsoft.com/en-us/windows/win32/medfound/media-foundation-functions",
+  "signature": "HRESULT WINAPI MFCreateGuid(GUID *pGuid)",
+  "return_codes": {
+    "S_OK": "0x00000000",
+    "E_INVALIDARG": "0x80070057"
+  },
+  "empirical_windows_behavior": [
+    "Generates a new unique RFC 4122 v4 GUID into *pGuid and returns S_OK.",
+    "Returns E_INVALIDARG (0x80070057) when pGuid is NULL."
+  ],
+  "macos_backend_strategy": "Use macOS CoreFoundation CFUUIDCreate / Security.framework SecRandomCopyBytes to generate RFC 4122 v4 GUIDs.",
+  "clean_room_attestation": {
+    "sources": [
+      "Microsoft Learn Media Foundation / CoCreateGuid documentation",
+      "Public Wine dlls/mfplat/mfplat.spec declarations",
+      "Black-box Windows 11 differential conformance test observations"
+    ],
+    "no_leaked_source_exposure": true,
+    "no_proprietary_decompilation": true
+  }
+}

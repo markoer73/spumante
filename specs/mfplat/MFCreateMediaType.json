@@ -1,0 +1,29 @@
+{
+  "dll": "mfplat",
+  "api_name": "MFCreateMediaType",
+  "header": "mfplat.h",
+  "ms_learn_url": "https://learn.microsoft.com/en-us/windows/win32/api/mfapi/nf-mfapi-mfcreatemediatype",
+  "signature": "HRESULT WINAPI MFCreateMediaType(IMFMediaType **ppMFType)",
+  "return_codes": {
+    "S_OK": "0x00000000",
+    "S_FALSE": "0x00000001",
+    "E_INVALIDARG": "0x80070057",
+    "MF_E_ATTRIBUTENOTFOUND": "0xc00d36e6"
+  },
+  "empirical_windows_behavior": [
+    "Creates an IMFMediaType COM object inheriting IMFAttributes plus GetMajorType, IsCompressedFormat, IsEqual, GetRepresentation, and FreeRepresentation.",
+    "GetMajorType queries MF_MT_MAJOR_TYPE and returns MF_E_ATTRIBUTENOTFOUND (0xc00d36e6) if not set.",
+    "IsCompressedFormat returns TRUE by default unless MF_MT_ALL_SAMPLES_INDEPENDENT is set to non-zero (or uncompressed video/audio subtype is configured).",
+    "IsEqual sets MF_MEDIATYPE_EQUAL_MAJOR_TYPES | MF_MEDIATYPE_EQUAL_FORMAT_TYPES | MF_MEDIATYPE_EQUAL_FORMAT_DATA | MF_MEDIATYPE_EQUAL_FORMAT_USER_DATA (0x0f) and returns S_OK when all match or S_FALSE on partial match."
+  ],
+  "macos_backend_strategy": "COM IMFMediaType vtable wrapping IMFAttributes with CoreMedia format description bridging.",
+  "clean_room_attestation": {
+    "sources": [
+      "Microsoft Learn MFCreateMediaType / IMFMediaType documentation",
+      "Public Wine dlls/mfplat/mediatype.c and tests/mfplat.c declarations",
+      "Black-box Windows 11 differential conformance test observations"
+    ],
+    "no_leaked_source_exposure": true,
+    "no_proprietary_decompilation": true
+  }
+}

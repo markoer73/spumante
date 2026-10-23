@@ -1,0 +1,138 @@
+{
+  "dll": "mfplat",
+  "test_name": "test_mfplat_parity",
+  "architecture": "x86_64",
+  "environment": "windows-11-22h2-ground-truth",
+  "assertions": [
+    {
+      "id": "mfplat_001",
+      "case": "mf_startup_invalid_version",
+      "api": "MFStartup",
+      "comparison_mode": "exact",
+      "status": "0xc00d36e3",
+      "last_error": 0,
+      "out_length": 0,
+      "buffer_hex": "",
+      "handle_valid": false
+    },
+    {
+      "id": "mfplat_002",
+      "case": "mf_startup_and_shutdown_lifecycle",
+      "api": "MFStartup",
+      "comparison_mode": "roundtrip",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 4,
+      "buffer_hex": "01010101",
+      "roundtrip_ok": true
+    },
+    {
+      "id": "mfplat_003",
+      "case": "mf_create_memory_buffer_null_param",
+      "api": "MFCreateMemoryBuffer",
+      "comparison_mode": "exact",
+      "status": "0x80070057",
+      "last_error": 0,
+      "out_length": 0,
+      "buffer_hex": "",
+      "handle_valid": false
+    },
+    {
+      "id": "mfplat_004",
+      "case": "mf_create_memory_buffer_roundtrip",
+      "api": "MFCreateMemoryBuffer",
+      "comparison_mode": "roundtrip",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 8,
+      "buffer_hex": "4d46504c41543031",
+      "roundtrip_ok": true
+    },
+    {
+      "id": "mfplat_005",
+      "case": "mf_create_aligned_memory_buffer_64",
+      "api": "MFCreateAlignedMemoryBuffer",
+      "comparison_mode": "handle_state",
+      "status": "0x00000000",
+      "last_error": 0,
+      "handle_valid": true,
+      "handle_alignment": 64
+    },
+    {
+      "id": "mfplat_006",
+      "case": "mf_create_attributes_null_param",
+      "api": "MFCreateAttributes",
+      "comparison_mode": "exact",
+      "status": "0x80070057",
+      "last_error": 0,
+      "out_length": 0,
+      "buffer_hex": "",
+      "handle_valid": false
+    },
+    {
+      "id": "mfplat_007",
+      "case": "mf_attributes_typed_store_and_compare",
+      "api": "MFCreateAttributes",
+      "comparison_mode": "roundtrip",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 8,
+      "buffer_hex": "000000016742c01e",
+      "roundtrip_ok": true
+    },
+    {
+      "id": "mfplat_008",
+      "case": "mf_create_media_type_and_equality",
+      "api": "MFCreateMediaType",
+      "comparison_mode": "roundtrip",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 4,
+      "buffer_hex": "0101000f",
+      "roundtrip_ok": true
+    },
+    {
+      "id": "mfplat_009",
+      "case": "mf_create_guid_uniqueness",
+      "api": "MFCreateGuid",
+      "comparison_mode": "handle_state",
+      "status": "0x00000000",
+      "last_error": 0,
+      "handle_valid": true,
+      "handle_alignment": 16
+    },
+    {
+      "id": "mfplat_010",
+      "case": "get_d3d_format_from_mf_subtype",
+      "api": "GetD3DFormatFromMFSubtype",
+      "comparison_mode": "roundtrip",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 6144,
+      "buffer_hex": "164e563132484818",
+      "roundtrip_ok": true
+    },
+    {
+      "id": "mfplat_011",
+      "case": "mf_videotoolbox_h264_nv12_decode",
+      "api": "MFVideoToolboxCreateDecoder",
+      "comparison_mode": "roundtrip",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 6144,
+      "buffer_hex": "8080808080808080",
+      "roundtrip_ok": true
+    },
+    {
+      "id": "mfplat_012",
+      "case": "mf_videotoolbox_hevc_p010_decode",
+      "api": "MFVideoToolboxCreateDecoder",
+      "comparison_mode": "roundtrip",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 12288,
+      "buffer_hex": "8080808080808080",
+      "roundtrip_ok": true
+    }
+  ]
+}

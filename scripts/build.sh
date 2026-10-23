@@ -142,6 +142,8 @@ if [[ "$BUILD_ALL" -eq 1 && -z "$DLL" ]]; then
     python3 "$REPO_ROOT/scripts/lib/winetest_runner.py" --mode build --dll kernelbase --arch "$ARCH"
     python3 "$REPO_ROOT/scripts/lib/runner.py" --mode build --dll winemac.drv --test test_winemac_parity --arch "$ARCH"
     python3 "$REPO_ROOT/scripts/lib/winetest_runner.py" --mode build --dll winemac.drv --arch "$ARCH"
+    python3 "$REPO_ROOT/scripts/lib/runner.py" --mode build --dll mfplat --test test_mfplat_parity --arch "$ARCH"
+    python3 "$REPO_ROOT/scripts/lib/winetest_runner.py" --mode build --dll mfplat --arch "$ARCH"
     if [[ -n "$FULL_WINE_TARGET" ]]; then
         FULL_ARGS=(--action full-build --target "$FULL_WINE_TARGET")
         if [[ "$SKIP_MONOLITHIC_COMPILE" -eq 1 ]]; then

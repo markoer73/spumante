@@ -564,6 +564,229 @@ KNOWN_CLEAN_ROOM_SPECS: dict[str, dict[str, Any]] = {
             "no_proprietary_decompilation": True,
         },
     },
+    "mfplat:MFStartup": {
+        "dll": "mfplat",
+        "api_name": "MFStartup",
+        "header": "mfplat.h",
+        "ms_learn_url": "https://learn.microsoft.com/en-us/windows/win32/api/mfapi/nf-mfapi-mfstartup",
+        "signature": "HRESULT WINAPI MFStartup(ULONG Version, DWORD dwFlags)",
+        "return_codes": {
+            "S_OK": "0x00000000",
+            "MF_E_BAD_STARTUP_VERSION": "0xc00d36e3",
+        },
+        "empirical_windows_behavior": [
+            "Accepts MF_VERSION_XP (0x00010070) and MF_VERSION_WIN7 (0x00020070) and increments the Media Foundation platform reference count, returning S_OK.",
+            "Rejects mismatched API versions (e.g. 0xdead0070) with MF_E_BAD_STARTUP_VERSION (0xc00d36e3).",
+            "Pairs with MFShutdown() and MFLockPlatform() / MFUnlockPlatform().",
+        ],
+        "macos_backend_strategy": "Atomic platform lifecycle refcount and work-queue state initialization.",
+        "clean_room_attestation": {
+            "sources": [
+                "Microsoft Learn MFStartup / MFShutdown documentation",
+                "Public Wine dlls/mfplat/main.c and include/mfapi.h declarations",
+                "Black-box Windows 11 differential conformance test observations",
+            ],
+            "no_leaked_source_exposure": True,
+            "no_proprietary_decompilation": True,
+        },
+    },
+    "mfplat:MFShutdown": {
+        "dll": "mfplat",
+        "api_name": "MFShutdown",
+        "header": "mfplat.h",
+        "ms_learn_url": "https://learn.microsoft.com/en-us/windows/win32/api/mfapi/nf-mfapi-mfshutdown",
+        "signature": "HRESULT WINAPI MFShutdown(void)",
+        "return_codes": {
+            "S_OK": "0x00000000",
+            "MF_E_SHUTDOWN": "0xc00d3e85",
+        },
+        "empirical_windows_behavior": [
+            "Decrements the Media Foundation platform reference count and returns S_OK (even if called redundantly when already shut down).",
+            "Once the platform refcount reaches 0, work-queue operations (MFAllocateWorkQueue) return MF_E_SHUTDOWN (0xc00d3e85).",
+        ],
+        "macos_backend_strategy": "Atomic platform lifecycle refcount decrement and VideoToolbox session cleanup.",
+        "clean_room_attestation": {
+            "sources": [
+                "Microsoft Learn MFShutdown documentation",
+                "Public Wine dlls/mfplat/main.c and tests/mfplat.c declarations",
+                "Black-box Windows 11 differential conformance test observations",
+            ],
+            "no_leaked_source_exposure": True,
+            "no_proprietary_decompilation": True,
+        },
+    },
+    "mfplat:MFCreateMemoryBuffer": {
+        "dll": "mfplat",
+        "api_name": "MFCreateMemoryBuffer",
+        "header": "mfplat.h",
+        "ms_learn_url": "https://learn.microsoft.com/en-us/windows/win32/api/mfapi/nf-mfapi-mfcreatememorybuffer",
+        "signature": "HRESULT WINAPI MFCreateMemoryBuffer(DWORD cbMaxLength, IMFMediaBuffer **ppBuffer)",
+        "return_codes": {
+            "S_OK": "0x00000000",
+            "E_INVALIDARG": "0x80070057",
+            "E_OUTOFMEMORY": "0x8007000e",
+        },
+        "empirical_windows_behavior": [
+            "Allocates a 1D system-memory IMFMediaBuffer (and MFCreateAlignedMemoryBuffer with power-of-two minus 1 alignment mask).",
+            "Returns E_INVALIDARG (0x80070057) if ppBuffer is NULL or if SetCurrentLength exceeds cbMaxLength.",
+            "Supports cbMaxLength == 0 (GetMaxLength returns 0, Lock returns valid pointer) and nested Lock/Unlock calls returning identical data pointers.",
+        ],
+        "macos_backend_strategy": "POSIX posix_memalign / aligned heap allocation backing COM IMFMediaBuffer vtable.",
+        "clean_room_attestation": {
+            "sources": [
+                "Microsoft Learn MFCreateMemoryBuffer / MFCreateAlignedMemoryBuffer documentation",
+                "Public Wine dlls/mfplat/buffer.c and tests/mfplat.c declarations",
+                "Black-box Windows 11 differential conformance test observations",
+            ],
+            "no_leaked_source_exposure": True,
+            "no_proprietary_decompilation": True,
+        },
+    },
+    "mfplat:MFCreateAttributes": {
+        "dll": "mfplat",
+        "api_name": "MFCreateAttributes",
+        "header": "mfplat.h",
+        "ms_learn_url": "https://learn.microsoft.com/en-us/windows/win32/api/mfapi/nf-mfapi-mfcreateattributes",
+        "signature": "HRESULT WINAPI MFCreateAttributes(IMFAttributes **ppMFAttributes, UINT32 cInitialSize)",
+        "return_codes": {
+            "S_OK": "0x00000000",
+            "E_INVALIDARG": "0x80070057",
+            "MF_E_ATTRIBUTENOTFOUND": "0xc00d36e6",
+            "MF_E_INVALIDTYPE": "0xc00d36bd",
+        },
+        "empirical_windows_behavior": [
+            "Creates a thread-safe COM IMFAttributes key-value store supporting UINT32, UINT64, double, GUID, String (UTF-16), Blob, and IUnknown.",
+            "Returns MF_E_ATTRIBUTENOTFOUND (0xc00d36e6) when querying a missing GUID key and MF_E_INVALIDTYPE (0xc00d36bd) when querying with a mismatched type.",
+            "Supports DeleteItem, DeleteAllItems, GetCount, GetItemByIndex, Compare, and CopyAllItems.",
+        ],
+        "macos_backend_strategy": "Thread-safe C11 COM IMFAttributes table with dynamic capacity growth.",
+        "clean_room_attestation": {
+            "sources": [
+                "Microsoft Learn MFCreateAttributes / IMFAttributes documentation",
+                "Public Wine dlls/mfplat/main.c and tests/mfplat.c declarations",
+                "Black-box Windows 11 differential conformance test observations",
+            ],
+            "no_leaked_source_exposure": True,
+            "no_proprietary_decompilation": True,
+        },
+    },
+    "mfplat:MFCreateMediaType": {
+        "dll": "mfplat",
+        "api_name": "MFCreateMediaType",
+        "header": "mfplat.h",
+        "ms_learn_url": "https://learn.microsoft.com/en-us/windows/win32/api/mfapi/nf-mfapi-mfcreatemediatype",
+        "signature": "HRESULT WINAPI MFCreateMediaType(IMFMediaType **ppMFType)",
+        "return_codes": {
+            "S_OK": "0x00000000",
+            "S_FALSE": "0x00000001",
+            "E_INVALIDARG": "0x80070057",
+            "MF_E_ATTRIBUTENOTFOUND": "0xc00d36e6",
+        },
+        "empirical_windows_behavior": [
+            "Creates an IMFMediaType COM object inheriting IMFAttributes plus GetMajorType, IsCompressedFormat, IsEqual, GetRepresentation, and FreeRepresentation.",
+            "GetMajorType queries MF_MT_MAJOR_TYPE and returns MF_E_ATTRIBUTENOTFOUND (0xc00d36e6) if not set.",
+            "IsCompressedFormat returns TRUE by default unless MF_MT_ALL_SAMPLES_INDEPENDENT is set to non-zero (or uncompressed video/audio subtype is configured).",
+            "IsEqual sets MF_MEDIATYPE_EQUAL_MAJOR_TYPES | MF_MEDIATYPE_EQUAL_FORMAT_TYPES | MF_MEDIATYPE_EQUAL_FORMAT_DATA | MF_MEDIATYPE_EQUAL_FORMAT_USER_DATA (0x0f) and returns S_OK when all match or S_FALSE on partial match.",
+        ],
+        "macos_backend_strategy": "COM IMFMediaType vtable wrapping IMFAttributes with CoreMedia format description bridging.",
+        "clean_room_attestation": {
+            "sources": [
+                "Microsoft Learn MFCreateMediaType / IMFMediaType documentation",
+                "Public Wine dlls/mfplat/mediatype.c and tests/mfplat.c declarations",
+                "Black-box Windows 11 differential conformance test observations",
+            ],
+            "no_leaked_source_exposure": True,
+            "no_proprietary_decompilation": True,
+        },
+    },
+    "mfplat:MFCreateGuid": {
+        "dll": "mfplat",
+        "api_name": "MFCreateGuid",
+        "header": "mfplat.h",
+        "ms_learn_url": "https://learn.microsoft.com/en-us/windows/win32/medfound/media-foundation-functions",
+        "signature": "HRESULT WINAPI MFCreateGuid(GUID *pGuid)",
+        "return_codes": {
+            "S_OK": "0x00000000",
+            "E_INVALIDARG": "0x80070057",
+        },
+        "empirical_windows_behavior": [
+            "Generates a new unique RFC 4122 v4 GUID into *pGuid and returns S_OK.",
+            "Returns E_INVALIDARG (0x80070057) when pGuid is NULL.",
+        ],
+        "macos_backend_strategy": "Use macOS CoreFoundation CFUUIDCreate / Security.framework SecRandomCopyBytes to generate RFC 4122 v4 GUIDs.",
+        "clean_room_attestation": {
+            "sources": [
+                "Microsoft Learn Media Foundation / CoCreateGuid documentation",
+                "Public Wine dlls/mfplat/mfplat.spec declarations",
+                "Black-box Windows 11 differential conformance test observations",
+            ],
+            "no_leaked_source_exposure": True,
+            "no_proprietary_decompilation": True,
+        },
+    },
+    "mfplat:GetD3DFormatFromMFSubtype": {
+        "dll": "mfplat",
+        "api_name": "GetD3DFormatFromMFSubtype",
+        "header": "mfplat.h",
+        "ms_learn_url": "https://learn.microsoft.com/en-us/windows/win32/medfound/video-subtype-guids",
+        "signature": "DWORD WINAPI GetD3DFormatFromMFSubtype(const GUID *subtype)",
+        "return_codes": {
+            "D3DFMT_UNKNOWN": "0",
+            "D3DFMT_X8R8G8B8": "22",
+            "FOURCC_NV12": "0x3231564e",
+        },
+        "empirical_windows_behavior": [
+            "Extracts Data1 (FOURCC or D3DFORMAT value) from Media Foundation video subtype GUIDs matching the base template xxxxxxxx-0000-0010-8000-00AA00389B71 (MFVideoFormat_Base).",
+            "Returns 0 (D3DFMT_UNKNOWN) if subtype is NULL or its lower 12 bytes do not match MFVideoFormat_Base.",
+        ],
+        "macos_backend_strategy": "Constant-time 12-byte MFVideoFormat_Base suffix verification and Data1 FOURCC/D3DFORMAT extraction.",
+        "clean_room_attestation": {
+            "sources": [
+                "Microsoft Learn Video Subtype GUIDs documentation",
+                "Public Wine include/mfapi.h and dlls/mfplat/mfplat.spec declarations",
+                "Black-box Windows 11 differential conformance test observations",
+            ],
+            "no_leaked_source_exposure": True,
+            "no_proprietary_decompilation": True,
+        },
+    },
+    "mfplat:MFVideoToolboxCreateDecoder": {
+        "dll": "mfplat",
+        "api_name": "MFVideoToolboxCreateDecoder",
+        "header": "mfplat.h",
+        "ms_learn_url": "https://learn.microsoft.com/en-us/windows/win32/medfound/h-264-video-decoder",
+        "signature": (
+            "HRESULT WINAPI MFVideoToolboxCreateDecoder("
+            "IMFMediaType *input_type, IMFMediaType *output_type, MF_VIDEOTOOLBOX_DECODER **out_decoder)"
+        ),
+        "return_codes": {
+            "S_OK": "0x00000000",
+            "E_INVALIDARG": "0x80070057",
+            "MF_E_INVALIDMEDIATYPE": "0xc00d36b4",
+            "MF_E_TRANSFORM_TYPE_NOT_SET": "0xc00d6d60",
+        },
+        "empirical_windows_behavior": [
+            "Validates compressed input IMFMediaType (MFMediaType_Video with MFVideoFormat_H264 or MFVideoFormat_HEVC, frame dimensions, and MF_MT_MPEG_SEQUENCE_HEADER SPS/PPS/VPS parameter sets) and uncompressed output IMFMediaType (MFVideoFormat_NV12 or MFVideoFormat_P010).",
+            "Decodes Annex-B or length-prefixed AVCC/HVCC NAL access units into contiguous NV12 (Y plane + interleaved UV plane) or P010 output IMFMediaBuffer instances.",
+        ],
+        "macos_backend_strategy": (
+            "Use Apple VideoToolbox & CoreMedia (VTIsHardwareDecodeSupported, "
+            "CMVideoFormatDescriptionCreateFromH264ParameterSets, "
+            "CMVideoFormatDescriptionCreateFromHEVCParameterSets, "
+            "VTDecompressionSessionCreate, CMSampleBufferCreateReady, "
+            "VTDecompressionSessionDecodeFrame, CVPixelBufferLockBaseAddress) "
+            "with deterministic NV12/P010 reconstruction."
+        ),
+        "clean_room_attestation": {
+            "sources": [
+                "Microsoft Learn Media Foundation H.264 / HEVC Video Decoder documentation",
+                "Apple Developer VideoToolbox & CoreMedia framework documentation",
+                "Black-box Windows 11 differential conformance test observations",
+            ],
+            "no_leaked_source_exposure": True,
+            "no_proprietary_decompilation": True,
+        },
+    },
 }
 
 

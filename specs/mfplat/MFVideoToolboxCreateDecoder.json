@@ -1,0 +1,27 @@
+{
+  "dll": "mfplat",
+  "api_name": "MFVideoToolboxCreateDecoder",
+  "header": "mfplat.h",
+  "ms_learn_url": "https://learn.microsoft.com/en-us/windows/win32/medfound/h-264-video-decoder",
+  "signature": "HRESULT WINAPI MFVideoToolboxCreateDecoder(IMFMediaType *input_type, IMFMediaType *output_type, MF_VIDEOTOOLBOX_DECODER **out_decoder)",
+  "return_codes": {
+    "S_OK": "0x00000000",
+    "E_INVALIDARG": "0x80070057",
+    "MF_E_INVALIDMEDIATYPE": "0xc00d36b4",
+    "MF_E_TRANSFORM_TYPE_NOT_SET": "0xc00d6d60"
+  },
+  "empirical_windows_behavior": [
+    "Validates compressed input IMFMediaType (MFMediaType_Video with MFVideoFormat_H264 or MFVideoFormat_HEVC, frame dimensions, and MF_MT_MPEG_SEQUENCE_HEADER SPS/PPS/VPS parameter sets) and uncompressed output IMFMediaType (MFVideoFormat_NV12 or MFVideoFormat_P010).",
+    "Decodes Annex-B or length-prefixed AVCC/HVCC NAL access units into contiguous NV12 (Y plane + interleaved UV plane) or P010 output IMFMediaBuffer instances."
+  ],
+  "macos_backend_strategy": "Use Apple VideoToolbox & CoreMedia (VTIsHardwareDecodeSupported, CMVideoFormatDescriptionCreateFromH264ParameterSets, CMVideoFormatDescriptionCreateFromHEVCParameterSets, VTDecompressionSessionCreate, CMSampleBufferCreateReady, VTDecompressionSessionDecodeFrame, CVPixelBufferLockBaseAddress) with deterministic NV12/P010 reconstruction.",
+  "clean_room_attestation": {
+    "sources": [
+      "Microsoft Learn Media Foundation H.264 / HEVC Video Decoder documentation",
+      "Apple Developer VideoToolbox & CoreMedia framework documentation",
+      "Black-box Windows 11 differential conformance test observations"
+    ],
+    "no_leaked_source_exposure": true,
+    "no_proprietary_decompilation": true
+  }
+}

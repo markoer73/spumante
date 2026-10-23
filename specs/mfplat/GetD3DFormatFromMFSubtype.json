@@ -1,0 +1,26 @@
+{
+  "dll": "mfplat",
+  "api_name": "GetD3DFormatFromMFSubtype",
+  "header": "mfplat.h",
+  "ms_learn_url": "https://learn.microsoft.com/en-us/windows/win32/medfound/video-subtype-guids",
+  "signature": "DWORD WINAPI GetD3DFormatFromMFSubtype(const GUID *subtype)",
+  "return_codes": {
+    "D3DFMT_UNKNOWN": "0",
+    "D3DFMT_X8R8G8B8": "22",
+    "FOURCC_NV12": "0x3231564e"
+  },
+  "empirical_windows_behavior": [
+    "Extracts Data1 (FOURCC or D3DFORMAT value) from Media Foundation video subtype GUIDs matching the base template xxxxxxxx-0000-0010-8000-00AA00389B71 (MFVideoFormat_Base).",
+    "Returns 0 (D3DFMT_UNKNOWN) if subtype is NULL or its lower 12 bytes do not match MFVideoFormat_Base."
+  ],
+  "macos_backend_strategy": "Constant-time 12-byte MFVideoFormat_Base suffix verification and Data1 FOURCC/D3DFORMAT extraction.",
+  "clean_room_attestation": {
+    "sources": [
+      "Microsoft Learn Video Subtype GUIDs documentation",
+      "Public Wine include/mfapi.h and dlls/mfplat/mfplat.spec declarations",
+      "Black-box Windows 11 differential conformance test observations"
+    ],
+    "no_leaked_source_exposure": true,
+    "no_proprietary_decompilation": true
+  }
+}

@@ -163,6 +163,12 @@ def gate_asan_ubsan_memory_safety(dll: str, test_name: str) -> dict[str, Any]:
                 "IOSurface",
                 "-framework",
                 "CoreGraphics",
+                "-framework",
+                "VideoToolbox",
+                "-framework",
+                "CoreMedia",
+                "-framework",
+                "CoreVideo",
                 "-pthread",
             ]
             if sys.platform == "darwin"

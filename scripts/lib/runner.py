@@ -87,6 +87,12 @@ def surgical_build(
             "IOSurface",
             "-framework",
             "CoreGraphics",
+            "-framework",
+            "VideoToolbox",
+            "-framework",
+            "CoreMedia",
+            "-framework",
+            "CoreVideo",
             "-pthread",
         ]
         if sys.platform == "darwin"

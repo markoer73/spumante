@@ -1,0 +1,28 @@
+{
+  "dll": "mfplat",
+  "api_name": "MFCreateAttributes",
+  "header": "mfplat.h",
+  "ms_learn_url": "https://learn.microsoft.com/en-us/windows/win32/api/mfapi/nf-mfapi-mfcreateattributes",
+  "signature": "HRESULT WINAPI MFCreateAttributes(IMFAttributes **ppMFAttributes, UINT32 cInitialSize)",
+  "return_codes": {
+    "S_OK": "0x00000000",
+    "E_INVALIDARG": "0x80070057",
+    "MF_E_ATTRIBUTENOTFOUND": "0xc00d36e6",
+    "MF_E_INVALIDTYPE": "0xc00d36bd"
+  },
+  "empirical_windows_behavior": [
+    "Creates a thread-safe COM IMFAttributes key-value store supporting UINT32, UINT64, double, GUID, String (UTF-16), Blob, and IUnknown.",
+    "Returns MF_E_ATTRIBUTENOTFOUND (0xc00d36e6) when querying a missing GUID key and MF_E_INVALIDTYPE (0xc00d36bd) when querying with a mismatched type.",
+    "Supports DeleteItem, DeleteAllItems, GetCount, GetItemByIndex, Compare, and CopyAllItems."
+  ],
+  "macos_backend_strategy": "Thread-safe C11 COM IMFAttributes table with dynamic capacity growth.",
+  "clean_room_attestation": {
+    "sources": [
+      "Microsoft Learn MFCreateAttributes / IMFAttributes documentation",
+      "Public Wine dlls/mfplat/main.c and tests/mfplat.c declarations",
+      "Black-box Windows 11 differential conformance test observations"
+    ],
+    "no_leaked_source_exposure": true,
+    "no_proprietary_decompilation": true
+  }
+}

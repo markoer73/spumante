@@ -1,0 +1,25 @@
+{
+  "dll": "mfplat",
+  "api_name": "MFShutdown",
+  "header": "mfplat.h",
+  "ms_learn_url": "https://learn.microsoft.com/en-us/windows/win32/api/mfapi/nf-mfapi-mfshutdown",
+  "signature": "HRESULT WINAPI MFShutdown(void)",
+  "return_codes": {
+    "S_OK": "0x00000000",
+    "MF_E_SHUTDOWN": "0xc00d3e85"
+  },
+  "empirical_windows_behavior": [
+    "Decrements the Media Foundation platform reference count and returns S_OK (even if called redundantly when already shut down).",
+    "Once the platform refcount reaches 0, work-queue operations (MFAllocateWorkQueue) return MF_E_SHUTDOWN (0xc00d3e85)."
+  ],
+  "macos_backend_strategy": "Atomic platform lifecycle refcount decrement and VideoToolbox session cleanup.",
+  "clean_room_attestation": {
+    "sources": [
+      "Microsoft Learn MFShutdown documentation",
+      "Public Wine dlls/mfplat/main.c and tests/mfplat.c declarations",
+      "Black-box Windows 11 differential conformance test observations"
+    ],
+    "no_leaked_source_exposure": true,
+    "no_proprietary_decompilation": true
+  }
+}

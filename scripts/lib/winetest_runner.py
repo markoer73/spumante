@@ -99,6 +99,12 @@ def build_winetest(dll: str, arch: str = "x86_64") -> dict[str, Any]:
             "IOSurface",
             "-framework",
             "CoreGraphics",
+            "-framework",
+            "VideoToolbox",
+            "-framework",
+            "CoreMedia",
+            "-framework",
+            "CoreVideo",
             "-pthread",
         ]
         if sys.platform == "darwin"

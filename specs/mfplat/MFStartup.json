@@ -1,0 +1,26 @@
+{
+  "dll": "mfplat",
+  "api_name": "MFStartup",
+  "header": "mfplat.h",
+  "ms_learn_url": "https://learn.microsoft.com/en-us/windows/win32/api/mfapi/nf-mfapi-mfstartup",
+  "signature": "HRESULT WINAPI MFStartup(ULONG Version, DWORD dwFlags)",
+  "return_codes": {
+    "S_OK": "0x00000000",
+    "MF_E_BAD_STARTUP_VERSION": "0xc00d36e3"
+  },
+  "empirical_windows_behavior": [
+    "Accepts MF_VERSION_XP (0x00010070) and MF_VERSION_WIN7 (0x00020070) and increments the Media Foundation platform reference count, returning S_OK.",
+    "Rejects mismatched API versions (e.g. 0xdead0070) with MF_E_BAD_STARTUP_VERSION (0xc00d36e3).",
+    "Pairs with MFShutdown() and MFLockPlatform() / MFUnlockPlatform()."
+  ],
+  "macos_backend_strategy": "Atomic platform lifecycle refcount and work-queue state initialization.",
+  "clean_room_attestation": {
+    "sources": [
+      "Microsoft Learn MFStartup / MFShutdown documentation",
+      "Public Wine dlls/mfplat/main.c and include/mfapi.h declarations",
+      "Black-box Windows 11 differential conformance test observations"
+    ],
+    "no_leaked_source_exposure": true,
+    "no_proprietary_decompilation": true
+  }
+}

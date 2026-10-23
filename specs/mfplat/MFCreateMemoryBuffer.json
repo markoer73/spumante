@@ -1,0 +1,27 @@
+{
+  "dll": "mfplat",
+  "api_name": "MFCreateMemoryBuffer",
+  "header": "mfplat.h",
+  "ms_learn_url": "https://learn.microsoft.com/en-us/windows/win32/api/mfapi/nf-mfapi-mfcreatememorybuffer",
+  "signature": "HRESULT WINAPI MFCreateMemoryBuffer(DWORD cbMaxLength, IMFMediaBuffer **ppBuffer)",
+  "return_codes": {
+    "S_OK": "0x00000000",
+    "E_INVALIDARG": "0x80070057",
+    "E_OUTOFMEMORY": "0x8007000e"
+  },
+  "empirical_windows_behavior": [
+    "Allocates a 1D system-memory IMFMediaBuffer (and MFCreateAlignedMemoryBuffer with power-of-two minus 1 alignment mask).",
+    "Returns E_INVALIDARG (0x80070057) if ppBuffer is NULL or if SetCurrentLength exceeds cbMaxLength.",
+    "Supports cbMaxLength == 0 (GetMaxLength returns 0, Lock returns valid pointer) and nested Lock/Unlock calls returning identical data pointers."
+  ],
+  "macos_backend_strategy": "POSIX posix_memalign / aligned heap allocation backing COM IMFMediaBuffer vtable.",
+  "clean_room_attestation": {
+    "sources": [
+      "Microsoft Learn MFCreateMemoryBuffer / MFCreateAlignedMemoryBuffer documentation",
+      "Public Wine dlls/mfplat/buffer.c and tests/mfplat.c declarations",
+      "Black-box Windows 11 differential conformance test observations"
+    ],
+    "no_leaked_source_exposure": true,
+    "no_proprietary_decompilation": true
+  }
+}

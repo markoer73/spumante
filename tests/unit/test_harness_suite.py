@@ -965,6 +965,98 @@ class TestWineParityArchitecture(unittest.TestCase):
         self.assertIn("test_CompareObjectHandles", wt_report["subtests_executed"])
         self.assertIn("test_VirtualAlloc2_and_MapViewOfFile3", wt_report["subtests_executed"])
 
+    def test_18_mfplat_core_and_videotoolbox_differential_loop(self) -> None:
+        """Verify dlls/mfplat core Media Foundation APIs and macOS VideoToolbox/CoreMedia H.264/HEVC decode bridge."""
+        build_sh = REPO_ROOT / "scripts" / "build.sh"
+        test_sh = REPO_ROOT / "scripts" / "test.sh"
+
+        # 1. Verify clean-room spec packets exist for all 8 mfplat APIs
+        for api in (
+            "MFStartup",
+            "MFShutdown",
+            "MFCreateMemoryBuffer",
+            "MFCreateAttributes",
+            "MFCreateMediaType",
+            "MFCreateGuid",
+            "GetD3DFormatFromMFSubtype",
+            "MFVideoToolboxCreateDecoder",
+        ):
+            spec_file = REPO_ROOT / "specs" / "mfplat" / f"{api}.json"
+            self.assertTrue(spec_file.is_file(), f"Missing clean-room spec packet: {spec_file}")
+
+        # 2. Surgically build mfplat + test_mfplat_parity
+        res_build = subprocess.run(
+            [str(build_sh), "--dll", "mfplat", "--test", "test_mfplat_parity"],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(res_build.returncode, 0, res_build.stdout + res_build.stderr)
+
+        # 3. Verify RED failure when running with --simulate-stub
+        res_red = subprocess.run(
+            [str(test_sh), "--dll", "mfplat", "--test", "test_mfplat_parity", "--simulate-stub"],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertNotEqual(res_red.returncode, 0)
+
+        # 4. Verify GREEN match against Windows Ground Truth (12 assertions)
+        res_green = subprocess.run(
+            [str(test_sh), "--dll", "mfplat", "--test", "test_mfplat_parity"],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(
+            res_green.returncode,
+            0,
+            f"test_mfplat_parity failed:\n{res_green.stdout}\n{res_green.stderr}",
+        )
+        self.assertIn("MATCHED (0 discrepancies) [12 assertions]", res_green.stdout)
+
+        # 5. Verify 4-gate security audit (including ASan+UBSan) on test_mfplat_parity
+        res_sec = subprocess.run(
+            [str(test_sh), "--security", "--dll", "mfplat", "--test", "test_mfplat_parity"],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(
+            res_sec.returncode,
+            0,
+            f"Security scan failed on test_mfplat_parity:\n{res_sec.stdout}\n{res_sec.stderr}",
+        )
+
+        # 6. Verify winetest_mfplat suite (6 subtests, >= 90 assertions)
+        res_wt = subprocess.run(
+            [str(test_sh), "--winetest", "--dll", "mfplat"],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(
+            res_wt.returncode,
+            0,
+            f"winetest --dll mfplat failed:\n{res_wt.stdout}\n{res_wt.stderr}",
+        )
+        wt_report = json.loads(res_wt.stdout)
+        self.assertTrue(wt_report["passed"])
+        self.assertEqual(wt_report["failures"], 0)
+        self.assertGreaterEqual(wt_report["total_assertions"], 90)
+        self.assertIn("test_startup", wt_report["subtests_executed"])
+        self.assertIn("test_memory_buffer", wt_report["subtests_executed"])
+        self.assertIn("test_attributes", wt_report["subtests_executed"])
+        self.assertIn("test_mediatype", wt_report["subtests_executed"])
+        self.assertIn("test_guid_and_d3dformat", wt_report["subtests_executed"])
+        self.assertIn("test_videotoolbox_hardware_decode", wt_report["subtests_executed"])
+
 
 if __name__ == "__main__":
     unittest.main()

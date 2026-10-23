@@ -9,7 +9,6 @@ Executive summary of all remaining open tasks in `docs/TASK_QUEUE.md`.
 ## Remaining Open Tasks
 
 ### Medium Priority
-- [ ] Implement `dlls/mfplat` core Media Foundation APIs (`MFStartup`, `MFShutdown`, `MFCreateMemoryBuffer`, `MFCreateMediaType`, `MFCreateAttributes`, `MFCreateGuid`, `GetD3DFormatFromMFSubtype`) and macOS `VideoToolbox`/`CoreMedia` hardware H.264/HEVC decode bridge
 - [ ] Implement macOS `AVFoundation` video capture backend (`qcap`/`mfreadwrite`) and DirectShow `CLSID_AudioRecord` audio capture (`Summer-Of-Code.md` roadmap)
 
 ### Low Priority
