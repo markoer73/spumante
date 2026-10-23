@@ -1,0 +1,28 @@
+{
+  "dll": "qcap",
+  "api_name": "DllGetClassObject",
+  "header": "qcap.h",
+  "ms_learn_url": "https://learn.microsoft.com/en-us/windows/win32/api/combaseapi/nf-combaseapi-dllgetclassobject",
+  "signature": "HRESULT WINAPI DllGetClassObject(REFCLSID rclsid, REFIID riid, void **ppv)",
+  "return_codes": {
+    "S_OK": "0x00000000",
+    "E_INVALIDARG": "0x80070057",
+    "E_NOINTERFACE": "0x80004002",
+    "CLASS_E_CLASSNOTAVAILABLE": "0x80040111"
+  },
+  "empirical_windows_behavior": [
+    "Returns a COM IClassFactory instance for DirectShow capture and muxing filters registered in qcap.dll: CLSID_AudioRecord, CLSID_AVIDec, CLSID_AviDest, CLSID_CaptureGraphBuilder, CLSID_CaptureGraphBuilder2, CLSID_FileWriter, CLSID_SmartTee, and CLSID_VfwCapture.",
+    "Supports COM aggregation (pUnkOuter != NULL returns CLASS_E_NOAGGREGATION unless riid is IID_IUnknown).",
+    "Returns CLASS_E_CLASSNOTAVAILABLE (0x80040111) for unregistered CLSIDs and E_INVALIDARG (0x80070057) if ppv is NULL."
+  ],
+  "macos_backend_strategy": "Dispatch CLSID_VfwCapture to the macOS AVFoundation video capture filter and CLSID_AudioRecord to the CoreAudio / AudioToolbox audio capture filter.",
+  "clean_room_attestation": {
+    "sources": [
+      "Microsoft Learn DirectShow Filter CLSIDs and DllGetClassObject documentation",
+      "Public Wine dlls/qcap/qcap_main.c and dlls/qcap/qcap.spec declarations",
+      "Black-box Windows 11 differential conformance test observations"
+    ],
+    "no_leaked_source_exposure": true,
+    "no_proprietary_decompilation": true
+  }
+}

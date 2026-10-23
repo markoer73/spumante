@@ -96,6 +96,11 @@ All host/VM orchestration, compilation, differential testing, stub discovery, an
 ./scripts/test.sh --dll mfplat --test test_mfplat_parity
 ./scripts/test.sh --winetest --dll mfplat
 
+# 7. Build & verify macOS AVFoundation video capture, DirectShow CLSID_AudioRecord & mfreadwrite bridge in qcap
+./scripts/build.sh --dll qcap --test test_qcap_parity
+./scripts/test.sh --dll qcap --test test_qcap_parity
+./scripts/test.sh --winetest --dll qcap
+
 # 5. Discover & rank unimplemented stubs across Wine DLLs
 ./scripts/test.sh --discover-stubs --dll bcrypt
 

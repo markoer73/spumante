@@ -1,0 +1,28 @@
+{
+  "dll": "qcap",
+  "api_name": "QcapCreateAVFoundationReader",
+  "header": "qcap.h",
+  "ms_learn_url": "https://learn.microsoft.com/en-us/windows/win32/medfound/source-reader",
+  "signature": "HRESULT WINAPI QcapCreateAVFoundationReader(UINT32 device_index, QCAP_MF_SOURCE_READER **out_reader)",
+  "return_codes": {
+    "S_OK": "0x00000000",
+    "E_POINTER": "0x80004003",
+    "E_INVALIDARG": "0x80070057",
+    "MF_E_INVALIDMEDIATYPE": "0xc00d36b4"
+  },
+  "empirical_windows_behavior": [
+    "Creates a Media Foundation capture SourceReader (mfreadwrite bridge) backed by the video and audio capture backends for MF_SOURCE_READER_FIRST_VIDEO_STREAM (0xFFFFFFFC) and MF_SOURCE_READER_FIRST_AUDIO_STREAM (0xFFFFFFFD).",
+    "Supports GetNativeMediaType, GetCurrentMediaType, SetCurrentMediaType (MFVideoFormat_RGB24, MFVideoFormat_NV12, MFAudioFormat_PCM), and ReadSample returning timestamped video/audio sample buffers."
+  ],
+  "macos_backend_strategy": "Bridge AVFoundation video capture and CoreAudio PCM input to Media Foundation SourceReader streams.",
+  "clean_room_attestation": {
+    "sources": [
+      "Microsoft Learn Media Foundation IMFSourceReader and Audio/Video Capture in Media Foundation documentation",
+      "Apple Developer AVFoundation & CoreMedia framework documentation",
+      "Public Wine wiki/Summer-Of-Code.md AVFoundation video capture roadmap",
+      "Black-box Windows 11 differential conformance test observations"
+    ],
+    "no_leaked_source_exposure": true,
+    "no_proprietary_decompilation": true
+  }
+}

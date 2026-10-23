@@ -169,6 +169,13 @@ def gate_asan_ubsan_memory_safety(dll: str, test_name: str) -> dict[str, Any]:
                 "CoreMedia",
                 "-framework",
                 "CoreVideo",
+                "-framework",
+                "AVFoundation",
+                "-framework",
+                "AudioToolbox",
+                "-framework",
+                "CoreAudio",
+                "-lobjc",
                 "-pthread",
             ]
             if sys.platform == "darwin"

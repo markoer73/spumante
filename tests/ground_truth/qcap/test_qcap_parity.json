@@ -1,0 +1,140 @@
+{
+  "dll": "qcap",
+  "test_name": "test_qcap_parity",
+  "architecture": "x86_64",
+  "environment": "windows-11-22h2-ground-truth",
+  "assertions": [
+    {
+      "id": "qcap_001",
+      "case": "dll_get_class_object_invalid",
+      "api": "DllGetClassObject",
+      "comparison_mode": "exact",
+      "status": "0x80040111",
+      "last_error": 0,
+      "out_length": 0,
+      "buffer_hex": "",
+      "handle_valid": false
+    },
+    {
+      "id": "qcap_002",
+      "case": "dll_get_class_object_create_filters",
+      "api": "DllGetClassObject",
+      "comparison_mode": "roundtrip",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 2,
+      "buffer_hex": "0101",
+      "roundtrip_ok": true
+    },
+    {
+      "id": "qcap_003",
+      "case": "audio_record_interfaces_and_misc_flags",
+      "api": "audio_record_create",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 0,
+      "buffer_hex": "",
+      "handle_valid": true
+    },
+    {
+      "id": "qcap_004",
+      "case": "audio_record_persist_property_bag",
+      "api": "audio_record_create",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 0,
+      "buffer_hex": "",
+      "handle_valid": true
+    },
+    {
+      "id": "qcap_005",
+      "case": "audio_record_stream_config_and_format",
+      "api": "audio_record_create",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 0,
+      "buffer_hex": "",
+      "handle_valid": true
+    },
+    {
+      "id": "qcap_006",
+      "case": "audio_record_buffer_neg_and_ks_props",
+      "api": "audio_record_create",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 0,
+      "buffer_hex": "",
+      "handle_valid": true
+    },
+    {
+      "id": "qcap_007",
+      "case": "audio_record_capture_stream_delivery",
+      "api": "audio_record_create",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 0,
+      "buffer_hex": "",
+      "handle_valid": true
+    },
+    {
+      "id": "qcap_008",
+      "case": "avf_device_caps_and_format_negotiation",
+      "api": "qcap_avf_create",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 0,
+      "buffer_hex": "",
+      "handle_valid": true
+    },
+    {
+      "id": "qcap_009",
+      "case": "avf_video_control_frame_rates",
+      "api": "qcap_avf_create",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 0,
+      "buffer_hex": "",
+      "handle_valid": true
+    },
+    {
+      "id": "qcap_010",
+      "case": "avf_video_proc_amp_range_and_set",
+      "api": "qcap_avf_create",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 0,
+      "buffer_hex": "",
+      "handle_valid": true
+    },
+    {
+      "id": "qcap_011",
+      "case": "avf_read_frame_bottom_up_rgb24",
+      "api": "qcap_avf_read_frame",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 921600,
+      "buffer_hex": "",
+      "handle_valid": true
+    },
+    {
+      "id": "qcap_012",
+      "case": "mf_source_reader_avf_video_and_audio",
+      "api": "QcapCreateAVFoundationReader",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 460800,
+      "buffer_hex": "",
+      "handle_valid": true
+    }
+  ]
+}

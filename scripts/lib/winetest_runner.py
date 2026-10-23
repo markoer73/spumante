@@ -105,6 +105,13 @@ def build_winetest(dll: str, arch: str = "x86_64") -> dict[str, Any]:
             "CoreMedia",
             "-framework",
             "CoreVideo",
+            "-framework",
+            "AVFoundation",
+            "-framework",
+            "AudioToolbox",
+            "-framework",
+            "CoreAudio",
+            "-lobjc",
             "-pthread",
         ]
         if sys.platform == "darwin"

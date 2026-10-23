@@ -1,0 +1,26 @@
+{
+  "dll": "qcap",
+  "api_name": "qcap_avf_read_frame",
+  "header": "qcap.h",
+  "ms_learn_url": "https://learn.microsoft.com/en-us/windows/win32/directshow/uncompressed-video-media-types",
+  "signature": "HRESULT WINAPI qcap_avf_read_frame(QCAP_AVF_DEVICE dev, BYTE *buffer, DWORD buffer_size, DWORD *bytes_written, BOOL *is_bottom_up)",
+  "return_codes": {
+    "S_OK": "0x00000000",
+    "E_POINTER": "0x80004003",
+    "E_INVALIDARG": "0x80070057"
+  },
+  "empirical_windows_behavior": [
+    "Captures a single video frame matching the active AM_MEDIA_TYPE (MEDIASUBTYPE_RGB24, MEDIASUBTYPE_NV12, or MEDIASUBTYPE_YUY2) into buffer.",
+    "For uncompressed RGB24 video with positive biHeight, reverses top-down camera scanlines into Windows bottom-up DIB orientation (row 0 at bottom of image, row height-1 at top) and applies active IAMVideoProcAmp Brightness/Contrast adjustments."
+  ],
+  "macos_backend_strategy": "Read CVImageBufferRef from AVCaptureVideoDataOutput (CVPixelBufferLockBaseAddress) and apply scanline vertical flip (reverse_image) for positive-height RGB24 DIBs.",
+  "clean_room_attestation": {
+    "sources": [
+      "Microsoft Learn DirectShow Uncompressed Video Media Types and Top-Down vs. Bottom-Up DIBs documentation",
+      "Public Wine dlls/qcap/v4l.c reverse_image and video_read_frame declarations",
+      "Black-box Windows 11 differential conformance test observations"
+    ],
+    "no_leaked_source_exposure": true,
+    "no_proprietary_decompilation": true
+  }
+}

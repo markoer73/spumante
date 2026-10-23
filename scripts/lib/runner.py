@@ -93,6 +93,13 @@ def surgical_build(
             "CoreMedia",
             "-framework",
             "CoreVideo",
+            "-framework",
+            "AVFoundation",
+            "-framework",
+            "AudioToolbox",
+            "-framework",
+            "CoreAudio",
+            "-lobjc",
             "-pthread",
         ]
         if sys.platform == "darwin"

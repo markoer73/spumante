@@ -8,9 +8,6 @@ Executive summary of all remaining open tasks in `docs/TASK_QUEUE.md`.
 
 ## Remaining Open Tasks
 
-### Medium Priority
-- [ ] Implement macOS `AVFoundation` video capture backend (`qcap`/`mfreadwrite`) and DirectShow `CLSID_AudioRecord` audio capture (`Summer-Of-Code.md` roadmap)
-
 ### Low Priority
 - [ ] Introduce `vkd3d-shader` MSL (Metal Shading Language) generator and Direct2D missing primitives (arcs, layers, anti-aliasing, gradient brushes, true cubic Beziers per `Direct3D.md` & `Ospp-Summer-Code.md`)
 - [ ] Address ARM64EC/ARM64X loader edge cases (`NtReadFile` PE header relocation view for `system32` DLLs, TSC registry frequency rescaling, and on-disk JIT code caching per WineConf 2025 ARM64 roadmap)

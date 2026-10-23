@@ -100,6 +100,23 @@
       "required_conformance_tests": [
         "test_winemac_parity"
       ]
+    },
+    "qcap": {
+      "upstream_path": "dlls/qcap",
+      "upstream_tests_path": "dlls/qcap/tests",
+      "base_upstream_commit": "wine-10.0-base",
+      "merge_strategy": "3-way-backport-preserving-macos-blocks",
+      "macos_acceleration": "AVFoundation / CoreAudio / AudioToolbox / CoreMedia / CoreVideo",
+      "tracked_files": [
+        "dlls/qcap/qcap.h",
+        "dlls/qcap/qcap.spec",
+        "dlls/qcap/qcap_main.c",
+        "dlls/qcap/avfoundation.c",
+        "dlls/qcap/audiorecord.c"
+      ],
+      "required_conformance_tests": [
+        "test_qcap_parity"
+      ]
     }
   }
 }

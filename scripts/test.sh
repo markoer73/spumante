@@ -165,6 +165,7 @@ if [[ "$RUN_CI" -eq 1 || "$RUN_ALL" -eq 1 ]]; then
     python3 "$REPO_ROOT/scripts/lib/runner.py" --mode test --dll kernelbase --test test_win32_utility_apis --arch "$ARCH"
     python3 "$REPO_ROOT/scripts/lib/runner.py" --mode test --dll winemac.drv --test test_winemac_parity --arch "$ARCH"
     python3 "$REPO_ROOT/scripts/lib/runner.py" --mode test --dll mfplat --test test_mfplat_parity --arch "$ARCH"
+    python3 "$REPO_ROOT/scripts/lib/runner.py" --mode test --dll qcap --test test_qcap_parity --arch "$ARCH"
     python3 "$REPO_ROOT/scripts/lib/security_scanner.py" --dll bcrypt --test test_symmetric_key
     python3 "$REPO_ROOT/scripts/lib/security_scanner.py" --dll bcrypt --test test_crypto_primitives
     python3 "$REPO_ROOT/scripts/lib/security_scanner.py" --dll ntdll --test test_apple_silicon_parity
@@ -173,11 +174,13 @@ if [[ "$RUN_CI" -eq 1 || "$RUN_ALL" -eq 1 ]]; then
     python3 "$REPO_ROOT/scripts/lib/security_scanner.py" --dll kernelbase --test test_win32_utility_apis
     python3 "$REPO_ROOT/scripts/lib/security_scanner.py" --dll winemac.drv --test test_winemac_parity
     python3 "$REPO_ROOT/scripts/lib/security_scanner.py" --dll mfplat --test test_mfplat_parity
+    python3 "$REPO_ROOT/scripts/lib/security_scanner.py" --dll qcap --test test_qcap_parity
     python3 "$REPO_ROOT/scripts/lib/winetest_runner.py" --mode test --dll bcrypt --arch "$ARCH"
     python3 "$REPO_ROOT/scripts/lib/winetest_runner.py" --mode test --dll ntdll --arch "$ARCH"
     python3 "$REPO_ROOT/scripts/lib/winetest_runner.py" --mode test --dll kernelbase --arch "$ARCH"
     python3 "$REPO_ROOT/scripts/lib/winetest_runner.py" --mode test --dll winemac.drv --arch "$ARCH"
     python3 "$REPO_ROOT/scripts/lib/winetest_runner.py" --mode test --dll mfplat --arch "$ARCH"
+    python3 "$REPO_ROOT/scripts/lib/winetest_runner.py" --mode test --dll qcap --arch "$ARCH"
     exit 0
 fi
 

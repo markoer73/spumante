@@ -787,6 +787,145 @@ KNOWN_CLEAN_ROOM_SPECS: dict[str, dict[str, Any]] = {
             "no_proprietary_decompilation": True,
         },
     },
+    "qcap:DllGetClassObject": {
+        "dll": "qcap",
+        "api_name": "DllGetClassObject",
+        "header": "qcap.h",
+        "ms_learn_url": "https://learn.microsoft.com/en-us/windows/win32/api/combaseapi/nf-combaseapi-dllgetclassobject",
+        "signature": "HRESULT WINAPI DllGetClassObject(REFCLSID rclsid, REFIID riid, void **ppv)",
+        "return_codes": {
+            "S_OK": "0x00000000",
+            "E_INVALIDARG": "0x80070057",
+            "E_NOINTERFACE": "0x80004002",
+            "CLASS_E_CLASSNOTAVAILABLE": "0x80040111",
+        },
+        "empirical_windows_behavior": [
+            "Returns a COM IClassFactory instance for DirectShow capture and muxing filters registered in qcap.dll: CLSID_AudioRecord, CLSID_AVIDec, CLSID_AviDest, CLSID_CaptureGraphBuilder, CLSID_CaptureGraphBuilder2, CLSID_FileWriter, CLSID_SmartTee, and CLSID_VfwCapture.",
+            "Supports COM aggregation (pUnkOuter != NULL returns CLASS_E_NOAGGREGATION unless riid is IID_IUnknown).",
+            "Returns CLASS_E_CLASSNOTAVAILABLE (0x80040111) for unregistered CLSIDs and E_INVALIDARG (0x80070057) if ppv is NULL.",
+        ],
+        "macos_backend_strategy": "Dispatch CLSID_VfwCapture to the macOS AVFoundation video capture filter and CLSID_AudioRecord to the CoreAudio / AudioToolbox audio capture filter.",
+        "clean_room_attestation": {
+            "sources": [
+                "Microsoft Learn DirectShow Filter CLSIDs and DllGetClassObject documentation",
+                "Public Wine dlls/qcap/qcap_main.c and dlls/qcap/qcap.spec declarations",
+                "Black-box Windows 11 differential conformance test observations",
+            ],
+            "no_leaked_source_exposure": True,
+            "no_proprietary_decompilation": True,
+        },
+    },
+    "qcap:qcap_avf_create": {
+        "dll": "qcap",
+        "api_name": "qcap_avf_create",
+        "header": "qcap.h",
+        "ms_learn_url": "https://learn.microsoft.com/en-us/windows/win32/directshow/video-capture",
+        "signature": "HRESULT WINAPI qcap_avf_create(int device_index, QCAP_AVF_DEVICE *out_dev)",
+        "return_codes": {
+            "S_OK": "0x00000000",
+            "E_POINTER": "0x80004003",
+            "E_INVALIDARG": "0x80070057",
+            "VFW_E_NO_CAPTURE_HARDWARE": "0x8004021c",
+        },
+        "empirical_windows_behavior": [
+            "Initializes a video capture device context for the specified device_index, populating supported IAMStreamConfig media capabilities (640x480 RGB24/NV12/YUY2 30-60fps, 1280x720 RGB24/NV12 30-60fps, 1920x1080 RGB24/NV12 30fps) and IAMVideoProcAmp ranges (Brightness, Contrast, Hue, Saturation).",
+            "Exposes IAMStreamConfig (GetNumberOfCapabilities, GetStreamCaps, SetFormat, GetFormat), IAMVideoControl (GetCaps, GetFrameRateList), IAMVideoProcAmp (GetRange, Get, Set), IAMDroppedFrames, and IPersistPropertyBag ('VFWIndex').",
+        ],
+        "macos_backend_strategy": "Query Apple AVFoundation via Objective-C runtime (AVCaptureDevice, AVCaptureDeviceInput, AVCaptureSession, AVCaptureVideoDataOutput) for hardware video capture devices with deterministic headless camera synthesis fallback.",
+        "clean_room_attestation": {
+            "sources": [
+                "Microsoft Learn DirectShow IAMStreamConfig / IAMVideoProcAmp / IAMVideoControl documentation",
+                "Apple Developer AVFoundation AVCaptureSession / AVCaptureDevice documentation",
+                "Public Wine dlls/qcap/vfwcapture.c and dlls/qcap/v4l.c declarations",
+                "Black-box Windows 11 differential conformance test observations",
+            ],
+            "no_leaked_source_exposure": True,
+            "no_proprietary_decompilation": True,
+        },
+    },
+    "qcap:qcap_avf_read_frame": {
+        "dll": "qcap",
+        "api_name": "qcap_avf_read_frame",
+        "header": "qcap.h",
+        "ms_learn_url": "https://learn.microsoft.com/en-us/windows/win32/directshow/uncompressed-video-media-types",
+        "signature": "HRESULT WINAPI qcap_avf_read_frame(QCAP_AVF_DEVICE dev, BYTE *buffer, DWORD buffer_size, DWORD *bytes_written, BOOL *is_bottom_up)",
+        "return_codes": {
+            "S_OK": "0x00000000",
+            "E_POINTER": "0x80004003",
+            "E_INVALIDARG": "0x80070057",
+        },
+        "empirical_windows_behavior": [
+            "Captures a single video frame matching the active AM_MEDIA_TYPE (MEDIASUBTYPE_RGB24, MEDIASUBTYPE_NV12, or MEDIASUBTYPE_YUY2) into buffer.",
+            "For uncompressed RGB24 video with positive biHeight, reverses top-down camera scanlines into Windows bottom-up DIB orientation (row 0 at bottom of image, row height-1 at top) and applies active IAMVideoProcAmp Brightness/Contrast adjustments.",
+        ],
+        "macos_backend_strategy": "Read CVImageBufferRef from AVCaptureVideoDataOutput (CVPixelBufferLockBaseAddress) and apply scanline vertical flip (reverse_image) for positive-height RGB24 DIBs.",
+        "clean_room_attestation": {
+            "sources": [
+                "Microsoft Learn DirectShow Uncompressed Video Media Types and Top-Down vs. Bottom-Up DIBs documentation",
+                "Public Wine dlls/qcap/v4l.c reverse_image and video_read_frame declarations",
+                "Black-box Windows 11 differential conformance test observations",
+            ],
+            "no_leaked_source_exposure": True,
+            "no_proprietary_decompilation": True,
+        },
+    },
+    "qcap:audio_record_create": {
+        "dll": "qcap",
+        "api_name": "audio_record_create",
+        "header": "qcap.h",
+        "ms_learn_url": "https://learn.microsoft.com/en-us/windows/win32/directshow/audio-capture",
+        "signature": "HRESULT WINAPI audio_record_create(IUnknown *outer, IUnknown **out)",
+        "return_codes": {
+            "S_OK": "0x00000000",
+            "E_POINTER": "0x80004003",
+            "E_NOINTERFACE": "0x80004002",
+        },
+        "empirical_windows_behavior": [
+            "Creates a DirectShow CLSID_AudioRecord filter implementing IBaseFilter, IPersistPropertyBag, and IAMFilterMiscFlags (GetMiscFlags returning AM_FILTER_MISC_FLAGS_IS_SOURCE = 1).",
+            "IPersistPropertyBag::InitNew returns S_OK; IPersistPropertyBag::Load reads 'UseMixer' (VT_I4) followed by 'WaveInId' (VT_I4, case-sensitive d).",
+            "Exposes a single output IPin named L'Capture' implementing IAMStreamConfig (12 standard PCM capabilities from 44.1kHz 16-bit stereo down to 8kHz 8-bit mono), IAMBufferNegotiation (SuggestAllocatorProperties, GetAllocatorProperties returning VFW_E_NOT_CONNECTED when disconnected), IKsPropertySet (PIN_CATEGORY_CAPTURE), and IQualityControl.",
+            "Rejects non-PCM wave formats (wFormatTag != WAVE_FORMAT_PCM) in IPin::QueryAccept with S_FALSE and streams timestamped PCM audio buffers during State_Running.",
+        ],
+        "macos_backend_strategy": "Use macOS CoreAudio (AudioObjectGetPropertyData with kAudioHardwarePropertyDefaultInputDevice) and AudioToolbox (AudioQueueNewInput) to enumerate audio capture hardware and deliver PCM audio buffers.",
+        "clean_room_attestation": {
+            "sources": [
+                "Microsoft Learn DirectShow Audio Capture Filter and IAMBufferNegotiation documentation",
+                "Apple Developer CoreAudio & AudioToolbox framework documentation",
+                "Public Wine dlls/qcap/audiorecord.c and dlls/qcap/tests/audiorecord.c declarations",
+                "Black-box Windows 11 differential conformance test observations",
+            ],
+            "no_leaked_source_exposure": True,
+            "no_proprietary_decompilation": True,
+        },
+    },
+    "qcap:QcapCreateAVFoundationReader": {
+        "dll": "qcap",
+        "api_name": "QcapCreateAVFoundationReader",
+        "header": "qcap.h",
+        "ms_learn_url": "https://learn.microsoft.com/en-us/windows/win32/medfound/source-reader",
+        "signature": "HRESULT WINAPI QcapCreateAVFoundationReader(UINT32 device_index, QCAP_MF_SOURCE_READER **out_reader)",
+        "return_codes": {
+            "S_OK": "0x00000000",
+            "E_POINTER": "0x80004003",
+            "E_INVALIDARG": "0x80070057",
+            "MF_E_INVALIDMEDIATYPE": "0xc00d36b4",
+        },
+        "empirical_windows_behavior": [
+            "Creates a Media Foundation capture SourceReader (mfreadwrite bridge) backed by the video and audio capture backends for MF_SOURCE_READER_FIRST_VIDEO_STREAM (0xFFFFFFFC) and MF_SOURCE_READER_FIRST_AUDIO_STREAM (0xFFFFFFFD).",
+            "Supports GetNativeMediaType, GetCurrentMediaType, SetCurrentMediaType (MFVideoFormat_RGB24, MFVideoFormat_NV12, MFAudioFormat_PCM), and ReadSample returning timestamped video/audio sample buffers.",
+        ],
+        "macos_backend_strategy": "Bridge AVFoundation video capture and CoreAudio PCM input to Media Foundation SourceReader streams.",
+        "clean_room_attestation": {
+            "sources": [
+                "Microsoft Learn Media Foundation IMFSourceReader and Audio/Video Capture in Media Foundation documentation",
+                "Apple Developer AVFoundation & CoreMedia framework documentation",
+                "Public Wine wiki/Summer-Of-Code.md AVFoundation video capture roadmap",
+                "Black-box Windows 11 differential conformance test observations",
+            ],
+            "no_leaked_source_exposure": True,
+            "no_proprietary_decompilation": True,
+        },
+    },
 }
 
 

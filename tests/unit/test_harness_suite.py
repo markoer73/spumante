@@ -1057,6 +1057,96 @@ class TestWineParityArchitecture(unittest.TestCase):
         self.assertIn("test_guid_and_d3dformat", wt_report["subtests_executed"])
         self.assertIn("test_videotoolbox_hardware_decode", wt_report["subtests_executed"])
 
+    def test_19_qcap_avfoundation_and_audio_record_parity(self) -> None:
+        """Verify dlls/qcap macOS AVFoundation video capture, DirectShow CLSID_AudioRecord, and mfreadwrite SourceReader bridge."""
+        build_sh = REPO_ROOT / "scripts" / "build.sh"
+        test_sh = REPO_ROOT / "scripts" / "test.sh"
+
+        # 1. Verify clean-room spec packets exist for qcap
+        for api in (
+            "DllGetClassObject",
+            "qcap_avf_create",
+            "qcap_avf_read_frame",
+            "audio_record_create",
+            "QcapCreateAVFoundationReader",
+        ):
+            spec_file = REPO_ROOT / "specs" / "qcap" / f"{api}.json"
+            self.assertTrue(spec_file.is_file(), f"Missing clean-room spec packet: {spec_file}")
+
+        # 2. Surgically build qcap + test_qcap_parity
+        res_build = subprocess.run(
+            [str(build_sh), "--dll", "qcap", "--test", "test_qcap_parity"],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(res_build.returncode, 0, res_build.stdout + res_build.stderr)
+
+        # 3. Verify RED failure when running with --simulate-stub
+        res_red = subprocess.run(
+            [str(test_sh), "--dll", "qcap", "--test", "test_qcap_parity", "--simulate-stub"],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertNotEqual(res_red.returncode, 0)
+
+        # 4. Verify GREEN match against Windows Ground Truth (12 assertions)
+        res_green = subprocess.run(
+            [str(test_sh), "--dll", "qcap", "--test", "test_qcap_parity"],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(
+            res_green.returncode,
+            0,
+            f"test_qcap_parity failed:\n{res_green.stdout}\n{res_green.stderr}",
+        )
+        self.assertIn("MATCHED (0 discrepancies) [12 assertions]", res_green.stdout)
+
+        # 5. Verify 4-gate security audit (including ASan+UBSan) on test_qcap_parity
+        res_sec = subprocess.run(
+            [str(test_sh), "--security", "--dll", "qcap", "--test", "test_qcap_parity"],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(
+            res_sec.returncode,
+            0,
+            f"Security scan failed on test_qcap_parity:\n{res_sec.stdout}\n{res_sec.stderr}",
+        )
+
+        # 6. Verify winetest_qcap suite (7 subtests, >= 100 assertions)
+        res_wt = subprocess.run(
+            [str(test_sh), "--winetest", "--dll", "qcap"],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(
+            res_wt.returncode,
+            0,
+            f"winetest --dll qcap failed:\n{res_wt.stdout}\n{res_wt.stderr}",
+        )
+        wt_report = json.loads(res_wt.stdout)
+        self.assertTrue(wt_report["passed"])
+        self.assertEqual(wt_report["failures"], 0)
+        self.assertGreaterEqual(wt_report["total_assertions"], 100)
+        self.assertIn("test_audio_record_interfaces", wt_report["subtests_executed"])
+        self.assertIn("test_audio_record_aggregation", wt_report["subtests_executed"])
+        self.assertIn("test_audio_record_property_bag", wt_report["subtests_executed"])
+        self.assertIn("test_audio_record_media_types_and_stream_config", wt_report["subtests_executed"])
+        self.assertIn("test_audio_record_capture_stream", wt_report["subtests_executed"])
+        self.assertIn("test_video_capture_interfaces_and_caps", wt_report["subtests_executed"])
+        self.assertIn("test_avfoundation_video_capture_and_mfreadwrite", wt_report["subtests_executed"])
+
 
 if __name__ == "__main__":
     unittest.main()

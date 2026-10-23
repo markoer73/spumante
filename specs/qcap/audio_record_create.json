@@ -1,0 +1,29 @@
+{
+  "dll": "qcap",
+  "api_name": "audio_record_create",
+  "header": "qcap.h",
+  "ms_learn_url": "https://learn.microsoft.com/en-us/windows/win32/directshow/audio-capture",
+  "signature": "HRESULT WINAPI audio_record_create(IUnknown *outer, IUnknown **out)",
+  "return_codes": {
+    "S_OK": "0x00000000",
+    "E_POINTER": "0x80004003",
+    "E_NOINTERFACE": "0x80004002"
+  },
+  "empirical_windows_behavior": [
+    "Creates a DirectShow CLSID_AudioRecord filter implementing IBaseFilter, IPersistPropertyBag, and IAMFilterMiscFlags (GetMiscFlags returning AM_FILTER_MISC_FLAGS_IS_SOURCE = 1).",
+    "IPersistPropertyBag::InitNew returns S_OK; IPersistPropertyBag::Load reads 'UseMixer' (VT_I4) followed by 'WaveInId' (VT_I4, case-sensitive d).",
+    "Exposes a single output IPin named L'Capture' implementing IAMStreamConfig (12 standard PCM capabilities from 44.1kHz 16-bit stereo down to 8kHz 8-bit mono), IAMBufferNegotiation (SuggestAllocatorProperties, GetAllocatorProperties returning VFW_E_NOT_CONNECTED when disconnected), IKsPropertySet (PIN_CATEGORY_CAPTURE), and IQualityControl.",
+    "Rejects non-PCM wave formats (wFormatTag != WAVE_FORMAT_PCM) in IPin::QueryAccept with S_FALSE and streams timestamped PCM audio buffers during State_Running."
+  ],
+  "macos_backend_strategy": "Use macOS CoreAudio (AudioObjectGetPropertyData with kAudioHardwarePropertyDefaultInputDevice) and AudioToolbox (AudioQueueNewInput) to enumerate audio capture hardware and deliver PCM audio buffers.",
+  "clean_room_attestation": {
+    "sources": [
+      "Microsoft Learn DirectShow Audio Capture Filter and IAMBufferNegotiation documentation",
+      "Apple Developer CoreAudio & AudioToolbox framework documentation",
+      "Public Wine dlls/qcap/audiorecord.c and dlls/qcap/tests/audiorecord.c declarations",
+      "Black-box Windows 11 differential conformance test observations"
+    ],
+    "no_leaked_source_exposure": true,
+    "no_proprietary_decompilation": true
+  }
+}

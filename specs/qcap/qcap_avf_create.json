@@ -1,0 +1,28 @@
+{
+  "dll": "qcap",
+  "api_name": "qcap_avf_create",
+  "header": "qcap.h",
+  "ms_learn_url": "https://learn.microsoft.com/en-us/windows/win32/directshow/video-capture",
+  "signature": "HRESULT WINAPI qcap_avf_create(int device_index, QCAP_AVF_DEVICE *out_dev)",
+  "return_codes": {
+    "S_OK": "0x00000000",
+    "E_POINTER": "0x80004003",
+    "E_INVALIDARG": "0x80070057",
+    "VFW_E_NO_CAPTURE_HARDWARE": "0x8004021c"
+  },
+  "empirical_windows_behavior": [
+    "Initializes a video capture device context for the specified device_index, populating supported IAMStreamConfig media capabilities (640x480 RGB24/NV12/YUY2 30-60fps, 1280x720 RGB24/NV12 30-60fps, 1920x1080 RGB24/NV12 30fps) and IAMVideoProcAmp ranges (Brightness, Contrast, Hue, Saturation).",
+    "Exposes IAMStreamConfig (GetNumberOfCapabilities, GetStreamCaps, SetFormat, GetFormat), IAMVideoControl (GetCaps, GetFrameRateList), IAMVideoProcAmp (GetRange, Get, Set), IAMDroppedFrames, and IPersistPropertyBag ('VFWIndex')."
+  ],
+  "macos_backend_strategy": "Query Apple AVFoundation via Objective-C runtime (AVCaptureDevice, AVCaptureDeviceInput, AVCaptureSession, AVCaptureVideoDataOutput) for hardware video capture devices with deterministic headless camera synthesis fallback.",
+  "clean_room_attestation": {
+    "sources": [
+      "Microsoft Learn DirectShow IAMStreamConfig / IAMVideoProcAmp / IAMVideoControl documentation",
+      "Apple Developer AVFoundation AVCaptureSession / AVCaptureDevice documentation",
+      "Public Wine dlls/qcap/vfwcapture.c and dlls/qcap/v4l.c declarations",
+      "Black-box Windows 11 differential conformance test observations"
+    ],
+    "no_leaked_source_exposure": true,
+    "no_proprietary_decompilation": true
+  }
+}
