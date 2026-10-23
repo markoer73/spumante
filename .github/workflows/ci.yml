@@ -85,6 +85,13 @@ jobs:
           ./scripts/test.sh --security --dll qcap --test test_qcap_parity
           ./scripts/test.sh --winetest --dll qcap
 
+      - name: Surgically Build & Test d2d1 Direct2D Primitives & vkd3d-shader MSL Parity
+        run: |
+          ./scripts/build.sh --dll d2d1 --test test_d2d1_msl_parity
+          ./scripts/test.sh --dll d2d1 --test test_d2d1_msl_parity
+          ./scripts/test.sh --security --dll d2d1 --test test_d2d1_msl_parity
+          ./scripts/test.sh --winetest --dll d2d1
+
       - name: Run Full Architecture & Harness Unit Suite
         run: python3 -m unittest -v tests/unit/test_harness_suite.py
 

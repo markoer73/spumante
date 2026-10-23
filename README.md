@@ -101,6 +101,11 @@ All host/VM orchestration, compilation, differential testing, stub discovery, an
 ./scripts/test.sh --dll qcap --test test_qcap_parity
 ./scripts/test.sh --winetest --dll qcap
 
+# 8. Build & verify Direct2D primitives (arcs, layers, AA, gradients, cubic Beziers) & vkd3d-shader MSL in d2d1
+./scripts/build.sh --dll d2d1 --test test_d2d1_msl_parity
+./scripts/test.sh --dll d2d1 --test test_d2d1_msl_parity
+./scripts/test.sh --winetest --dll d2d1
+
 # 5. Discover & rank unimplemented stubs across Wine DLLs
 ./scripts/test.sh --discover-stubs --dll bcrypt
 

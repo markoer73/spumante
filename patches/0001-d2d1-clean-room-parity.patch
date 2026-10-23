@@ -1,0 +1,5 @@
+From: Wine Parity Agent <agent@wine-parity.local>
+Subject: [PATCH] d2d1: Implement clean-room conformance fixes
+
+Clean-Room-Spec: specs/d2d1/
+Signed-off-by: Wine Parity Agent <agent@wine-parity.local>

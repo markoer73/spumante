@@ -1147,6 +1147,96 @@ class TestWineParityArchitecture(unittest.TestCase):
         self.assertIn("test_video_capture_interfaces_and_caps", wt_report["subtests_executed"])
         self.assertIn("test_avfoundation_video_capture_and_mfreadwrite", wt_report["subtests_executed"])
 
+    def test_20_d2d1_primitives_and_vkd3d_shader_msl_parity(self) -> None:
+        """Verify dlls/d2d1 Direct2D missing primitives (arcs, layers, AA, gradients, true cubic Beziers) and vkd3d-shader MSL generator."""
+        build_sh = REPO_ROOT / "scripts" / "build.sh"
+        test_sh = REPO_ROOT / "scripts" / "test.sh"
+
+        # 1. Verify clean-room spec packets exist for d2d1
+        for api in (
+            "D2D1CreateFactory",
+            "d2d_path_geometry_add_arc",
+            "d2d_path_geometry_add_bezier",
+            "d2d_render_target_push_pop_layer",
+            "d2d_gradient_brush_sample",
+            "vkd3d_shader_compile_msl",
+        ):
+            spec_file = REPO_ROOT / "specs" / "d2d1" / f"{api}.json"
+            self.assertTrue(spec_file.is_file(), f"Missing clean-room spec packet: {spec_file}")
+
+        # 2. Surgically build d2d1 + test_d2d1_msl_parity
+        res_build = subprocess.run(
+            [str(build_sh), "--dll", "d2d1", "--test", "test_d2d1_msl_parity"],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(res_build.returncode, 0, res_build.stdout + res_build.stderr)
+
+        # 3. Verify RED failure when running with --simulate-stub
+        res_red = subprocess.run(
+            [str(test_sh), "--dll", "d2d1", "--test", "test_d2d1_msl_parity", "--simulate-stub"],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertNotEqual(res_red.returncode, 0)
+
+        # 4. Verify GREEN match against Windows Ground Truth (12 assertions)
+        res_green = subprocess.run(
+            [str(test_sh), "--dll", "d2d1", "--test", "test_d2d1_msl_parity"],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(
+            res_green.returncode,
+            0,
+            f"test_d2d1_msl_parity failed:\n{res_green.stdout}\n{res_green.stderr}",
+        )
+        self.assertIn("MATCHED (0 discrepancies) [12 assertions]", res_green.stdout)
+
+        # 5. Verify 4-gate security audit (including ASan+UBSan) on test_d2d1_msl_parity
+        res_sec = subprocess.run(
+            [str(test_sh), "--security", "--dll", "d2d1", "--test", "test_d2d1_msl_parity"],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(
+            res_sec.returncode,
+            0,
+            f"Security scan failed on test_d2d1_msl_parity:\n{res_sec.stdout}\n{res_sec.stderr}",
+        )
+
+        # 6. Verify winetest_d2d1 suite (6 subtests, >= 35 assertions)
+        res_wt = subprocess.run(
+            [str(test_sh), "--winetest", "--dll", "d2d1"],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(
+            res_wt.returncode,
+            0,
+            f"winetest --dll d2d1 failed:\n{res_wt.stdout}\n{res_wt.stderr}",
+        )
+        wt_report = json.loads(res_wt.stdout)
+        self.assertTrue(wt_report["passed"])
+        self.assertEqual(wt_report["failures"], 0)
+        self.assertGreaterEqual(wt_report["total_assertions"], 35)
+        self.assertIn("test_factory_and_matrix_exports", wt_report["subtests_executed"])
+        self.assertIn("test_true_cubic_bezier", wt_report["subtests_executed"])
+        self.assertIn("test_elliptical_arc", wt_report["subtests_executed"])
+        self.assertIn("test_layers_and_antialiasing", wt_report["subtests_executed"])
+        self.assertIn("test_gradient_brushes", wt_report["subtests_executed"])
+        self.assertIn("test_vkd3d_shader_msl", wt_report["subtests_executed"])
+
 
 if __name__ == "__main__":
     unittest.main()

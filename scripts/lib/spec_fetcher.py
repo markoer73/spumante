@@ -926,6 +926,167 @@ KNOWN_CLEAN_ROOM_SPECS: dict[str, dict[str, Any]] = {
             "no_proprietary_decompilation": True,
         },
     },
+    "d2d1:D2D1CreateFactory": {
+        "dll": "d2d1",
+        "api_name": "D2D1CreateFactory",
+        "header": "d2d1.h",
+        "ms_learn_url": "https://learn.microsoft.com/en-us/windows/win32/api/d2d1/nf-d2d1-d2d1createfactory",
+        "signature": "HRESULT WINAPI D2D1CreateFactory(D2D1_FACTORY_TYPE factory_type, REFIID riid, const D2D1_FACTORY_OPTIONS *options, void **factory)",
+        "return_codes": {
+            "S_OK": "0x00000000",
+            "E_INVALIDARG": "0x80070057",
+            "E_NOINTERFACE": "0x80004002",
+            "E_OUTOFMEMORY": "0x8007000e",
+        },
+        "empirical_windows_behavior": [
+            "Creates a Direct2D factory (ID2D1Factory / ID2D1Factory1 / ID2D1Factory2) for single-threaded (0) or multi-threaded (1) execution.",
+            "Rejects out-of-range factory_type (> D2D1_FACTORY_TYPE_MULTI_THREADED) or invalid debugLevel (> D2D1_DEBUG_LEVEL_INFORMATION) with E_INVALIDARG (0x80070057).",
+            "Also exports D2D1MakeRotateMatrix, D2D1MakeSkewMatrix, D2D1IsMatrixInvertible, D2D1InvertMatrix, D2D1ConvertColorSpace, D2D1CreateDevice, D2D1CreateDeviceContext, D2D1SinCos, D2D1Tan, D2D1Vec3Length, and D2D1ComputeMaximumScaleFactor.",
+        ],
+        "macos_backend_strategy": "Provide clean-room Direct2D factory, geometry, layer, brush, and anti-aliased rasterizer backed by Apple Metal / CoreGraphics acceleration.",
+        "clean_room_attestation": {
+            "sources": [
+                "Microsoft Learn Direct2D API & d2d1.h documentation",
+                "Public Wine dlls/d2d1/ and wiki/Direct3D.md specifications",
+                "Black-box Windows 11 differential conformance test observations",
+            ],
+            "no_leaked_source_exposure": True,
+            "no_proprietary_decompilation": True,
+        },
+    },
+    "d2d1:d2d_path_geometry_add_arc": {
+        "dll": "d2d1",
+        "api_name": "d2d_path_geometry_add_arc",
+        "header": "d2d1.h",
+        "ms_learn_url": "https://learn.microsoft.com/en-us/windows/win32/api/d2d1/nf-d2d1-id2d1simplifiedgeometrysink-addarc",
+        "signature": "HRESULT WINAPI d2d_path_geometry_add_arc(D2D1_PATH_GEOMETRY *geom, D2D1_POINT_2F start_pt, const D2D1_ARC_SEGMENT *arc)",
+        "return_codes": {
+            "S_OK": "0x00000000",
+            "E_INVALIDARG": "0x80070057",
+            "D2DERR_WRONG_STATE": "0x88990001",
+        },
+        "empirical_windows_behavior": [
+            "Appends an elliptical arc segment (D2D1_ARC_SEGMENT: point, size, rotationAngle, sweepDirection, arcSize) to an open path geometry figure.",
+            "Converts endpoint-parameterized rotated elliptical arcs to center parameterization (handling radii scaling when endpoints are further apart than 2*r) and decomposes the arc into <= 90-degree exact cubic Bezier spans.",
+            "Supports GetBounds, FillContainsPoint, StrokeContainsPoint, ComputeArea, ComputeLength, ComputePointAtLength, and DrawGeometry/FillGeometry rasterization.",
+        ],
+        "macos_backend_strategy": "Convert endpoint-parameterized rotated elliptical arcs to center parameterization and cubic Bezier spans for unified geometry bounds and rasterization.",
+        "clean_room_attestation": {
+            "sources": [
+                "Microsoft Learn ID2D1GeometrySink::AddArc and D2D1_ARC_SEGMENT documentation",
+                "W3C SVG 1.1 Appendix F.6 Elliptical Arc Implementation Notes (public standard)",
+                "Public Wine wiki/Direct3D.md Direct2D missing primitives roadmap",
+                "Black-box Windows 11 differential conformance test observations",
+            ],
+            "no_leaked_source_exposure": True,
+            "no_proprietary_decompilation": True,
+        },
+    },
+    "d2d1:d2d_path_geometry_add_bezier": {
+        "dll": "d2d1",
+        "api_name": "d2d_path_geometry_add_bezier",
+        "header": "d2d1.h",
+        "ms_learn_url": "https://learn.microsoft.com/en-us/windows/win32/api/d2d1/nf-d2d1-id2d1geometrysink-addbezier",
+        "signature": "HRESULT WINAPI d2d_path_geometry_add_bezier(D2D1_PATH_GEOMETRY *geom, D2D1_POINT_2F start_pt, const D2D1_BEZIER_SEGMENT *bezier)",
+        "return_codes": {
+            "S_OK": "0x00000000",
+            "E_INVALIDARG": "0x80070057",
+        },
+        "empirical_windows_behavior": [
+            "Appends a true cubic Bezier curve segment B(t) = (1-t)^3 P0 + 3(1-t)^2 t P1 + 3(1-t) t^2 P2 + t^3 P3 to a path geometry without degrading to a single quadratic approximation.",
+            "Computes exact bounding boxes by solving analytical derivative roots B'_x(t) = 0 and B'_y(t) = 0 in (0, 1), accurate arc length via Gauss-Legendre quadrature, and adaptive De Casteljau subdivision within flatteningTolerance.",
+        ],
+        "macos_backend_strategy": "Evaluate exact cubic Bezier polynomials, analytical derivative extrema, Gauss-Legendre arc length, and adaptive De Casteljau subdivision.",
+        "clean_room_attestation": {
+            "sources": [
+                "Microsoft Learn ID2D1GeometrySink::AddBezier and D2D1_BEZIER_SEGMENT documentation",
+                "Public Wine dlls/d2d1/geometry.c and wiki/Direct3D.md specifications",
+                "Black-box Windows 11 differential conformance test observations",
+            ],
+            "no_leaked_source_exposure": True,
+            "no_proprietary_decompilation": True,
+        },
+    },
+    "d2d1:d2d_render_target_push_pop_layer": {
+        "dll": "d2d1",
+        "api_name": "d2d_render_target_push_pop_layer",
+        "header": "d2d1.h",
+        "ms_learn_url": "https://learn.microsoft.com/en-us/windows/win32/api/d2d1/nf-d2d1-id2d1rendertarget-pushlayer(constd2d1_layer_parameters_id2d1layer)",
+        "signature": "HRESULT WINAPI d2d_render_target_push_layer(D2D1_RENDER_TARGET *rt, const D2D1_LAYER_PARAMETERS *params, D2D1_LAYER *layer)",
+        "return_codes": {
+            "S_OK": "0x00000000",
+            "E_INVALIDARG": "0x80070057",
+            "D2DERR_WRONG_STATE": "0x88990001",
+            "D2DERR_PUSH_POP_UNBALANCED": "0x88990016",
+            "D2DERR_POP_CALL_DID_NOT_MATCH_PUSH": "0x88990014",
+        },
+        "empirical_windows_behavior": [
+            "PushLayer redirects subsequent drawing operations on the render target to an offscreen layer buffer constrained by contentBounds, geometricMask, maskTransform, opacity, and opacityBrush.",
+            "PopLayer composites the accumulated layer surface back onto the parent render target with premultiplied alpha blending modulated by layer opacity, geometricMask coverage, and opacityBrush.",
+            "EndDraw fails with D2DERR_PUSH_POP_UNBALANCED (0x88990016) or D2DERR_POP_CALL_DID_NOT_MATCH_PUSH (0x88990014) if PushLayer calls are not matched by PopLayer.",
+        ],
+        "macos_backend_strategy": "Maintain a hierarchical offscreen layer stack on D2D1_RENDER_TARGET with SIMD/Accelerate-friendly premultiplied RGBA compositing.",
+        "clean_room_attestation": {
+            "sources": [
+                "Microsoft Learn ID2D1RenderTarget::PushLayer, PopLayer, and D2D1_LAYER_PARAMETERS documentation",
+                "Public Wine dlls/d2d1/layer.c and wiki/Direct3D.md specifications",
+                "Black-box Windows 11 differential conformance test observations",
+            ],
+            "no_leaked_source_exposure": True,
+            "no_proprietary_decompilation": True,
+        },
+    },
+    "d2d1:d2d_gradient_brush_sample": {
+        "dll": "d2d1",
+        "api_name": "d2d_gradient_brush_sample",
+        "header": "d2d1.h",
+        "ms_learn_url": "https://learn.microsoft.com/en-us/windows/win32/direct2d/direct2d-brushes-overview",
+        "signature": "HRESULT WINAPI d2d_gradient_brush_sample(const D2D1_BRUSH *brush, D2D1_POINT_2F pt, D2D1_COLOR_F *out_color)",
+        "return_codes": {
+            "S_OK": "0x00000000",
+            "E_INVALIDARG": "0x80070057",
+        },
+        "empirical_windows_behavior": [
+            "Evaluates ID2D1LinearGradientBrush and ID2D1RadialGradientBrush (with center, gradientOriginOffset, radiusX, radiusY) at arbitrary 2D coordinates.",
+            "Applies D2D1_EXTEND_MODE_CLAMP (0), D2D1_EXTEND_MODE_WRAP (1), and D2D1_EXTEND_MODE_MIRROR (2) outside [0, 1] and interpolates stop colors in D2D1_GAMMA_2_2 (sRGB) or D2D1_GAMMA_1_0 (linear RGB) space.",
+        ],
+        "macos_backend_strategy": "Evaluate linear and focal-offset radial gradient equations with CLAMP/WRAP/MIRROR extend modes and sRGB/linear gamma space conversion.",
+        "clean_room_attestation": {
+            "sources": [
+                "Microsoft Learn ID2D1LinearGradientBrush, ID2D1RadialGradientBrush, and ID2D1GradientStopCollection documentation",
+                "Public Wine dlls/d2d1/brush.c and wiki/Direct3D.md specifications",
+                "Black-box Windows 11 differential conformance test observations",
+            ],
+            "no_leaked_source_exposure": True,
+            "no_proprietary_decompilation": True,
+        },
+    },
+    "d2d1:vkd3d_shader_compile_msl": {
+        "dll": "d2d1",
+        "api_name": "vkd3d_shader_compile_msl",
+        "header": "d2d1.h",
+        "ms_learn_url": "https://developer.apple.com/metal/Metal-Shading-Language-Specification.pdf",
+        "signature": "HRESULT WINAPI vkd3d_shader_compile_msl(const VKD3D_SHADER_SOURCE_DESC *desc, VKD3D_SHADER_MSL_OUTPUT *out_msl)",
+        "return_codes": {
+            "S_OK": "0x00000000",
+            "E_INVALIDARG": "0x80070057",
+            "E_FAIL": "0x80004005",
+        },
+        "empirical_windows_behavior": [
+            "Translates Direct3D SM1-SM5 shader assembly/IR instructions (dcl_input, dcl_output, dcl_constant_buffer, dcl_resource_texture2d, dcl_sampler, mov, add, mul, mad, dp3, dp4, min, max, sqrt, rsq, sample, ld, ret, and D3D9 0*INF=0 safe multiply lowering) into Metal Shading Language (MSL) vertex/fragment/compute kernels.",
+            "On macOS, compiles the generated MSL source directly into a hardware MTLLibrary and MTLFunction on the Apple Silicon / Metal GPU via MTLCreateSystemDefaultDevice() and [device newLibraryWithSource:options:error:].",
+        ],
+        "macos_backend_strategy": "Generate valid Metal Shading Language (MSL) source and compile via Objective-C Metal.framework (MTLDevice newLibraryWithSource:options:error:).",
+        "clean_room_attestation": {
+            "sources": [
+                "Apple Metal Shading Language Specification & Metal.framework documentation",
+                "Public Wine wiki/Ospp-Summer-Code.md and wiki/Direct3D.md vkd3d-shader MSL generator specifications",
+                "Black-box differential conformance test observations",
+            ],
+            "no_leaked_source_exposure": True,
+            "no_proprietary_decompilation": True,
+        },
+    },
 }
 
 

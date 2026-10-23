@@ -1,0 +1,140 @@
+{
+  "dll": "d2d1",
+  "test_name": "test_d2d1_msl_parity",
+  "architecture": "x86_64",
+  "environment": "windows-11-22h2-ground-truth",
+  "assertions": [
+    {
+      "id": "d2d1_001",
+      "case": "D2D1CreateFactory_InvalidType",
+      "api": "D2D1CreateFactory",
+      "comparison_mode": "exact",
+      "status": "0x80070057",
+      "last_error": 0,
+      "out_length": 0,
+      "buffer_hex": "",
+      "handle_valid": false
+    },
+    {
+      "id": "d2d1_002",
+      "case": "D2D1CreateFactory_And_MatrixMath",
+      "api": "D2D1CreateFactory",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 0,
+      "buffer_hex": "",
+      "handle_valid": true
+    },
+    {
+      "id": "d2d1_003",
+      "case": "TrueCubicBezier_ExactInflectionBoundsAndLength",
+      "api": "d2d_path_geometry_add_bezier",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 0,
+      "buffer_hex": "",
+      "handle_valid": true
+    },
+    {
+      "id": "d2d1_004",
+      "case": "EllipticalArc_EndpointToBezierAndArea",
+      "api": "d2d_path_geometry_add_arc",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 0,
+      "buffer_hex": "",
+      "handle_valid": true
+    },
+    {
+      "id": "d2d1_005",
+      "case": "EllipticalArc_RasterizeStrokeAndFill",
+      "api": "d2d_path_geometry_add_arc",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 0,
+      "buffer_hex": "",
+      "handle_valid": true
+    },
+    {
+      "id": "d2d1_006",
+      "case": "LayerPushPop_OpacityAndBoundsClipping",
+      "api": "d2d_render_target_push_pop_layer",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 0,
+      "buffer_hex": "",
+      "handle_valid": true
+    },
+    {
+      "id": "d2d1_007",
+      "case": "LayerPushPop_GeometricMaskAndUnbalancedError",
+      "api": "d2d_render_target_push_pop_layer",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 0,
+      "buffer_hex": "",
+      "handle_valid": true
+    },
+    {
+      "id": "d2d1_008",
+      "case": "Antialiasing_PerPrimitiveVsAliasedSubpixelEdge",
+      "api": "d2d_render_target_set_antialias_mode",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 0,
+      "buffer_hex": "",
+      "handle_valid": true
+    },
+    {
+      "id": "d2d1_009",
+      "case": "LinearGradientBrush_ExtendModesAndGamma",
+      "api": "d2d_gradient_brush_sample",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 0,
+      "buffer_hex": "",
+      "handle_valid": true
+    },
+    {
+      "id": "d2d1_010",
+      "case": "RadialGradientBrush_FocalOffsetAndFill",
+      "api": "d2d_gradient_brush_sample",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 0,
+      "buffer_hex": "",
+      "handle_valid": true
+    },
+    {
+      "id": "d2d1_011",
+      "case": "Vkd3dShaderMsl_PixelAndVertexTranslation",
+      "api": "vkd3d_shader_compile_msl",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 0,
+      "buffer_hex": "",
+      "handle_valid": true
+    },
+    {
+      "id": "d2d1_012",
+      "case": "Vkd3dShaderMsl_ZeroInfSafeMulAndCompute",
+      "api": "vkd3d_shader_compile_msl",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 0,
+      "buffer_hex": "",
+      "handle_valid": true
+    }
+  ]
+}

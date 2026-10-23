@@ -1,0 +1,29 @@
+{
+  "dll": "d2d1",
+  "api_name": "d2d_render_target_push_pop_layer",
+  "header": "d2d1.h",
+  "ms_learn_url": "https://learn.microsoft.com/en-us/windows/win32/api/d2d1/nf-d2d1-id2d1rendertarget-pushlayer(constd2d1_layer_parameters_id2d1layer)",
+  "signature": "HRESULT WINAPI d2d_render_target_push_layer(D2D1_RENDER_TARGET *rt, const D2D1_LAYER_PARAMETERS *params, D2D1_LAYER *layer)",
+  "return_codes": {
+    "S_OK": "0x00000000",
+    "E_INVALIDARG": "0x80070057",
+    "D2DERR_WRONG_STATE": "0x88990001",
+    "D2DERR_PUSH_POP_UNBALANCED": "0x88990016",
+    "D2DERR_POP_CALL_DID_NOT_MATCH_PUSH": "0x88990014"
+  },
+  "empirical_windows_behavior": [
+    "PushLayer redirects subsequent drawing operations on the render target to an offscreen layer buffer constrained by contentBounds, geometricMask, maskTransform, opacity, and opacityBrush.",
+    "PopLayer composites the accumulated layer surface back onto the parent render target with premultiplied alpha blending modulated by layer opacity, geometricMask coverage, and opacityBrush.",
+    "EndDraw fails with D2DERR_PUSH_POP_UNBALANCED (0x88990016) or D2DERR_POP_CALL_DID_NOT_MATCH_PUSH (0x88990014) if PushLayer calls are not matched by PopLayer."
+  ],
+  "macos_backend_strategy": "Maintain a hierarchical offscreen layer stack on D2D1_RENDER_TARGET with SIMD/Accelerate-friendly premultiplied RGBA compositing.",
+  "clean_room_attestation": {
+    "sources": [
+      "Microsoft Learn ID2D1RenderTarget::PushLayer, PopLayer, and D2D1_LAYER_PARAMETERS documentation",
+      "Public Wine dlls/d2d1/layer.c and wiki/Direct3D.md specifications",
+      "Black-box Windows 11 differential conformance test observations"
+    ],
+    "no_leaked_source_exposure": true,
+    "no_proprietary_decompilation": true
+  }
+}

@@ -117,6 +117,23 @@
       "required_conformance_tests": [
         "test_qcap_parity"
       ]
+    },
+    "d2d1": {
+      "upstream_path": "dlls/d2d1",
+      "upstream_tests_path": "dlls/d2d1/tests",
+      "base_upstream_commit": "wine-10.0-base",
+      "merge_strategy": "3-way-backport-preserving-macos-blocks",
+      "macos_acceleration": "Metal (MTLDevice / MTLLibrary / MSL) / CoreGraphics",
+      "tracked_files": [
+        "dlls/d2d1/d2d1.h",
+        "dlls/d2d1/d2d1.spec",
+        "dlls/d2d1/d2d1_main.c",
+        "dlls/d2d1/d2d1_stubs.c",
+        "dlls/d2d1/vkd3d_msl.c"
+      ],
+      "required_conformance_tests": [
+        "test_d2d1_msl_parity"
+      ]
     }
   }
 }

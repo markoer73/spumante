@@ -1,0 +1,28 @@
+{
+  "dll": "d2d1",
+  "api_name": "d2d_path_geometry_add_arc",
+  "header": "d2d1.h",
+  "ms_learn_url": "https://learn.microsoft.com/en-us/windows/win32/api/d2d1/nf-d2d1-id2d1simplifiedgeometrysink-addarc",
+  "signature": "HRESULT WINAPI d2d_path_geometry_add_arc(D2D1_PATH_GEOMETRY *geom, D2D1_POINT_2F start_pt, const D2D1_ARC_SEGMENT *arc)",
+  "return_codes": {
+    "S_OK": "0x00000000",
+    "E_INVALIDARG": "0x80070057",
+    "D2DERR_WRONG_STATE": "0x88990001"
+  },
+  "empirical_windows_behavior": [
+    "Appends an elliptical arc segment (D2D1_ARC_SEGMENT: point, size, rotationAngle, sweepDirection, arcSize) to an open path geometry figure.",
+    "Converts endpoint-parameterized rotated elliptical arcs to center parameterization (handling radii scaling when endpoints are further apart than 2*r) and decomposes the arc into <= 90-degree exact cubic Bezier spans.",
+    "Supports GetBounds, FillContainsPoint, StrokeContainsPoint, ComputeArea, ComputeLength, ComputePointAtLength, and DrawGeometry/FillGeometry rasterization."
+  ],
+  "macos_backend_strategy": "Convert endpoint-parameterized rotated elliptical arcs to center parameterization and cubic Bezier spans for unified geometry bounds and rasterization.",
+  "clean_room_attestation": {
+    "sources": [
+      "Microsoft Learn ID2D1GeometrySink::AddArc and D2D1_ARC_SEGMENT documentation",
+      "W3C SVG 1.1 Appendix F.6 Elliptical Arc Implementation Notes (public standard)",
+      "Public Wine wiki/Direct3D.md Direct2D missing primitives roadmap",
+      "Black-box Windows 11 differential conformance test observations"
+    ],
+    "no_leaked_source_exposure": true,
+    "no_proprietary_decompilation": true
+  }
+}

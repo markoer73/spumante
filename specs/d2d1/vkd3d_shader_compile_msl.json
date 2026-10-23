@@ -1,0 +1,26 @@
+{
+  "dll": "d2d1",
+  "api_name": "vkd3d_shader_compile_msl",
+  "header": "d2d1.h",
+  "ms_learn_url": "https://developer.apple.com/metal/Metal-Shading-Language-Specification.pdf",
+  "signature": "HRESULT WINAPI vkd3d_shader_compile_msl(const VKD3D_SHADER_SOURCE_DESC *desc, VKD3D_SHADER_MSL_OUTPUT *out_msl)",
+  "return_codes": {
+    "S_OK": "0x00000000",
+    "E_INVALIDARG": "0x80070057",
+    "E_FAIL": "0x80004005"
+  },
+  "empirical_windows_behavior": [
+    "Translates Direct3D SM1-SM5 shader assembly/IR instructions (dcl_input, dcl_output, dcl_constant_buffer, dcl_resource_texture2d, dcl_sampler, mov, add, mul, mad, dp3, dp4, min, max, sqrt, rsq, sample, ld, ret, and D3D9 0*INF=0 safe multiply lowering) into Metal Shading Language (MSL) vertex/fragment/compute kernels.",
+    "On macOS, compiles the generated MSL source directly into a hardware MTLLibrary and MTLFunction on the Apple Silicon / Metal GPU via MTLCreateSystemDefaultDevice() and [device newLibraryWithSource:options:error:]."
+  ],
+  "macos_backend_strategy": "Generate valid Metal Shading Language (MSL) source and compile via Objective-C Metal.framework (MTLDevice newLibraryWithSource:options:error:).",
+  "clean_room_attestation": {
+    "sources": [
+      "Apple Metal Shading Language Specification & Metal.framework documentation",
+      "Public Wine wiki/Ospp-Summer-Code.md and wiki/Direct3D.md vkd3d-shader MSL generator specifications",
+      "Black-box differential conformance test observations"
+    ],
+    "no_leaked_source_exposure": true,
+    "no_proprietary_decompilation": true
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "dll": "d2d1",
+  "api_name": "d2d_gradient_brush_sample",
+  "header": "d2d1.h",
+  "ms_learn_url": "https://learn.microsoft.com/en-us/windows/win32/direct2d/direct2d-brushes-overview",
+  "signature": "HRESULT WINAPI d2d_gradient_brush_sample(const D2D1_BRUSH *brush, D2D1_POINT_2F pt, D2D1_COLOR_F *out_color)",
+  "return_codes": {
+    "S_OK": "0x00000000",
+    "E_INVALIDARG": "0x80070057"
+  },
+  "empirical_windows_behavior": [
+    "Evaluates ID2D1LinearGradientBrush and ID2D1RadialGradientBrush (with center, gradientOriginOffset, radiusX, radiusY) at arbitrary 2D coordinates.",
+    "Applies D2D1_EXTEND_MODE_CLAMP (0), D2D1_EXTEND_MODE_WRAP (1), and D2D1_EXTEND_MODE_MIRROR (2) outside [0, 1] and interpolates stop colors in D2D1_GAMMA_2_2 (sRGB) or D2D1_GAMMA_1_0 (linear RGB) space."
+  ],
+  "macos_backend_strategy": "Evaluate linear and focal-offset radial gradient equations with CLAMP/WRAP/MIRROR extend modes and sRGB/linear gamma space conversion.",
+  "clean_room_attestation": {
+    "sources": [
+      "Microsoft Learn ID2D1LinearGradientBrush, ID2D1RadialGradientBrush, and ID2D1GradientStopCollection documentation",
+      "Public Wine dlls/d2d1/brush.c and wiki/Direct3D.md specifications",
+      "Black-box Windows 11 differential conformance test observations"
+    ],
+    "no_leaked_source_exposure": true,
+    "no_proprietary_decompilation": true
+  }
+}

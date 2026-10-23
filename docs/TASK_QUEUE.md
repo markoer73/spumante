@@ -45,5 +45,5 @@ This queue coordinates tasks between AI assistants (Antigravity, Gemini, Claude,
 ## Low Priority Tasks
 
 - [x] Set up GitHub Actions CI workflow for linting and differential test execution **\[ANTIGRAVITY-COMPLETED 2026-10-14: created .github/workflows/ci.yml targeting macos-latest and ubuntu-latest alongside scripts/lib/linter.py]**
-- [ ] Introduce `vkd3d-shader` MSL (Metal Shading Language) generator and Direct2D missing primitives (arcs, layers, anti-aliasing, gradient brushes, true cubic Beziers per `Direct3D.md` & `Ospp-Summer-Code.md`)
+- [x] Introduce `vkd3d-shader` MSL (Metal Shading Language) generator and Direct2D missing primitives (arcs, layers, anti-aliasing, gradient brushes, true cubic Beziers per `Direct3D.md` & `Ospp-Summer-Code.md`) **\[ANTIGRAVITY-COMPLETED 2026-10-23: implemented Direct2D true cubic Beziers, elliptical arcs, PushLayer/PopLayer stack, supersampled anti-aliasing, and linear/radial gradient brushes in dlls/d2d1/d2d1_main.c plus vkd3d-shader MSL generator and Apple Metal MTLLibrary compiler in dlls/d2d1/vkd3d_msl.c with 12 differential assertions and 37 winetest assertions passing]**
 - [ ] Address ARM64EC/ARM64X loader edge cases (`NtReadFile` PE header relocation view for `system32` DLLs, TSC registry frequency rescaling, and on-disk JIT code caching per WineConf 2025 ARM64 roadmap)

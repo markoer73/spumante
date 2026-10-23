@@ -111,6 +111,8 @@ def build_winetest(dll: str, arch: str = "x86_64") -> dict[str, Any]:
             "AudioToolbox",
             "-framework",
             "CoreAudio",
+            "-framework",
+            "Metal",
             "-lobjc",
             "-pthread",
         ]

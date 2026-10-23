@@ -99,6 +99,8 @@ def surgical_build(
             "AudioToolbox",
             "-framework",
             "CoreAudio",
+            "-framework",
+            "Metal",
             "-lobjc",
             "-pthread",
         ]
