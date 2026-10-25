@@ -1,0 +1,27 @@
+{
+  "dll": "ole32",
+  "api_name": "start_rpcss",
+  "header": "ole32.h",
+  "ms_learn_url": "https://learn.microsoft.com/en-us/windows/win32/services/service-startup",
+  "signature": "BOOL start_rpcss(void)",
+  "parameters": [],
+  "return_codes": {
+    "TRUE": "1",
+    "FALSE": "0"
+  },
+  "empirical_windows_behavior": [
+    "Synchronously verifies and starts the RpcSs service via SCM.",
+    "Handles SCM initialization latency with bounded retry/backoff during early prefix boot.",
+    "Waits for SERVICE_RUNNING status before returning, ensuring endpoint availability.",
+    "Resets stale RPC binding handles if RpcSs service was restarted."
+  ],
+  "macos_backend_strategy": "SCM startup synchronization with exponential backoff and handle reset.",
+  "clean_room_attestation": {
+    "sources": [
+      "Microsoft Learn Service Control Manager documentation",
+      "Public Wine dlls/combase/rpc.c declarations"
+    ],
+    "no_leaked_source_exposure": true,
+    "no_proprietary_decompilation": true
+  }
+}

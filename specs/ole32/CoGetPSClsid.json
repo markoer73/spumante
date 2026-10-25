@@ -1,0 +1,41 @@
+{
+  "dll": "ole32",
+  "api_name": "CoGetPSClsid",
+  "header": "ole32.h",
+  "ms_learn_url": "https://learn.microsoft.com/en-us/windows/win32/api/combaseapi/nf-combaseapi-cogetpsclsid",
+  "signature": "HRESULT WINAPI CoGetPSClsid(REFIID riid, CLSID *pclsid)",
+  "parameters": [
+    {
+      "name": "riid",
+      "direction": "in",
+      "type": "REFIID",
+      "optional": false
+    },
+    {
+      "name": "pclsid",
+      "direction": "out",
+      "type": "CLSID*",
+      "optional": false
+    }
+  ],
+  "return_codes": {
+    "S_OK": "0x00000000",
+    "REGDB_E_IIDNOTREG": "0x80040155",
+    "E_INVALIDARG": "0x80070057",
+    "CO_E_NOTINITIALIZED": "0x800401f0"
+  },
+  "empirical_windows_behavior": [
+    "Returns the CLSID of the proxy/stub DLL for the specified interface IID.",
+    "Queries the registered proxy/stub list, actctx redirection, and the registry.",
+    "For IID_IServiceProvider ({6d5140c1-7436-11ce-8034-00aa006009fa}), returns actxprxy PSFactory CLSID {B8DA6310-E19B-11D0-933C-00A0C90DCAA9} even before external registry population."
+  ],
+  "macos_backend_strategy": "Builtin proxy/stub catalog with actxprxy fallback for standard COM interfaces.",
+  "clean_room_attestation": {
+    "sources": [
+      "Microsoft Learn CoGetPSClsid API documentation",
+      "Public Wine dlls/combase/combase.c declarations"
+    ],
+    "no_leaked_source_exposure": true,
+    "no_proprietary_decompilation": true
+  }
+}

@@ -1,0 +1,66 @@
+{
+  "dll": "ole32",
+  "api_name": "CoMarshalInterface",
+  "header": "ole32.h",
+  "ms_learn_url": "https://learn.microsoft.com/en-us/windows/win32/api/combaseapi/nf-combaseapi-comarshalinterface",
+  "signature": "HRESULT WINAPI CoMarshalInterface(IStream *pStm, REFIID riid, IUnknown *pUnk, DWORD dwDestContext, void *pvDestContext, DWORD mshlflags)",
+  "parameters": [
+    {
+      "name": "pStm",
+      "direction": "inout",
+      "type": "IStream*",
+      "optional": false
+    },
+    {
+      "name": "riid",
+      "direction": "in",
+      "type": "REFIID",
+      "optional": false
+    },
+    {
+      "name": "pUnk",
+      "direction": "in",
+      "type": "IUnknown*",
+      "optional": false
+    },
+    {
+      "name": "dwDestContext",
+      "direction": "in",
+      "type": "DWORD",
+      "optional": false
+    },
+    {
+      "name": "pvDestContext",
+      "direction": "in",
+      "type": "void*",
+      "optional": true
+    },
+    {
+      "name": "mshlflags",
+      "direction": "in",
+      "type": "DWORD",
+      "optional": false
+    }
+  ],
+  "return_codes": {
+    "S_OK": "0x00000000",
+    "E_NOINTERFACE": "0x80004002",
+    "E_INVALIDARG": "0x80070057",
+    "CO_E_NOTINITIALIZED": "0x800401f0"
+  },
+  "empirical_windows_behavior": [
+    "Serializes an interface pointer into an IStream for cross-apartment or out-of-process remoting.",
+    "Invokes custom marshal (IMarshal) if implemented or standard marshaling (StdMarshalImpl_MarshalInterface).",
+    "Creates stub and serializes OBJREF structure with standard or custom objref header.",
+    "For IID_IServiceProvider, obtains IPSFactoryBuffer and serializes STDOBJREF without hr 0x80004002."
+  ],
+  "macos_backend_strategy": "Darwin POSIX thread-safe apartment stub manager and serialized OBJREF stream generator.",
+  "clean_room_attestation": {
+    "sources": [
+      "Microsoft Learn CoMarshalInterface documentation",
+      "Public Wine dlls/combase/marshal.c declarations"
+    ],
+    "no_leaked_source_exposure": true,
+    "no_proprietary_decompilation": true
+  }
+}

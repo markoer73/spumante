@@ -1,0 +1,33 @@
+{
+  "dll": "ole32",
+  "api_name": "scmdatabase_shutdown_services_ordered",
+  "header": "ole32.h",
+  "ms_learn_url": "https://learn.microsoft.com/en-us/windows/win32/services/stopping-a-service",
+  "signature": "DWORD scmdatabase_shutdown_services_ordered(void *db)",
+  "parameters": [
+    {
+      "name": "db",
+      "direction": "inout",
+      "type": "void*",
+      "optional": false
+    }
+  ],
+  "return_codes": {
+    "ERROR_SUCCESS": "0",
+    "ERROR_SHUTDOWN_IN_PROGRESS": "1115"
+  },
+  "empirical_windows_behavior": [
+    "Sets internal SCM shutdown flag, rejecting concurrent start/control requests with ERROR_SHUTDOWN_IN_PROGRESS (1115).",
+    "Notifies running services in strict reverse load order: User-mode apps -> Network (nsiproxy, NDIS) -> Bus drivers (winebth, wineusb, winebus) -> MountMgr -> PlugPlay -> Eventlog.",
+    "Prevents shutdown race conditions where drivers try to log events or notify PnP after core services are dead."
+  ],
+  "macos_backend_strategy": "Reverse dependency ordered shutdown dispatch with atomic state transition.",
+  "clean_room_attestation": {
+    "sources": [
+      "Microsoft Learn System Shutdown and Service Termination Guide",
+      "Public Wine programs/services/rpc.c declarations"
+    ],
+    "no_leaked_source_exposure": true,
+    "no_proprietary_decompilation": true
+  }
+}

@@ -118,6 +118,11 @@ All host/VM orchestration, compilation, differential testing, stub discovery, an
 ./scripts/test.sh --dll winebth.sys --test test_winebth_parity
 ./scripts/test.sh --winetest --dll winebth.sys
 
+# 11. Build & verify ole32/rpcrt4/services RpcSs synchronization, IServiceProvider marshaling & SCM ordering
+./scripts/build.sh --dll ole32 --test test_ole32_services_parity
+./scripts/test.sh --dll ole32 --test test_ole32_services_parity
+./scripts/test.sh --winetest --dll ole32
+
 # 5. Discover & rank unimplemented stubs across Wine DLLs
 ./scripts/test.sh --discover-stubs --dll bcrypt
 

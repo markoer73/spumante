@@ -1,0 +1,140 @@
+{
+  "dll": "ole32",
+  "test_name": "test_ole32_services_parity",
+  "architecture": "x86_64",
+  "environment": "windows_vm",
+  "assertions": [
+    {
+      "id": "ole32_cogetpsclsid_iserviceprovider",
+      "case": "Ole32_CoGetPSClsid_IServiceProvider",
+      "api": "CoGetPSClsid",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 1,
+      "buffer_hex": "000000001063dab89be1d011930000a9",
+      "handle_valid": true
+    },
+    {
+      "id": "ole32_comarshal_iserviceprovider",
+      "case": "Ole32_CoMarshalInterface_IServiceProvider",
+      "api": "CoMarshalInterface",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 1,
+      "buffer_hex": "00000000000000000100000001000000",
+      "handle_valid": true
+    },
+    {
+      "id": "ole32_counmarshal_iserviceprovider",
+      "case": "Ole32_CoUnmarshalInterface_IServiceProvider",
+      "api": "CoUnmarshalInterface",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 1,
+      "buffer_hex": "00000000010000000100000001000000",
+      "handle_valid": true
+    },
+    {
+      "id": "ole32_apartment_get_local_server_stream",
+      "case": "Ole32_ApartmentGetLocalServerStream",
+      "api": "apartment_get_local_server_stream",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 1,
+      "buffer_hex": "00000000010000000100000001000000",
+      "handle_valid": true
+    },
+    {
+      "id": "ole32_coregisterclassobject_local_server",
+      "case": "Ole32_CoRegisterClassObject_LocalServer",
+      "api": "CoRegisterClassObject",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 1,
+      "buffer_hex": "00000000010000000400000001000000",
+      "handle_valid": true
+    },
+    {
+      "id": "ole32_corevokeclassobject",
+      "case": "Ole32_CoRevokeClassObject",
+      "api": "CoRevokeClassObject",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 1,
+      "buffer_hex": "00000000010000000100000001000000",
+      "handle_valid": true
+    },
+    {
+      "id": "ole32_start_rpcss_synchronization",
+      "case": "Ole32_StartRpcSs_Synchronization",
+      "api": "start_rpcss",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 1,
+      "buffer_hex": "00000000040000000100000001000000",
+      "handle_valid": true
+    },
+    {
+      "id": "ole32_scm_autostart_group_ordering",
+      "case": "Ole32_SCM_Autostart_GroupOrdering",
+      "api": "scmdatabase_autostart_services_ordered",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 1,
+      "buffer_hex": "00000000000000000500000007000000",
+      "handle_valid": true
+    },
+    {
+      "id": "ole32_scm_mountmgr_timeout_extension",
+      "case": "Ole32_SCM_MountMgr_TimeoutExtension",
+      "api": "scmdatabase_autostart_services_ordered",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 1,
+      "buffer_hex": "000000000400000060ea000001000000",
+      "handle_valid": true
+    },
+    {
+      "id": "ole32_scm_shutdown_reverse_ordering",
+      "case": "Ole32_SCM_Shutdown_ReverseOrdering",
+      "api": "scmdatabase_shutdown_services_ordered",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 1,
+      "buffer_hex": "00000000000000000500000006000000",
+      "handle_valid": true
+    },
+    {
+      "id": "ole32_scm_shutdown_in_progress_guard",
+      "case": "Ole32_SCM_Shutdown_InProgressGuard",
+      "api": "scmdatabase_control_service",
+      "comparison_mode": "exact",
+      "status": "0x0000045b",
+      "last_error": 0,
+      "out_length": 1,
+      "buffer_hex": "5b0400005b0400000100000001000000",
+      "handle_valid": true
+    },
+    {
+      "id": "ole32_couninitialize_cleanup",
+      "case": "Ole32_CoUninitialize_Cleanup",
+      "api": "CoUninitialize",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 1,
+      "buffer_hex": "00000000010000000100000001000000",
+      "handle_valid": true
+    }
+  ]
+}

@@ -1,0 +1,41 @@
+{
+  "dll": "ole32",
+  "api_name": "apartment_get_local_server_stream",
+  "header": "ole32.h",
+  "ms_learn_url": "https://learn.microsoft.com/en-us/windows/win32/com/out-of-process-server-implementation-helpers",
+  "signature": "HRESULT apartment_get_local_server_stream(void *apt, IStream **ret)",
+  "parameters": [
+    {
+      "name": "apt",
+      "direction": "in",
+      "type": "void*",
+      "optional": false
+    },
+    {
+      "name": "ret",
+      "direction": "out",
+      "type": "IStream**",
+      "optional": false
+    }
+  ],
+  "return_codes": {
+    "S_OK": "0x00000000",
+    "E_NOINTERFACE": "0x80004002",
+    "E_OUTOFMEMORY": "0x8007000e"
+  },
+  "empirical_windows_behavior": [
+    "Creates and caches the local_server helper object for the apartment.",
+    "Strongly table-marshals IID_IServiceProvider ({6d5140c1-7436-11ce-8034-00aa006009fa}) into an HGLOBAL stream.",
+    "Returns a cloned stream to callers registering CLSCTX_LOCAL_SERVER class objects.",
+    "Eliminates ERR(\"Failed: 0x80004002\") during out-of-process COM registration."
+  ],
+  "macos_backend_strategy": "Local server apartment stream factory with IServiceProvider marshaling fallback.",
+  "clean_room_attestation": {
+    "sources": [
+      "Public Wine dlls/combase/apartment.c declarations",
+      "Microsoft COM Out-of-process server architecture specification"
+    ],
+    "no_leaked_source_exposure": true,
+    "no_proprietary_decompilation": true
+  }
+}

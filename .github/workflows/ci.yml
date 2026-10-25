@@ -109,6 +109,13 @@ jobs:
           ./scripts/test.sh --security --dll winebth.sys --test test_winebth_parity
           ./scripts/test.sh --winetest --dll winebth.sys
 
+      - name: Surgically Build & Test ole32 RpcSs Synchronization & SCM Ordering Parity
+        run: |
+          ./scripts/build.sh --dll ole32 --test test_ole32_services_parity
+          ./scripts/test.sh --dll ole32 --test test_ole32_services_parity
+          ./scripts/test.sh --security --dll ole32 --test test_ole32_services_parity
+          ./scripts/test.sh --winetest --dll ole32
+
       - name: Run Full Architecture & Harness Unit Suite
         run: python3 -m unittest -v tests/unit/test_harness_suite.py
 

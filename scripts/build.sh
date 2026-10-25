@@ -204,6 +204,14 @@ if [[ "$BUILD_ALL" -eq 1 && -z "$DLL" ]]; then
     python3 "$REPO_ROOT/scripts/lib/winetest_runner.py" --mode build --dll qcap --arch "$ARCH"
     python3 "$REPO_ROOT/scripts/lib/runner.py" --mode build --dll d2d1 --test test_d2d1_msl_parity --arch "$ARCH"
     python3 "$REPO_ROOT/scripts/lib/winetest_runner.py" --mode build --dll d2d1 --arch "$ARCH"
+    python3 "$REPO_ROOT/scripts/lib/runner.py" --mode build --dll winegstreamer --test test_winegstreamer_macos --arch "$ARCH"
+    python3 "$REPO_ROOT/scripts/lib/winetest_runner.py" --mode build --dll winegstreamer --arch "$ARCH"
+    python3 "$REPO_ROOT/scripts/lib/runner.py" --mode build --dll wineusb.sys --test test_wineusb_parity --arch "$ARCH"
+    python3 "$REPO_ROOT/scripts/lib/winetest_runner.py" --mode build --dll wineusb.sys --arch "$ARCH"
+    python3 "$REPO_ROOT/scripts/lib/runner.py" --mode build --dll winebth.sys --test test_winebth_parity --arch "$ARCH"
+    python3 "$REPO_ROOT/scripts/lib/winetest_runner.py" --mode build --dll winebth.sys --arch "$ARCH"
+    python3 "$REPO_ROOT/scripts/lib/runner.py" --mode build --dll ole32 --test test_ole32_services_parity --arch "$ARCH"
+    python3 "$REPO_ROOT/scripts/lib/winetest_runner.py" --mode build --dll ole32 --arch "$ARCH"
     if [[ -n "$FULL_WINE_TARGET" ]]; then
         FULL_ARGS=(--action full-build --target "$FULL_WINE_TARGET")
         if [[ "$SKIP_MONOLITHIC_COMPILE" -eq 1 ]]; then

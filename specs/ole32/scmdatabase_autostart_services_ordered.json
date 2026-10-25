@@ -1,0 +1,34 @@
+{
+  "dll": "ole32",
+  "api_name": "scmdatabase_autostart_services_ordered",
+  "header": "ole32.h",
+  "ms_learn_url": "https://learn.microsoft.com/en-us/windows/win32/services/service-startup-order",
+  "signature": "DWORD scmdatabase_autostart_services_ordered(void *db)",
+  "parameters": [
+    {
+      "name": "db",
+      "direction": "inout",
+      "type": "void*",
+      "optional": false
+    }
+  ],
+  "return_codes": {
+    "ERROR_SUCCESS": "0",
+    "ERROR_SERVICE_REQUEST_TIMEOUT": "1053"
+  },
+  "empirical_windows_behavior": [
+    "Sorts auto-start and root PnP services according to HKLM\\System\\CurrentControlSet\\Control\\ServiceGroupOrder.",
+    "Starts System Bus Extender group (MountMgr, NDIS) before dependent device/PnP drivers.",
+    "Honors extended boot driver wait hints (at least 60s) for MountMgr to prevent premature timeout 1053.",
+    "Ensures essential core infrastructure services (PlugPlay, Eventlog) are ready before dependent components."
+  ],
+  "macos_backend_strategy": "Group-order aware topological sort with extended boot driver timeout accommodating Darwin disk arbitration.",
+  "clean_room_attestation": {
+    "sources": [
+      "Microsoft Learn Service Startup Ordering Specification",
+      "Public Wine programs/services/services.c declarations"
+    ],
+    "no_leaked_source_exposure": true,
+    "no_proprietary_decompilation": true
+  }
+}
