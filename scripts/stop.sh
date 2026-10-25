@@ -7,13 +7,16 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ACTION="stop"
 FLAGS=()
+UNREGISTER_EXE_HANDLER=0
+DRY_RUN=0
 
 usage() {
     cat <<EOF
 Usage: ./scripts/stop.sh [--vm] [--wine] [--all] [--status]
+       ./scripts/stop.sh --unregister-exe-handler [--dry-run]
 
 Cleanly stops the headless QEMU Windows VM daemon, removes guest agent sockets,
-and cleans ephemeral /tmp/wine_test_* prefixes.
+cleans ephemeral /tmp/wine_test_* prefixes, or unregisters the macOS .exe/.msi handler.
 EOF
 }
 
@@ -35,6 +38,14 @@ while [[ $# -gt 0 ]]; do
             ACTION="status"
             shift
             ;;
+        --unregister-exe-handler)
+            UNREGISTER_EXE_HANDLER=1
+            shift
+            ;;
+        --dry-run)
+            DRY_RUN=1
+            shift
+            ;;
         -h|--help)
             usage
             exit 0
@@ -46,6 +57,15 @@ while [[ $# -gt 0 ]]; do
             ;;
     esac
 done
+
+if [[ "$UNREGISTER_EXE_HANDLER" -eq 1 ]]; then
+    EXE_ARGS=(--action unregister)
+    if [[ "$DRY_RUN" -eq 1 ]]; then
+        EXE_ARGS+=(--dry-run)
+    fi
+    python3 "$REPO_ROOT/scripts/lib/exe_handler.py" "${EXE_ARGS[@]}"
+    exit 0
+fi
 
 if [[ "${#FLAGS[@]}" -gt 0 ]]; then
     python3 "$REPO_ROOT/scripts/lib/vm_manager.py" --action "$ACTION" "${FLAGS[@]}"

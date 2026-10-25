@@ -155,6 +155,7 @@ Apply the `test-driven-development` skill for all new API implementations, bug f
 | **System Architecture & Harness** | [`docs/skills/ARCHITECTURE.md`](docs/skills/ARCHITECTURE.md) |
 | **Upstream Wine Borrow & Alignment** | [`docs/skills/WINE_BORROW.md`](docs/skills/WINE_BORROW.md), [`.agents/skills/wine-borrow/SKILL.md`](.agents/skills/wine-borrow/SKILL.md) |
 | **Security Audit & Commit Scanning** | [`docs/skills/SECURITY_AUDIT.md`](docs/skills/SECURITY_AUDIT.md), [`.agents/skills/security-audit/SKILL.md`](.agents/skills/security-audit/SKILL.md) |
+| **User Config, Native macOS UI & Containment** | [`docs/skills/USER_CONFIG_AND_CONTAINMENT.md`](docs/skills/USER_CONFIG_AND_CONTAINMENT.md), [`.agents/skills/user-config-containment/SKILL.md`](.agents/skills/user-config-containment/SKILL.md) |
 | **Test-Driven Development (TDD)** | [`docs/skills/test-driven-development.md`](docs/skills/test-driven-development.md), [`docs/skills/TEST_RULES.md`](docs/skills/TEST_RULES.md) |
 | **Testing Anti-Patterns** | [`docs/skills/testing-anti-patterns.md`](docs/skills/testing-anti-patterns.md) |
 | **Task Coordination & Tracking** | [`docs/skills/TASK_COORDINATION.md`](docs/skills/TASK_COORDINATION.md) |

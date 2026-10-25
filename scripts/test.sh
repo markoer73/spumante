@@ -19,6 +19,9 @@ FETCH_SPEC=""
 RUN_LINT=0
 RUN_CI=0
 RUN_ALL=0
+SCAN_EXE=""
+REQUIRE_SIGNATURE=0
+VT_API_KEY_ARG=""
 
 usage() {
     cat <<EOF
@@ -36,6 +39,9 @@ Options:
   --discover-stubs         Run 3-layer stub discovery scanner across DLLs
   --check-upstream         Verify upstream/manifest.json alignment and local file integrity
   --security               Run 4-gate security audit (secrets/clean-room, SAST/sandbox, ASan+UBSan, CI schedule)
+  --scan-exe <path>        Run 3-gate pre-execution PE security scan (Quarantine, Authenticode, Static PE + VirusTotal)
+  --require-signature      Require valid PE Authenticode signature during --scan-exe
+  --vt-api-key <key>       Optional VirusTotal v3 API key for --scan-exe (or set VT_API_KEY)
   --fetch-spec <dll:api>   Generate auditable Clean-Room Spec Packet in specs/<dll>/<api>.json
   --lint                   Run WineHQ C99/C11, Markdown \[...\], and script boundary linter
   --ci                     Run full CI verification suite (linter + differential + security + winetest follow-up)
@@ -85,6 +91,18 @@ while [[ $# -gt 0 ]]; do
             RUN_SECURITY=1
             shift
             ;;
+        --scan-exe)
+            SCAN_EXE="${2:-}"
+            shift 2
+            ;;
+        --require-signature)
+            REQUIRE_SIGNATURE=1
+            shift
+            ;;
+        --vt-api-key)
+            VT_API_KEY_ARG="${2:-}"
+            shift 2
+            ;;
         --fetch-spec)
             FETCH_SPEC="${2:-}"
             shift 2
@@ -116,6 +134,18 @@ done
 if [[ "$RUN_LINT" -eq 1 ]]; then
     python3 "$REPO_ROOT/scripts/lib/linter.py"
     exit 0
+fi
+
+if [[ -n "$SCAN_EXE" ]]; then
+    SCAN_ARGS=(--action scan --exe "$SCAN_EXE")
+    if [[ "$REQUIRE_SIGNATURE" -eq 1 ]]; then
+        SCAN_ARGS+=(--require-signature)
+    fi
+    if [[ -n "$VT_API_KEY_ARG" ]]; then
+        SCAN_ARGS+=(--vt-api-key "$VT_API_KEY_ARG")
+    fi
+    python3 "$REPO_ROOT/scripts/lib/exe_handler.py" "${SCAN_ARGS[@]}"
+    exit $?
 fi
 
 if [[ "$RUN_SECURITY" -eq 1 ]]; then

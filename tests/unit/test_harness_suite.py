@@ -1322,6 +1322,843 @@ class TestWineParityArchitecture(unittest.TestCase):
         self.assertIn("test_tsc_registry_rescaling_and_qpc", wt_report["subtests_executed"])
         self.assertIn("test_arm64ec_jit_disk_cache", wt_report["subtests_executed"])
 
+    def test_22_macos_exe_handler_and_plus_x_permission_guard(self) -> None:
+        """Verify WineParity.app macOS .exe/.msi handler, PE arch auto-dispatch, LaunchServices CLI, and mandatory +x permission check."""
+        import struct
+        import sys
+        import tempfile
+
+        build_sh = REPO_ROOT / "scripts" / "build.sh"
+        launch_sh = REPO_ROOT / "scripts" / "launch.sh"
+        stop_sh = REPO_ROOT / "scripts" / "stop.sh"
+
+        # 1. Build the macOS .exe/.msi handler surgically via ./scripts/build.sh --exe-handler
+        res_build = subprocess.run(
+            [str(build_sh), "--exe-handler"],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(res_build.returncode, 0, res_build.stdout + res_build.stderr)
+        build_report = json.loads(res_build.stdout)
+        self.assertTrue(build_report["require_executable_bit"])
+
+        app_bundle = REPO_ROOT / "builds" / "WineParity.app"
+        info_plist = app_bundle / "Contents" / "Info.plist"
+        app_bin = app_bundle / "Contents" / "MacOS" / "WineParity"
+        shell_helper = REPO_ROOT / "builds" / "wine-parity-shell.sh"
+        exec_dylib = REPO_ROOT / "builds" / "libwine_parity_exec.dylib"
+        launcher_x86 = REPO_ROOT / "builds" / "wine-install-x86" / "bin" / "wine-parity"
+        launcher_arm64 = REPO_ROOT / "builds" / "wine-install-arm64" / "bin" / "wine-parity"
+
+        self.assertTrue(info_plist.is_file(), "WineParity.app/Contents/Info.plist must exist")
+        self.assertTrue(app_bin.is_file(), "WineParity.app/Contents/MacOS/WineParity binary must exist")
+        self.assertTrue(os.access(app_bin, os.X_OK), "WineParity binary must be executable")
+        self.assertTrue(shell_helper.is_file(), "builds/wine-parity-shell.sh must exist")
+        self.assertTrue(launcher_x86.is_file(), "x86 wine-parity launcher must exist")
+        self.assertTrue(launcher_arm64.is_file(), "arm64 wine-parity launcher must exist")
+        if sys.platform == "darwin":
+            self.assertTrue(exec_dylib.is_file(), "builds/libwine_parity_exec.dylib must exist on macOS")
+
+        plist_txt = info_plist.read_text(encoding="utf-8")
+        self.assertIn("org.wine-parity.launcher", plist_txt)
+        self.assertIn("com.microsoft.windows-executable", plist_txt)
+        self.assertIn("com.microsoft.msi-installer", plist_txt)
+
+        # Helper to synthesize minimal valid PE headers with given COFF Machine type
+        def make_pe_bytes(machine: int) -> bytes:
+            buf = bytearray(256)
+            buf[0:2] = b"MZ"
+            struct.pack_into("<I", buf, 0x3C, 0x40)
+            buf[0x40:0x44] = b"PE\x00\x00"
+            struct.pack_into("<H", buf, 0x44, machine)
+            return bytes(buf)
+
+        with tempfile.TemporaryDirectory(prefix="wine_exe_handler_") as tmpdir:
+            tmp_path = Path(tmpdir)
+            sub_dir = tmp_path / "game_folder"
+            sub_dir.mkdir(parents=True, exist_ok=True)
+
+            exe_x64 = sub_dir / "app_x64.exe"
+            exe_arm64 = sub_dir / "app_arm64.exe"
+            msi_pkg = sub_dir / "setup.msi"
+
+            exe_x64.write_bytes(make_pe_bytes(0x8664))  # IMAGE_FILE_MACHINE_AMD64
+            exe_arm64.write_bytes(make_pe_bytes(0xAA64))  # IMAGE_FILE_MACHINE_ARM64
+            msi_pkg.write_bytes(b"\xD0\xCF\x11\xE0\xA1\xB1\x1A\xE1" + b"\x00" * 64)
+
+            # Explicitly set 0644 (NOT executable, no +x bit)
+            exe_x64.chmod(0o644)
+            exe_arm64.chmod(0o644)
+            msi_pkg.chmod(0o644)
+
+            # 2. Verify bin/wine-parity REFUSES to launch .exe and .msi without +x (exit code 126)
+            for target_file in (exe_x64, msi_pkg):
+                res_no_x_script = subprocess.run(
+                    [str(launcher_x86), str(target_file)],
+                    cwd=REPO_ROOT,
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                )
+                self.assertEqual(
+                    res_no_x_script.returncode,
+                    126,
+                    f"bin/wine-parity must refuse non-executable {target_file.name} with exit 126:\n"
+                    f"{res_no_x_script.stdout}\n{res_no_x_script.stderr}",
+                )
+                self.assertIn("+x", res_no_x_script.stderr)
+
+            # 3. Verify WineParity.app binary REFUSES to launch .exe and .msi without +x (exit code 126)
+            for target_file in (exe_x64, exe_arm64, msi_pkg):
+                res_no_x_app = subprocess.run(
+                    [str(app_bin), str(target_file)],
+                    cwd=REPO_ROOT,
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                )
+                self.assertEqual(
+                    res_no_x_app.returncode,
+                    126,
+                    f"WineParity.app must refuse non-executable {target_file.name} with exit 126:\n"
+                    f"{res_no_x_app.stdout}\n{res_no_x_app.stderr}",
+                )
+                self.assertIn("+x", res_no_x_app.stderr)
+
+            # 4. Grant +x (0755) and verify PE architecture auto-detection, cwd switch, and MSI routing
+            exe_x64.chmod(0o755)
+            exe_arm64.chmod(0o755)
+            msi_pkg.chmod(0o755)
+
+            env_trace = os.environ.copy()
+            env_trace["WINE_PARITY_DRY_RUN_JSON"] = "1"
+            env_trace["WINE_PARITY_CONFIG"] = str(tmp_path / "test22_config.json")
+            env_trace["WINEPREFIX"] = str(tmp_path / "test22_prefix")
+
+            res_ok_x64 = subprocess.run(
+                [str(app_bin), str(exe_x64), "--windowed"],
+                cwd=REPO_ROOT,
+                env=env_trace,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(res_ok_x64.returncode, 0, res_ok_x64.stdout + res_ok_x64.stderr)
+            trace_x64 = json.loads(res_ok_x64.stdout)
+            self.assertEqual(trace_x64["pe_arch"], "x86_64")
+            self.assertTrue(trace_x64["executable_bit_verified"])
+            self.assertIn("wine-install-x86/bin/wine-parity", trace_x64["selected_launcher"])
+            self.assertEqual(Path(trace_x64["working_directory"]).resolve(), sub_dir.resolve())
+            self.assertEqual(trace_x64["args"], ["--windowed"])
+
+            res_ok_arm64 = subprocess.run(
+                [str(app_bin), str(exe_arm64), "--arm-arg"],
+                cwd=REPO_ROOT,
+                env=env_trace,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(res_ok_arm64.returncode, 0, res_ok_arm64.stdout + res_ok_arm64.stderr)
+            trace_arm64 = json.loads(res_ok_arm64.stdout)
+            self.assertEqual(trace_arm64["pe_arch"], "arm64")
+            self.assertTrue(trace_arm64["executable_bit_verified"])
+            self.assertIn("wine-install-arm64/bin/wine-parity", trace_arm64["selected_launcher"])
+            self.assertEqual(Path(trace_arm64["working_directory"]).resolve(), sub_dir.resolve())
+            self.assertEqual(trace_arm64["args"], ["--arm-arg"])
+
+            res_ok_msi = subprocess.run(
+                [str(app_bin), str(msi_pkg), "/qn"],
+                cwd=REPO_ROOT,
+                env=env_trace,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(res_ok_msi.returncode, 0, res_ok_msi.stdout + res_ok_msi.stderr)
+            trace_msi = json.loads(res_ok_msi.stdout)
+            self.assertTrue(trace_msi["is_msi"])
+            self.assertTrue(trace_msi["executable_bit_verified"])
+            self.assertEqual(trace_msi["msiexec_command"][:2], ["msiexec", "/i"])
+
+            # 5. Verify ./scripts/launch.sh --register-exe-handler, --exe-handler-status, and ./scripts/stop.sh --unregister-exe-handler
+            res_reg = subprocess.run(
+                [str(launch_sh), "--register-exe-handler", "--dry-run"],
+                cwd=REPO_ROOT,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(res_reg.returncode, 0, res_reg.stdout + res_reg.stderr)
+            reg_info = json.loads(res_reg.stdout)
+            self.assertEqual(reg_info["bundle_id"], "org.wine-parity.launcher")
+            self.assertTrue(reg_info["require_executable_bit"])
+
+            res_stat = subprocess.run(
+                [str(launch_sh), "--exe-handler-status"],
+                cwd=REPO_ROOT,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(res_stat.returncode, 0, res_stat.stdout + res_stat.stderr)
+            stat_info = json.loads(res_stat.stdout)
+            self.assertEqual(stat_info["bundle_id"], "org.wine-parity.launcher")
+            self.assertTrue(stat_info["require_executable_bit"])
+
+            res_unreg = subprocess.run(
+                [str(stop_sh), "--unregister-exe-handler", "--dry-run"],
+                cwd=REPO_ROOT,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(res_unreg.returncode, 0, res_unreg.stdout + res_unreg.stderr)
+            unreg_info = json.loads(res_unreg.stdout)
+            self.assertEqual(unreg_info["action"], "unregister-exe-handler")
+
+            # 6. Verify wine-parity-shell.sh wrapper enforces +x before dispatching
+            exe_no_x = sub_dir / "blocked.exe"
+            exe_no_x.write_bytes(make_pe_bytes(0x8664))
+            exe_no_x.chmod(0o644)
+            res_shell_no_x = subprocess.run(
+                ["bash", "-c", f'source "{shell_helper}" && _wine_parity_run_checked "{exe_no_x}"'],
+                cwd=REPO_ROOT,
+                env=env_trace,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(res_shell_no_x.returncode, 126)
+            self.assertIn("+x", res_shell_no_x.stderr)
+
+            res_shell_ok = subprocess.run(
+                ["bash", "-c", f'source "{shell_helper}" && _wine_parity_run_checked "{exe_x64}" --from-shell'],
+                cwd=REPO_ROOT,
+                env=env_trace,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(res_shell_ok.returncode, 0, res_shell_ok.stdout + res_shell_ok.stderr)
+            shell_trace = json.loads(res_shell_ok.stdout)
+            self.assertEqual(shell_trace["pe_arch"], "x86_64")
+            self.assertEqual(shell_trace["args"], ["--from-shell"])
+
+            # 7. On Darwin, verify libwine_parity_exec.dylib interposer enforces +x and dispatches +x PE binaries
+            if sys.platform == "darwin":
+                helper_c = tmp_path / "spawn_probe.c"
+                helper_bin = tmp_path / "spawn_probe.bin"
+                helper_c.write_text(
+                    '#include <errno.h>\n'
+                    '#include <spawn.h>\n'
+                    '#include <stdio.h>\n'
+                    '#include <sys/wait.h>\n'
+                    '#include <unistd.h>\n'
+                    'extern char **environ;\n'
+                    'int main(int argc, char **argv) {\n'
+                    '    if (argc < 2) return 2;\n'
+                    '    pid_t pid = 0;\n'
+                    '    int rc = posix_spawn(&pid, argv[1], NULL, NULL, &argv[1], environ);\n'
+                    '    if (rc != 0) {\n'
+                    '        fprintf(stderr, "posix_spawn_err=%d\\n", rc);\n'
+                    '        return rc == EACCES ? 126 : 1;\n'
+                    '    }\n'
+                    '    int status = 0;\n'
+                    '    waitpid(pid, &status, 0);\n'
+                    '    return WIFEXITED(status) ? WEXITSTATUS(status) : 1;\n'
+                    '}\n',
+                    encoding="utf-8",
+                )
+                subprocess.run(["clang", "-O1", str(helper_c), "-o", str(helper_bin)], check=True)
+
+                env_dylib = env_trace.copy()
+                env_dylib["DYLD_INSERT_LIBRARIES"] = str(exec_dylib)
+
+                # Without +x -> EACCES (126)
+                res_dylib_no_x = subprocess.run(
+                    [str(helper_bin), str(exe_no_x)],
+                    cwd=REPO_ROOT,
+                    env=env_dylib,
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                )
+                self.assertEqual(res_dylib_no_x.returncode, 126, res_dylib_no_x.stdout + res_dylib_no_x.stderr)
+
+                # With +x -> transparently intercepted and routed through WineParity
+                res_dylib_ok = subprocess.run(
+                    [str(helper_bin), str(exe_arm64), "--via-dylib"],
+                    cwd=REPO_ROOT,
+                    env=env_dylib,
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                )
+                self.assertEqual(res_dylib_ok.returncode, 0, res_dylib_ok.stdout + res_dylib_ok.stderr)
+                dylib_trace = json.loads(res_dylib_ok.stdout)
+                self.assertEqual(dylib_trace["pe_arch"], "arm64")
+                self.assertEqual(dylib_trace["args"], ["--via-dylib"])
+
+    def test_23_pre_execution_pe_security_scanner_three_gates_and_virustotal(self) -> None:
+        """Verify 3-gate pre-execution PE security scanner (Gate 1: Quarantine, Gate 2: Authenticode, Gate 3: Static PE + VirusTotal)."""
+        import hashlib
+        import http.server
+        import struct
+        import sys
+        import tempfile
+        import threading
+
+        build_sh = REPO_ROOT / "scripts" / "build.sh"
+        test_sh = REPO_ROOT / "scripts" / "test.sh"
+        app_bin = REPO_ROOT / "builds" / "WineParity.app" / "Contents" / "MacOS" / "WineParity"
+
+        subprocess.run([str(build_sh), "--exe-handler"], cwd=REPO_ROOT, check=True, capture_output=True)
+
+        def build_synthetic_pe(
+            machine: int = 0x8664,
+            dll_chars: int = 0x4160,
+            sec_chars: int = 0x60000020,
+            payload: bytes = b"\x90" * 128,
+            sign_authenticode: bool = False,
+            tamper_after_sign: bool = False,
+        ) -> bytes:
+            buf = bytearray(1024)
+            buf[0:2] = b"MZ"
+            e_lfanew = 0x40
+            struct.pack_into("<I", buf, 0x3C, e_lfanew)
+            buf[e_lfanew : e_lfanew + 4] = b"PE\x00\x00"
+            struct.pack_into("<H", buf, e_lfanew + 4, machine)
+            struct.pack_into("<H", buf, e_lfanew + 6, 1)  # NumberOfSections = 1
+            opt_size = 240
+            struct.pack_into("<H", buf, e_lfanew + 20, opt_size)
+            struct.pack_into("<H", buf, e_lfanew + 22, 0x0022)  #EXECUTABLE_IMAGE | LARGE_ADDRESS_AWARE
+
+            opt_off = e_lfanew + 24
+            struct.pack_into("<H", buf, opt_off + 0, 0x020B)  # PE32+ (64-bit)
+            struct.pack_into("<H", buf, opt_off + 70, dll_chars)  # DllCharacteristics
+            struct.pack_into("<I", buf, opt_off + 108, 16)  # NumberOfRvaAndSizes = 16
+
+            sec_off = opt_off + opt_size
+            buf[sec_off : sec_off + 8] = b".text\x00\x00\x00"
+            raw_ptr = 512
+            raw_size = 512
+            struct.pack_into("<I", buf, sec_off + 8, len(payload))
+            struct.pack_into("<I", buf, sec_off + 12, 0x1000)
+            struct.pack_into("<I", buf, sec_off + 16, raw_size)
+            struct.pack_into("<I", buf, sec_off + 20, raw_ptr)
+            struct.pack_into("<I", buf, sec_off + 36, sec_chars)
+
+            buf[raw_ptr : raw_ptr + len(payload)] = payload
+
+            if sign_authenticode:
+                cert_offset = len(buf)
+                # Temporarily set DataDirectory[4] (Certificate Table at opt_off + 144) to compute Authenticode digest
+                # Wait: Authenticode hashes the file excluding CheckSum (opt_off + 64, 4 bytes) and DataDirectory[4] (opt_off + 144, 8 bytes)
+                chk_off = opt_off + 64
+                dd4_off = opt_off + 144
+                h = hashlib.sha256()
+                h.update(buf[:chk_off])
+                h.update(buf[chk_off + 4 : dd4_off])
+                h.update(buf[dd4_off + 8 : cert_offset])
+                auth_digest = h.digest()
+
+                # Construct DER PKCS#7 SignedData (OID 1.2.840.113549.1.7.2) containing SpcIndirectDataContent OID + auth_digest
+                pkcs7_body = (
+                    b"\x06\x09\x2a\x86\x48\x86\xf7\x0d\x01\x07\x02"  # OID signedData
+                    + b"\x06\x0a\x2b\x06\x01\x04\x01\x82\x37\x02\x01\x04"  # OID SpcIndirectDataContent
+                    + b"\x04\x20"
+                    + auth_digest
+                )
+                pkcs7_der = b"\x30" + bytes([len(pkcs7_body)]) + pkcs7_body
+                win_cert_len = 8 + len(pkcs7_der)
+                win_cert = struct.pack("<IHH", win_cert_len, 0x0200, 0x0002) + pkcs7_der
+                # Pad to 8-byte boundary
+                while len(win_cert) % 8 != 0:
+                    win_cert += b"\x00"
+                struct.pack_into("<II", buf, dd4_off, cert_offset, len(win_cert))
+                buf.extend(win_cert)
+
+                if tamper_after_sign:
+                    buf[raw_ptr] ^= 0xFF
+
+            return bytes(buf)
+
+        with tempfile.TemporaryDirectory(prefix="wine_pe_scan_") as tmpdir:
+            tmp_path = Path(tmpdir)
+            env_trace = os.environ.copy()
+            env_trace["WINE_PARITY_DRY_RUN_JSON"] = "1"
+            env_trace["WINE_PARITY_CONFIG"] = str(tmp_path / "test23_config.json")
+            env_trace["WINEPREFIX"] = str(tmp_path / "test23_prefix")
+
+            # 1. Clean PE binary passes all 3 gates
+            clean_exe = tmp_path / "clean_app.exe"
+            clean_exe.write_bytes(build_synthetic_pe())
+            clean_exe.chmod(0o755)
+
+            res_clean = subprocess.run(
+                [str(test_sh), "--scan-exe", str(clean_exe)],
+                cwd=REPO_ROOT,
+                env=env_trace,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(res_clean.returncode, 0, res_clean.stdout + res_clean.stderr)
+            rep_clean = json.loads(res_clean.stdout)
+            self.assertTrue(rep_clean["passed"])
+            self.assertTrue(rep_clean["gates"]["gate1_quarantine_provenance"]["passed"])
+            self.assertTrue(rep_clean["gates"]["gate2_authenticode_signature"]["passed"])
+            self.assertTrue(rep_clean["gates"]["gate3_static_pe_and_virustotal"]["passed"])
+            self.assertTrue(rep_clean["gates"]["gate3_static_pe_and_virustotal"]["dll_characteristics"]["dynamic_base_aslr"])
+            self.assertTrue(rep_clean["gates"]["gate3_static_pe_and_virustotal"]["dll_characteristics"]["nx_compat_dep"])
+            self.assertTrue(rep_clean["gates"]["gate3_static_pe_and_virustotal"]["dll_characteristics"]["guard_cf"])
+
+            # 2. Gate 1: macOS com.apple.quarantine xattr blocks execution
+            quarantined_exe = tmp_path / "quarantined.exe"
+            quarantined_exe.write_bytes(build_synthetic_pe())
+            quarantined_exe.chmod(0o755)
+            if sys.platform == "darwin":
+                subprocess.run(
+                    [
+                        "xattr",
+                        "-w",
+                        "com.apple.quarantine",
+                        "0083;671b9c00;Safari;12345678-1234-1234-1234-1234567890AB",
+                        str(quarantined_exe),
+                    ],
+                    check=True,
+                )
+            else:
+                (tmp_path / "quarantined.exe:Zone.Identifier").write_text("[ZoneTransfer]\nZoneId=3\n", encoding="utf-8")
+
+            res_quar = subprocess.run(
+                [str(test_sh), "--scan-exe", str(quarantined_exe)],
+                cwd=REPO_ROOT,
+                env=env_trace,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertNotEqual(res_quar.returncode, 0)
+            rep_quar = json.loads(res_quar.stdout)
+            self.assertFalse(rep_quar["passed"])
+            self.assertFalse(rep_quar["gates"]["gate1_quarantine_provenance"]["passed"])
+            self.assertTrue(rep_quar["gates"]["gate1_quarantine_provenance"]["quarantined"])
+
+            res_app_quar = subprocess.run(
+                [str(app_bin), str(quarantined_exe)],
+                cwd=REPO_ROOT,
+                env=env_trace,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(res_app_quar.returncode, 126)
+            self.assertIn("quarantine", res_app_quar.stderr.lower())
+
+            # 3. Gate 2: Authenticode valid signature vs tampered signature vs --require-signature
+            signed_ok = tmp_path / "signed_ok.exe"
+            signed_ok.write_bytes(build_synthetic_pe(sign_authenticode=True, tamper_after_sign=False))
+            signed_ok.chmod(0o755)
+
+            res_sig_ok = subprocess.run(
+                [str(test_sh), "--scan-exe", str(signed_ok), "--require-signature"],
+                cwd=REPO_ROOT,
+                env=env_trace,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(res_sig_ok.returncode, 0, res_sig_ok.stdout + res_sig_ok.stderr)
+            rep_sig_ok = json.loads(res_sig_ok.stdout)
+            self.assertTrue(rep_sig_ok["passed"])
+            self.assertTrue(rep_sig_ok["gates"]["gate2_authenticode_signature"]["signed"])
+            self.assertTrue(rep_sig_ok["gates"]["gate2_authenticode_signature"]["signature_valid"])
+            self.assertFalse(rep_sig_ok["gates"]["gate2_authenticode_signature"]["tampered"])
+
+            signed_tampered = tmp_path / "signed_tampered.exe"
+            signed_tampered.write_bytes(build_synthetic_pe(sign_authenticode=True, tamper_after_sign=True))
+            signed_tampered.chmod(0o755)
+
+            res_tampered = subprocess.run(
+                [str(test_sh), "--scan-exe", str(signed_tampered)],
+                cwd=REPO_ROOT,
+                env=env_trace,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertNotEqual(res_tampered.returncode, 0)
+            rep_tampered = json.loads(res_tampered.stdout)
+            self.assertFalse(rep_tampered["passed"])
+            self.assertFalse(rep_tampered["gates"]["gate2_authenticode_signature"]["passed"])
+            self.assertTrue(rep_tampered["gates"]["gate2_authenticode_signature"]["tampered"])
+
+            res_app_tampered = subprocess.run(
+                [str(app_bin), str(signed_tampered)],
+                cwd=REPO_ROOT,
+                env=env_trace,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(res_app_tampered.returncode, 126)
+
+            # 4. Gate 3: W^X section violation and suspicious IAT process injection blocking
+            wx_exe = tmp_path / "wx_bad.exe"
+            wx_exe.write_bytes(build_synthetic_pe(sec_chars=0xE0000020))  # WRITE | EXECUTE | READ
+            wx_exe.chmod(0o755)
+
+            res_wx = subprocess.run(
+                [str(test_sh), "--scan-exe", str(wx_exe)],
+                cwd=REPO_ROOT,
+                env=env_trace,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertNotEqual(res_wx.returncode, 0)
+            rep_wx = json.loads(res_wx.stdout)
+            self.assertFalse(rep_wx["passed"])
+            self.assertFalse(rep_wx["gates"]["gate3_static_pe_and_virustotal"]["passed"])
+            self.assertIn(".text", rep_wx["gates"]["gate3_static_pe_and_virustotal"]["wx_sections"])
+
+            inj_payload = b"KERNEL32.dll\x00VirtualAllocEx\x00WriteProcessMemory\x00CreateRemoteThread\x00"
+            inj_exe = tmp_path / "injector.exe"
+            inj_exe.write_bytes(build_synthetic_pe(payload=inj_payload))
+            inj_exe.chmod(0o755)
+
+            res_inj = subprocess.run(
+                [str(test_sh), "--scan-exe", str(inj_exe)],
+                cwd=REPO_ROOT,
+                env=env_trace,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertNotEqual(res_inj.returncode, 0)
+            rep_inj = json.loads(res_inj.stdout)
+            self.assertFalse(rep_inj["passed"])
+            self.assertFalse(rep_inj["gates"]["gate3_static_pe_and_virustotal"]["passed"])
+            self.assertTrue(len(rep_inj["gates"]["gate3_static_pe_and_virustotal"]["suspicious_imports"]) > 0)
+
+            # 5. Gate 3: VirusTotal v3 API lookup when user provides VT_API_KEY
+            bad_vt_exe = tmp_path / "vt_flagged.exe"
+            bad_vt_exe.write_bytes(build_synthetic_pe(payload=b"VT_TEST_SAMPLE_PAYLOAD"))
+            bad_vt_exe.chmod(0o755)
+            bad_sha256 = hashlib.sha256(bad_vt_exe.read_bytes()).hexdigest()
+
+            class MockVTov3Handler(http.server.BaseHTTPRequestHandler):
+                def do_GET(self) -> None:
+                    api_key = self.headers.get("x-apikey", "")
+                    if api_key != "vt-unit-test-key":
+                        self.send_response(401)
+                        self.end_headers()
+                        return
+                    self.send_response(200)
+                    self.send_header("Content-Type", "application/json")
+                    self.end_headers()
+                    if bad_sha256 in self.path:
+                        stats = {"malicious": 12, "suspicious": 2, "harmless": 54, "undetected": 4}
+                    else:
+                        stats = {"malicious": 0, "suspicious": 0, "harmless": 70, "undetected": 2}
+                    body = json.dumps({"data": {"attributes": {"last_analysis_stats": stats}}})
+                    self.wfile.write(body.encode("utf-8"))
+
+                def log_message(self, format: str, *args: object) -> None:
+                    return
+
+            httpd = http.server.HTTPServer(("127.0.0.1", 0), MockVTov3Handler)
+            port = httpd.server_port
+            srv_thread = threading.Thread(target=httpd.serve_forever, daemon=True)
+            srv_thread.start()
+            try:
+                vt_env = env_trace.copy()
+                vt_env["VT_API_KEY"] = "vt-unit-test-key"
+                vt_env["VT_API_BASE_URL"] = f"http://127.0.0.1:{port}"
+
+                # Clean binary passes VT check
+                res_vt_clean = subprocess.run(
+                    [str(test_sh), "--scan-exe", str(clean_exe)],
+                    cwd=REPO_ROOT,
+                    env=vt_env,
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                )
+                self.assertEqual(res_vt_clean.returncode, 0, res_vt_clean.stdout + res_vt_clean.stderr)
+                rep_vt_clean = json.loads(res_vt_clean.stdout)
+                self.assertTrue(rep_vt_clean["passed"])
+                self.assertTrue(rep_vt_clean["gates"]["gate3_static_pe_and_virustotal"]["virustotal"]["scanned"])
+                self.assertEqual(rep_vt_clean["gates"]["gate3_static_pe_and_virustotal"]["virustotal"]["malicious"], 0)
+
+                # Malicious binary flagged by VT is blocked by both --scan-exe and WineParity.app
+                res_vt_bad = subprocess.run(
+                    [str(test_sh), "--scan-exe", str(bad_vt_exe)],
+                    cwd=REPO_ROOT,
+                    env=vt_env,
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                )
+                self.assertNotEqual(res_vt_bad.returncode, 0)
+                rep_vt_bad = json.loads(res_vt_bad.stdout)
+                self.assertFalse(rep_vt_bad["passed"])
+                self.assertEqual(rep_vt_bad["gates"]["gate3_static_pe_and_virustotal"]["virustotal"]["malicious"], 12)
+
+                res_app_vt_bad = subprocess.run(
+                    [str(app_bin), str(bad_vt_exe)],
+                    cwd=REPO_ROOT,
+                    env=vt_env,
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                )
+                self.assertEqual(res_app_vt_bad.returncode, 126)
+                self.assertIn("virustotal", res_app_vt_bad.stderr.lower())
+            finally:
+                httpd.shutdown()
+                httpd.server_close()
+
+    def test_24_user_config_cascade_native_macos_settings_ui_and_zero_trust_sandbox(self) -> None:
+        """Verify user-config-containment skill, config.json -> user.reg cascade, native macOS config UI, and default HTTP/HTTPS sandbox."""
+        import struct
+        import tempfile
+
+        build_sh = REPO_ROOT / "scripts" / "build.sh"
+        launch_sh = REPO_ROOT / "scripts" / "launch.sh"
+        app_bin = REPO_ROOT / "builds" / "WineParity.app" / "Contents" / "MacOS" / "WineParity"
+
+        # 1. Verify skill, rule, and documentation files exist and have zero external floating URLs
+        skill_md = REPO_ROOT / ".agents" / "skills" / "user-config-containment" / "SKILL.md"
+        rule_md = REPO_ROOT / ".agents" / "rules" / "user-config-containment.md"
+        doc_md = REPO_ROOT / "docs" / "skills" / "USER_CONFIG_AND_CONTAINMENT.md"
+        self.assertTrue(skill_md.is_file(), "Missing .agents/skills/user-config-containment/SKILL.md")
+        self.assertTrue(rule_md.is_file(), "Missing .agents/rules/user-config-containment.md")
+        self.assertTrue(doc_md.is_file(), "Missing docs/skills/USER_CONFIG_AND_CONTAINMENT.md")
+
+        for fpath in (skill_md, rule_md, doc_md):
+            txt = fpath.read_text(encoding="utf-8")
+            self.assertNotIn("http://", txt)
+            self.assertNotIn("https://", txt)
+
+        with tempfile.TemporaryDirectory(prefix="wine_cfg_sandbox_") as tmpdir:
+            tmp_path = Path(tmpdir)
+            cfg_file = tmp_path / "config.json"
+            prefix_dir = tmp_path / "wineprefix"
+            dosdevices_dir = prefix_dir / "dosdevices"
+            dosdevices_dir.mkdir(parents=True, exist_ok=True)
+
+            # Seed an existing user.reg with a custom user setting that must NOT be clobbered,
+            # plus a dangerous z: -> / symlink that must be stripped by default sandbox settings
+            user_reg = prefix_dir / "user.reg"
+            user_reg.write_text(
+                "WINE REGISTRY Version 2\n\n"
+                "[Software\\\\CustomUserApp] 1700000000\n"
+                '"UserSetting"="preserve_me"\n',
+                encoding="utf-8",
+            )
+            z_link = dosdevices_dir / "z:"
+            z_link.symlink_to("/")
+
+            env = os.environ.copy()
+            env["WINE_PARITY_CONFIG"] = str(cfg_file)
+            env["WINEPREFIX"] = str(prefix_dir)
+
+            # 2. Verify default zero-trust config initialization via ./scripts/launch.sh --config-status
+            res_status = subprocess.run(
+                [str(launch_sh), "--config-status"],
+                cwd=REPO_ROOT,
+                env=env,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(res_status.returncode, 0, res_status.stdout + res_status.stderr)
+            status_data = json.loads(res_status.stdout)
+            cfg = status_data["config"]
+
+            self.assertTrue(cfg_file.is_file(), "config.json must be created automatically")
+            self.assertTrue(cfg["sandbox"]["enabled"], "Applications must run sandboxed by default")
+            self.assertTrue(cfg["sandbox"]["strip_z_drive"], "Drive Z: must be stripped by default")
+            self.assertTrue(cfg["sandbox"]["protect_sensitive_host_paths"])
+            self.assertEqual(cfg["network"]["incoming"], "deny", "Incoming networking must be disabled by default")
+            self.assertEqual(
+                cfg["network"]["outgoing"],
+                "http_https_only",
+                "Outgoing networking must default to HTTP/HTTPS only",
+            )
+            self.assertEqual(cfg["network"]["allowed_outgoing_ports"], [80, 443])
+
+            # Verify default Seatbelt profile enforces incoming deny + outgoing ports 80/443 only
+            sb_default = status_data["seatbelt_profile_preview"]
+            self.assertIn("(deny network-inbound)", sb_default)
+            self.assertIn("(deny network-outbound)", sb_default)
+            self.assertIn("*:80", sb_default)
+            self.assertIn("*:443", sb_default)
+            self.assertIn(".ssh", sb_default)
+
+            # 3. Verify --set-config updates config.json AND cascades to $WINEPREFIX/user.reg & dosdevices/
+            res_set = subprocess.run(
+                [
+                    str(launch_sh),
+                    "--set-config",
+                    "wine_environment.windows_version=win10",
+                    "--set-config",
+                    "wine_environment.retina_mode=true",
+                    "--set-config",
+                    "app_profiles. studio.exe .windows_version=win11",
+                ],
+                cwd=REPO_ROOT,
+                env=env,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(res_set.returncode, 0, res_set.stdout + res_set.stderr)
+            set_data = json.loads(res_set.stdout)
+            self.assertEqual(set_data["config"]["wine_environment"]["windows_version"], "win10")
+            self.assertFalse(z_link.exists(), "dosdevices/z: symlink must be unlinked during prefix cascade")
+
+            reg_txt = user_reg.read_text(encoding="utf-8")
+            self.assertIn('"UserSetting"="preserve_me"', reg_txt, "Existing user.reg keys must be preserved")
+            self.assertIn("[Software\\\\Wine]", reg_txt)
+            self.assertIn('"Version"="win10"', reg_txt)
+            self.assertIn("[Software\\\\Wine\\\\Mac Driver]", reg_txt)
+            self.assertIn('"RetinaMode"="y"', reg_txt)
+            self.assertIn("[Software\\\\Wine\\\\AppDefaults\\\\studio.exe]", reg_txt)
+            self.assertIn('"Version"="win11"', reg_txt)
+
+            # 4. Verify dynamic incoming/outgoing network policy transitions in Seatbelt profile
+            res_net_deny = subprocess.run(
+                [
+                    str(launch_sh),
+                    "--set-config",
+                    "network.incoming=allow",
+                    "--set-config",
+                    "network.outgoing=deny_all",
+                ],
+                cwd=REPO_ROOT,
+                env=env,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(res_net_deny.returncode, 0, res_net_deny.stdout + res_net_deny.stderr)
+            sb_custom = json.loads(res_net_deny.stdout)["seatbelt_profile_preview"]
+            self.assertIn("(allow network-inbound)", sb_custom)
+            self.assertIn("(deny network-outbound)", sb_custom)
+            self.assertNotIn("*:80", sb_custom)
+            self.assertNotIn("*:443", sb_custom)
+
+            # Restore default incoming=deny and outgoing=http_https_only
+            subprocess.run(
+                [
+                    str(launch_sh),
+                    "--set-config",
+                    "network.incoming=deny",
+                    "--set-config",
+                    "network.outgoing=http_https_only",
+                ],
+                cwd=REPO_ROOT,
+                env=env,
+                check=True,
+                capture_output=True,
+            )
+
+            # 5. Configure VirusTotal v3 in config.json and verify native macOS AppKit --config-ui exposes VT controls & key input
+            subprocess.run(
+                [
+                    str(launch_sh),
+                    "--set-config",
+                    "security.virustotal_enabled=true",
+                    "--set-config",
+                    "security.virustotal_api_key=vt_gui_test_key_0123456789abcdef",
+                ],
+                cwd=REPO_ROOT,
+                env=env,
+                check=True,
+                capture_output=True,
+            )
+
+            subprocess.run([str(build_sh), "--exe-handler"], cwd=REPO_ROOT, check=True, capture_output=True)
+
+            app_m_file = REPO_ROOT / "builds" / "exe_handler_src" / "wine_parity_app.m"
+            if app_m_file.is_file():
+                objc_src = app_m_file.read_text(encoding="utf-8")
+                self.assertIn("virustotalEnableCheck", objc_src)
+                self.assertIn("virustotalKeyField", objc_src)
+                self.assertIn("NSSecureTextField", objc_src)
+                self.assertIn("toggleVtKeyVisibility:", objc_src)
+                self.assertIn("security.virustotal_enabled=", objc_src)
+                self.assertIn("security.virustotal_api_key=", objc_src)
+
+            res_ui = subprocess.run(
+                [str(launch_sh), "--config-ui", "--dry-run"],
+                cwd=REPO_ROOT,
+                env=env,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(res_ui.returncode, 0, res_ui.stdout + res_ui.stderr)
+            ui_info = json.loads(res_ui.stdout)
+            self.assertEqual(ui_info["action"], "config-ui")
+            self.assertEqual(ui_info["ui_style"], "macos-native-appkit-settings")
+            self.assertIn("Sandbox & Network", ui_info["sections"])
+            self.assertTrue(ui_info["cascades_to_wine_registry"])
+            vt_ui = ui_info["virustotal_controls"]
+            self.assertTrue(vt_ui["enabled_checkbox"])
+            self.assertTrue(vt_ui["api_key_input_field"])
+            self.assertTrue(vt_ui["show_hide_key_toggle"])
+            self.assertTrue(vt_ui["virustotal_enabled"])
+            self.assertTrue(vt_ui["virustotal_api_key_configured"])
+
+            # Clear the dummy VT key before running the offline sandboxed .exe dispatch check
+            subprocess.run(
+                [
+                    str(launch_sh),
+                    "--set-config",
+                    "security.virustotal_api_key=",
+                ],
+                cwd=REPO_ROOT,
+                env=env,
+                check=True,
+                capture_output=True,
+            )
+
+            # Create a clean +x PE binary and verify WineParity dispatches it under the zero-trust sandbox
+            pe_buf = bytearray(512)
+            pe_buf[0:2] = b"MZ"
+            struct.pack_into("<I", pe_buf, 0x3C, 0x40)
+            pe_buf[0x40:0x44] = b"PE\x00\x00"
+            struct.pack_into("<H", pe_buf, 0x44, 0x8664)
+            sample_exe = tmp_path / "sandboxed_app.exe"
+            sample_exe.write_bytes(bytes(pe_buf))
+            sample_exe.chmod(0o755)
+
+            env_run = env.copy()
+            env_run["WINE_PARITY_DRY_RUN_JSON"] = "1"
+            res_run = subprocess.run(
+                [str(app_bin), str(sample_exe), "--test-sandbox"],
+                cwd=REPO_ROOT,
+                env=env_run,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(res_run.returncode, 0, res_run.stdout + res_run.stderr)
+            run_trace = json.loads(res_run.stdout)
+            self.assertTrue(run_trace["sandboxed"])
+            self.assertTrue(run_trace["z_drive_stripped"])
+            self.assertEqual(run_trace["network_incoming"], "deny")
+            self.assertEqual(run_trace["network_outgoing"], "http_https_only")
+            self.assertEqual(run_trace["allowed_outgoing_ports"], [80, 443])
+            self.assertTrue(Path(run_trace["seatbelt_profile"]).is_file())
+
 
 if __name__ == "__main__":
     unittest.main()

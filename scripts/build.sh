@@ -17,6 +17,7 @@ DRY_RUN=0
 BUILD_WINETEST=0
 FULL_WINE_TARGET=""
 SKIP_MONOLITHIC_COMPILE=0
+BUILD_EXE_HANDLER=0
 
 usage() {
     cat <<EOF
@@ -24,6 +25,7 @@ Usage: ./scripts/build.sh --dll <dll_name> [--test <test_name>] [--winetest] [--
        ./scripts/build.sh --borrow <dll_name> [--upstream-ref <sha_or_tag>] [--dry-run]
        ./scripts/build.sh --full-x86|--x86 [--dry-run] [--skip-monolithic-compile]
        ./scripts/build.sh --full-arm64|--arm64 [--dry-run] [--skip-monolithic-compile]
+       ./scripts/build.sh --exe-handler [--dry-run]
 
 Surgical single-target build & upstream Wine borrow script (macOS First, Linux Second).
 Examples:
@@ -91,6 +93,10 @@ while [[ $# -gt 0 ]]; do
             SKIP_MONOLITHIC_COMPILE=1
             shift
             ;;
+        --exe-handler)
+            BUILD_EXE_HANDLER=1
+            shift
+            ;;
         -h|--help)
             usage
             exit 0
@@ -102,6 +108,15 @@ while [[ $# -gt 0 ]]; do
             ;;
     esac
 done
+
+if [[ "$BUILD_EXE_HANDLER" -eq 1 ]]; then
+    EXE_HANDLER_ARGS=(--action build)
+    if [[ "$DRY_RUN" -eq 1 ]]; then
+        EXE_HANDLER_ARGS+=(--dry-run)
+    fi
+    python3 "$REPO_ROOT/scripts/lib/exe_handler.py" "${EXE_HANDLER_ARGS[@]}"
+    exit 0
+fi
 
 if [[ -n "$BORROW_DLL" ]]; then
     BORROW_ARGS=(--action borrow --dll "$BORROW_DLL")
@@ -155,6 +170,7 @@ if [[ "$BUILD_ALL" -eq 1 && -z "$DLL" ]]; then
             FULL_ARGS+=(--skip-monolithic-compile)
         fi
         python3 "$REPO_ROOT/scripts/lib/wine_borrow.py" "${FULL_ARGS[@]}"
+        python3 "$REPO_ROOT/scripts/lib/exe_handler.py" --action build >/dev/null
     fi
     exit 0
 fi

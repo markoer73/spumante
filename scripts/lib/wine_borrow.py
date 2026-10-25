@@ -322,6 +322,29 @@ def write_wine_parity_launcher(plan: dict[str, Any]) -> Path:
 # Auto-generated wine-parity launcher ({plan["target_mode"]}, arch={arch})
 set -euo pipefail
 
+# Mandatory +x executable permission check and 3-gate PE security scan for any .exe/.msi/.com/.scr target file
+for _wp_arg in "$@"; do
+    case "$_wp_arg" in
+        *.[eE][xX][eE]|*.[mM][sS][iI]|*.[cC][oO][mM]|*.[sS][cC][rR])
+            if [ -e "$_wp_arg" ]; then
+                if [ ! -f "$_wp_arg" ] || [ ! -x "$_wp_arg" ]; then
+                    echo "[wine-parity] ERROR: Refusing to launch '$_wp_arg': missing executable permission (+x). Run 'chmod +x \"$_wp_arg\"' first." >&2
+                    exit 126
+                fi
+                python3 "{REPO_ROOT / "scripts" / "lib" / "exe_handler.py"}" --action scan --exe "$_wp_arg" --quiet-stdout || exit 126
+            fi
+            ;;
+    esac
+done
+
+if [ $# -ge 1 ]; then
+    case "$1" in
+        *.[mM][sS][iI])
+            set -- msiexec /i "$@"
+            ;;
+    esac
+fi
+
 export WINEDLLPATH="{dll_paths}${{WINEDLLPATH:+:$WINEDLLPATH}}"
 export WINEDLLOVERRIDES="{dll_overrides}${{WINEDLLOVERRIDES:+;$WINEDLLOVERRIDES}}"
 export MVK_CONFIG_LOG_LEVEL="${{MVK_CONFIG_LOG_LEVEL:-1}}"

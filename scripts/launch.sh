@@ -10,13 +10,22 @@ SNAPSHOT="clean_ready"
 ACTION="launch"
 DRY_RUN=0
 DISK_ARGS=()
+EXE_HANDLER_ACTION=""
+CONFIG_ACTION=""
+CONFIG_UPDATES=()
 
 usage() {
     cat <<EOF
 Usage: ./scripts/launch.sh [--arch arm64|x86_64] [--snapshot <name>] [--disk <qcow2_path>] [--status] [--dry-run]
+       ./scripts/launch.sh --register-exe-handler [--dry-run]
+       ./scripts/launch.sh --exe-handler-status
+       ./scripts/launch.sh --config-status
+       ./scripts/launch.sh --set-config <key=value> [--set-config <key=value> ...]
+       ./scripts/launch.sh --config-ui [--dry-run]
 
 Starts or restores the headless QEMU Windows 10/11 Ground-Truth VM (macOS hvf/tcg first, Linux kvm second)
-with VirtIO serial qemu-ga (/tmp/wine_parity_qga.sock) and QMP (/tmp/wine_parity_qmp.sock).
+with VirtIO serial qemu-ga (/tmp/wine_parity_qga.sock) and QMP (/tmp/wine_parity_qmp.sock), registers
+the macOS WineParity.app LaunchServices .exe/.msi handler, or manages user-level config.json & sandboxing.
 EOF
 }
 
@@ -39,6 +48,27 @@ while [[ $# -gt 0 ]]; do
             ACTION="status"
             shift
             ;;
+        --register-exe-handler)
+            EXE_HANDLER_ACTION="register"
+            shift
+            ;;
+        --exe-handler-status)
+            EXE_HANDLER_ACTION="status"
+            shift
+            ;;
+        --config-status)
+            CONFIG_ACTION="status"
+            shift
+            ;;
+        --set-config)
+            CONFIG_ACTION="set"
+            CONFIG_UPDATES+=(--set "${2:-}")
+            shift 2
+            ;;
+        --config-ui)
+            EXE_HANDLER_ACTION="config-ui"
+            shift
+            ;;
         --dry-run)
             DRY_RUN=1
             shift
@@ -54,6 +84,24 @@ while [[ $# -gt 0 ]]; do
             ;;
     esac
 done
+
+if [[ -n "$CONFIG_ACTION" ]]; then
+    if [[ "${#CONFIG_UPDATES[@]}" -gt 0 ]]; then
+        python3 "$REPO_ROOT/scripts/lib/config_manager.py" --action "$CONFIG_ACTION" "${CONFIG_UPDATES[@]}"
+    else
+        python3 "$REPO_ROOT/scripts/lib/config_manager.py" --action "$CONFIG_ACTION"
+    fi
+    exit 0
+fi
+
+if [[ -n "$EXE_HANDLER_ACTION" ]]; then
+    EXE_ARGS=(--action "$EXE_HANDLER_ACTION")
+    if [[ "$DRY_RUN" -eq 1 ]]; then
+        EXE_ARGS+=(--dry-run)
+    fi
+    python3 "$REPO_ROOT/scripts/lib/exe_handler.py" "${EXE_ARGS[@]}"
+    exit 0
+fi
 
 EXTRA_FLAGS=()
 if [[ "$DRY_RUN" -eq 1 ]]; then
