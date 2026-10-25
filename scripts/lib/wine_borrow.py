@@ -148,17 +148,85 @@ def borrow_or_backport_dll(
     return plan
 
 
+MOLTENVK_MACOS_URL = "https://github.com/KhronosGroup/MoltenVK/releases/download/v1.4.2/MoltenVK-macos.tar"
+
+
 def can_use_rosetta_x86_host() -> bool:
-    """Return True only if Rosetta 2 is active AND x86_64 Homebrew tools exist in /usr/local."""
+    """Return True if Rosetta 2 (arch -x86_64) is active on an Apple Silicon Mac."""
     if sys.platform != "darwin" or platform.machine() != "arm64":
-        return False
-    if not Path("/usr/local/bin/brew").is_file():
         return False
     try:
         res = subprocess.run(["arch", "-x86_64", "/usr/bin/true"], capture_output=True, check=False)
         return res.returncode == 0
     except OSError:
         return False
+
+
+def ensure_macos_moltenvk(
+    install_dir: Path,
+    build_dir: Path | None = None,
+    dry_run: bool = False,
+) -> Path | None:
+    """Ensure Universal (x86_64 + arm64) libMoltenVK.dylib is installed and SONAME_LIBVULKAN is enabled on macOS."""
+    if sys.platform != "darwin":
+        return None
+    target_dylib = install_dir / "lib" / "libMoltenVK.dylib"
+    if dry_run:
+        return target_dylib
+
+    cache_root = REPO_ROOT / "builds" / "moltenvk"
+    cached_dylib = cache_root / "MoltenVK" / "MoltenVK" / "dynamic" / "dylib" / "macOS" / "libMoltenVK.dylib"
+
+    if not cached_dylib.is_file() and str(install_dir).startswith(str(REPO_ROOT / "builds")):
+        cache_root.mkdir(parents=True, exist_ok=True)
+        subprocess.run(
+            ["sh", "-c", f'curl -fsSL "{MOLTENVK_MACOS_URL}" | tar -xf - -C "{cache_root}"'],
+            cwd=REPO_ROOT,
+            check=False,
+        )
+
+    src_dylib: Path | None = None
+    for candidate in (
+        cached_dylib,
+        Path("/opt/homebrew/lib/libMoltenVK.dylib"),
+        Path("/usr/local/lib/libMoltenVK.dylib"),
+    ):
+        if candidate.is_file():
+            src_dylib = candidate
+            break
+
+    if src_dylib is not None:
+        target_dylib.parent.mkdir(parents=True, exist_ok=True)
+        if not target_dylib.is_file() or sha256_file(src_dylib) != sha256_file(target_dylib):
+            shutil.copy2(src_dylib, target_dylib)
+
+    if build_dir is not None:
+        config_h = build_dir / "include" / "config.h"
+        if config_h.is_file():
+            orig_stat = config_h.stat()
+            txt = config_h.read_text(encoding="utf-8", errors="replace")
+            soname_str = str(target_dylib)
+            updated = txt
+            if "/* #undef SONAME_LIBVULKAN */" in updated:
+                updated = updated.replace(
+                    "/* #undef SONAME_LIBVULKAN */",
+                    f'#define SONAME_LIBVULKAN "{soname_str}"\n#define SONAME_LIBMOLTENVK "{soname_str}"',
+                )
+            if updated != txt:
+                config_h.write_text(updated, encoding="utf-8")
+                os.utime(config_h, (orig_stat.st_atime, orig_stat.st_mtime))
+                if (build_dir / "Makefile").is_file():
+                    for stale in (build_dir / "dlls" / "win32u" / "vulkan.o", build_dir / "dlls" / "win32u" / "win32u.so"):
+                        if stale.is_file():
+                            stale.unlink()
+                    subprocess.run(["make", "-C", str(build_dir), "dlls/win32u/win32u.so"], cwd=REPO_ROOT, check=False)
+                    built_so = build_dir / "dlls" / "win32u" / "win32u.so"
+                    if built_so.is_file():
+                        for unix_dir in (install_dir / "lib" / "wine").glob("*-unix"):
+                            if unix_dir.is_dir():
+                                shutil.copy2(built_so, unix_dir / "win32u.so")
+
+    return target_dylib
 
 
 def build_full_wine_plan(target: str, dry_run: bool = False) -> dict[str, Any]:
@@ -168,20 +236,32 @@ def build_full_wine_plan(target: str, dry_run: bool = False) -> dict[str, Any]:
     remote = manifest["upstream_remote"]
     borrowed_dlls = sorted(manifest.get("borrowed_dlls", {}).keys())
 
+    rosetta_active = can_use_rosetta_x86_host()
+    extra_cfg_flags: list[str] = []
+    cc_arg = "CC=clang"
+    cxx_arg = "CXX=clang++"
+
     if target == "x86":
         arch = "x86_64"
         target_mode = "full-x86"
         enable_archs = "--enable-archs=i386,x86_64"
         install_dir = REPO_ROOT / "builds" / "wine-install-x86"
         build_dir = REPO_ROOT / "builds" / "wine-full-x86"
-        rosetta_prefix = ["arch", "-x86_64"] if can_use_rosetta_x86_host() else []
+        if sys.platform == "darwin" and rosetta_active:
+            extra_cfg_flags.extend(["--build=x86_64-apple-darwin", "--host=x86_64-apple-darwin"])
+            if not Path("/usr/local/lib/libfreetype.dylib").is_file():
+                extra_cfg_flags.append("--without-freetype")
+            cc_arg = "CC=clang -arch x86_64"
+            cxx_arg = "CXX=clang++ -arch x86_64"
     else:
         arch = "arm64"
         target_mode = "full-arm64"
         enable_archs = "--enable-archs=arm64ec,i386"
         install_dir = REPO_ROOT / "builds" / "wine-install-arm64"
         build_dir = REPO_ROOT / "builds" / "wine-full-arm64"
-        rosetta_prefix = []
+
+    if sys.platform == "darwin":
+        extra_cfg_flags.append(f"ac_cv_lib_soname_MoltenVK={install_dir / 'lib' / 'libMoltenVK.dylib'}")
 
     upstream_prepare_commands = [
         f"git clone --filter=blob:none --no-checkout --sparse {remote} {cache_dir}",
@@ -191,19 +271,19 @@ def build_full_wine_plan(target: str, dry_run: bool = False) -> dict[str, Any]:
     ]
 
     configure_cmd = [
-        *rosetta_prefix,
         str(REPO_ROOT / cache_dir / "configure"),
         f"--prefix={install_dir}",
+        *extra_cfg_flags,
         enable_archs,
         "--without-x",
         "--without-wayland",
-        "CC=clang",
-        "CXX=clang++",
+        cc_arg,
+        cxx_arg,
     ]
 
     ncpu = os.cpu_count() or 4
-    make_cmd = [*rosetta_prefix, "make", f"-j{ncpu}"]
-    make_install_cmd = [*rosetta_prefix, "make", "install"]
+    make_cmd = ["make", f"-j{ncpu}"]
+    make_install_cmd = ["make", "install"]
 
     return {
         "target_mode": target_mode,
@@ -233,15 +313,10 @@ def write_wine_parity_launcher(plan: dict[str, Any]) -> Path:
     arch = plan["arch"]
     dlls = plan["parity_dlls"]
     dll_paths = ":".join(str(REPO_ROOT / "builds" / arch / d) for d in dlls)
-    dll_overrides = ",".join(dlls) + "=b"
+    dll_overrides = "mscoree,mshtml=;" + ",".join(dlls) + "=b"
     is_x86 = plan["target_mode"] == "full-x86"
 
     launcher = bin_dir / "wine-parity"
-    rosetta_exec = (
-        'ARCH_PREFIX=""\nif [ "$(uname -s)" = "Darwin" ] && [ "$(uname -m)" = "arm64" ] && arch -x86_64 /usr/bin/true >/dev/null 2>&1; then ARCH_PREFIX="arch -x86_64"; fi'
-        if is_x86
-        else 'ARCH_PREFIX=""'
-    )
     script = f"""#!/usr/bin/env bash
 # SPDX-License-Identifier: LGPL-2.1-or-later
 # Auto-generated wine-parity launcher ({plan["target_mode"]}, arch={arch})
@@ -249,16 +324,26 @@ set -euo pipefail
 
 export WINEDLLPATH="{dll_paths}${{WINEDLLPATH:+:$WINEDLLPATH}}"
 export WINEDLLOVERRIDES="{dll_overrides}${{WINEDLLOVERRIDES:+;$WINEDLLOVERRIDES}}"
-{rosetta_exec}
+export MVK_CONFIG_LOG_LEVEL="${{MVK_CONFIG_LOG_LEVEL:-1}}"
+
+run_wine_bin() {{
+    local bin="$1"
+    shift
+    if [ "{1 if is_x86 else 0}" = "1" ] && [ "$(uname -s)" = "Darwin" ] && [ "$(uname -m)" = "arm64" ] && arch -x86_64 /usr/bin/true >/dev/null 2>&1 && file "$bin" 2>/dev/null | grep -q "x86_64"; then
+        exec arch -x86_64 "$bin" "$@"
+    else
+        exec "$bin" "$@"
+    fi
+}}
 
 if [ -x "{bin_dir}/wine64" ]; then
-    exec $ARCH_PREFIX "{bin_dir}/wine64" "$@"
+    run_wine_bin "{bin_dir}/wine64" "$@"
 elif [ -x "{bin_dir}/wine" ]; then
-    exec $ARCH_PREFIX "{bin_dir}/wine" "$@"
+    run_wine_bin "{bin_dir}/wine" "$@"
 elif command -v wine64 >/dev/null 2>&1; then
-    exec $ARCH_PREFIX "$(command -v wine64)" "$@"
+    run_wine_bin "$(command -v wine64)" "$@"
 elif command -v wine >/dev/null 2>&1; then
-    exec $ARCH_PREFIX "$(command -v wine)" "$@"
+    run_wine_bin "$(command -v wine)" "$@"
 else
     echo "[wine-parity] Pre-configured WINEDLLPATH=$WINEDLLPATH WINEDLLOVERRIDES=$WINEDLLOVERRIDES" >&2
     echo "[wine-parity] Run './scripts/build.sh --{plan["target_mode"]}' with Homebrew dependencies installed to complete monolithic wine64 binary compilation." >&2
@@ -267,6 +352,16 @@ fi
 """
     launcher.write_text(script, encoding="utf-8")
     launcher.chmod(launcher.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+
+    # Ensure built-in Wine PE .exe programs in lib/wine/*-windows/ have +x executable bits set
+    lib_wine_dir = install_dir / "lib" / "wine"
+    if lib_wine_dir.is_dir():
+        for exe_file in lib_wine_dir.glob("*-windows/*.exe"):
+            if exe_file.is_file():
+                mode = exe_file.stat().st_mode
+                if not (mode & stat.S_IXUSR):
+                    exe_file.chmod(mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+
     return launcher
 
 
@@ -363,6 +458,7 @@ def execute_full_wine_build(
 
     build_dir = Path(plan["build_dir"])
     install_dir = Path(plan["install_dir"])
+    ensure_macos_moltenvk(install_dir=install_dir, build_dir=build_dir, dry_run=dry_run)
     enable_archs = "--enable-archs=i386,x86_64" if plan["target_mode"] == "full-x86" else "--enable-archs=arm64ec,i386"
     current_dll_hashes = compute_parity_dll_hashes(plan["parity_dlls"])
     prev_stamp = load_monolithic_build_stamp(build_dir)
@@ -478,6 +574,7 @@ def execute_full_wine_build(
     # Build and install upstream Wine incrementally (GNU Make tracks .o/.dll mtimes automatically)
     subprocess.run(plan["make_command"], cwd=build_dir, env=env, check=True)
     subprocess.run(plan["make_install_command"], cwd=build_dir, env=env, check=True)
+    ensure_macos_moltenvk(install_dir=install_dir, build_dir=build_dir, dry_run=dry_run)
     plan["make_executed"] = True
 
     write_monolithic_build_stamp(
