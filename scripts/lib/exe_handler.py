@@ -30,7 +30,9 @@ from config_manager import (
 from wine_borrow import REPO_ROOT, build_full_wine_plan, write_wine_parity_launcher
 
 BUNDLE_ID = "org.wine-parity.launcher"
+CONFIG_BUNDLE_ID = "org.wine-parity.config"
 APP_BUNDLE_DIR = REPO_ROOT / "builds" / "WineParity.app"
+CONFIG_APP_BUNDLE_DIR = REPO_ROOT / "builds" / "WineParityConfig.app"
 DYLIB_PATH = REPO_ROOT / "builds" / "libwine_parity_exec.dylib"
 SHELL_HELPER_PATH = REPO_ROOT / "builds" / "wine-parity-shell.sh"
 SRC_BUILD_DIR = REPO_ROOT / "builds" / "exe_handler_src"
@@ -557,6 +559,38 @@ def _generate_info_plist() -> str:
 """
 
 
+def _generate_config_app_info_plist() -> str:
+    return f"""<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleDevelopmentRegion</key>
+    <string>en</string>
+    <key>CFBundleDisplayName</key>
+    <string>WineParity Config</string>
+    <key>CFBundleExecutable</key>
+    <string>WineParityConfig</string>
+    <key>CFBundleIdentifier</key>
+    <string>{CONFIG_BUNDLE_ID}</string>
+    <key>CFBundleInfoDictionaryVersion</key>
+    <string>6.0</string>
+    <key>CFBundleName</key>
+    <string>WineParity Config</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    <key>CFBundleShortVersionString</key>
+    <string>1.0.0</string>
+    <key>CFBundleVersion</key>
+    <string>1</string>
+    <key>LSMinimumSystemVersion</key>
+    <string>11.0</string>
+    <key>NSHighResolutionCapable</key>
+    <true/>
+</dict>
+</plist>
+"""
+
+
 def _generate_app_source(x86_launcher: Path, arm64_launcher: Path, app_bundle: Path) -> str:
     scanner_script = REPO_ROOT / "scripts" / "lib" / "exe_handler.py"
     return f"""/*
@@ -829,56 +863,12 @@ static int dispatch_windows_binary(const char *target_path, int extra_argc, char
 }}
 
 #ifdef __APPLE__
+@class WineParitySettingsController;
+
 @interface WineParityAppDelegate : NSObject <NSApplicationDelegate>
 @property (nonatomic, assign) BOOL handledOpenEvent;
 @property (nonatomic, assign) int lastExitCode;
-@end
-
-@implementation WineParityAppDelegate
-
-- (void)application:(NSApplication *)application openURLs:(NSArray<NSURL *> *)urls
-{{
-    (void)application;
-    self.handledOpenEvent = YES;
-    int rc = 0;
-    for (NSURL *url in urls) {{
-        if ([url isFileURL]) {{
-            const char *cpath = [[url path] fileSystemRepresentation];
-            if (cpath) {{
-                int cur = dispatch_windows_binary(cpath, 0, NULL);
-                if (cur != 0)
-                    rc = cur;
-            }}
-        }}
-    }}
-    self.lastExitCode = rc;
-    exit(rc);
-}}
-
-- (BOOL)application:(NSApplication *)sender openFile:(NSString *)filename
-{{
-    (void)sender;
-    self.handledOpenEvent = YES;
-    const char *cpath = [filename fileSystemRepresentation];
-    int rc = cpath ? dispatch_windows_binary(cpath, 0, NULL) : 1;
-    self.lastExitCode = rc;
-    exit(rc);
-    return rc == 0 ? YES : NO;
-}}
-
-- (void)applicationDidFinishLaunching:(NSNotification *)notification
-{{
-    (void)notification;
-    if (!self.handledOpenEvent) {{
-        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(150 * NSEC_PER_MSEC)),
-                       dispatch_get_main_queue(), ^{{
-            if (!self.handledOpenEvent) {{
-                exit(0);
-            }}
-        }});
-    }}
-}}
-
+@property (nonatomic, strong) WineParitySettingsController *settingsController;
 @end
 #endif
 
@@ -994,6 +984,7 @@ static int handle_status(void)
 @property (nonatomic, strong) NSWindow *window;
 @property (nonatomic, strong) NSPopUpButton *winVerPopup;
 @property (nonatomic, strong) NSButton *retinaCheck;
+@property (nonatomic, strong) NSTextField *handlerStatusLabel;
 @property (nonatomic, strong) NSButton *blockQuarantineCheck;
 @property (nonatomic, strong) NSButton *requireAuthCheck;
 @property (nonatomic, strong) NSButton *blockWxIatCheck;
@@ -1027,6 +1018,15 @@ static int handle_status(void)
     [lbl setFrame:frame];
     [lbl setFont:bold ? [NSFont boldSystemFontOfSize:13.0] : [NSFont systemFontOfSize:13.0]];
     return lbl;
+}}
+
+- (void)registerFileHandlersAction:(id)sender
+{{
+    (void)sender;
+    handle_register(0);
+    if (self.handlerStatusLabel) {{
+        [self.handlerStatusLabel setStringValue:@"Status: WineParity.app registered as default handler for .exe and .msi files."];
+    }}
 }}
 
 - (NSDictionary *)loadCurrentConfigDict
@@ -1169,6 +1169,15 @@ static int handle_status(void)
     BOOL retinaOn = (envCfg[@"retina_mode"] == nil) ? YES : [envCfg[@"retina_mode"] boolValue];
     self.retinaCheck = [self makeCheckbox:@"Enable macOS Retina / HiDPI Mode (winemac.drv)" frame:NSMakeRect(20, 195, 450, 22) state:retinaOn ? NSControlStateValueOn : NSControlStateValueOff];
     [genView addSubview:self.retinaCheck];
+
+    [genView addSubview:[self makeLabel:@"macOS LaunchServices File Associations (.exe / .msi)" frame:NSMakeRect(20, 145, 500, 22) bold:YES]];
+    NSButton *regBtn = [NSButton buttonWithTitle:@"Register .exe / .msi File Handler" target:self action:@selector(registerFileHandlersAction:)];
+    [regBtn setFrame:NSMakeRect(20, 108, 250, 32)];
+    [genView addSubview:regBtn];
+    self.handlerStatusLabel = [self makeLabel:@"Config Path: ~/.config/wine-parity/config.json (0600)" frame:NSMakeRect(20, 76, 540, 20) bold:NO];
+    [self.handlerStatusLabel setFont:[NSFont systemFontOfSize:11.0]];
+    [self.handlerStatusLabel setTextColor:[NSColor secondaryLabelColor]];
+    [genView addSubview:self.handlerStatusLabel];
     [genTab setView:genView];
     [tabView addTabViewItem:genTab];
 
@@ -1291,6 +1300,60 @@ static int handle_status(void)
     [self.window makeKeyAndOrderFront:nil];
 }}
 @end
+
+@implementation WineParityAppDelegate
+
+- (void)application:(NSApplication *)application openURLs:(NSArray<NSURL *> *)urls
+{{
+    (void)application;
+    self.handledOpenEvent = YES;
+    int rc = 0;
+    for (NSURL *url in urls) {{
+        if ([url isFileURL]) {{
+            const char *cpath = [[url path] fileSystemRepresentation];
+            if (cpath) {{
+                int cur = dispatch_windows_binary(cpath, 0, NULL);
+                if (cur != 0)
+                    rc = cur;
+            }}
+        }}
+    }}
+    self.lastExitCode = rc;
+    exit(rc);
+}}
+
+- (BOOL)application:(NSApplication *)sender openFile:(NSString *)filename
+{{
+    (void)sender;
+    self.handledOpenEvent = YES;
+    const char *cpath = [filename fileSystemRepresentation];
+    int rc = cpath ? dispatch_windows_binary(cpath, 0, NULL) : 1;
+    self.lastExitCode = rc;
+    exit(rc);
+    return rc == 0 ? YES : NO;
+}}
+
+- (void)applicationDidFinishLaunching:(NSNotification *)notification
+{{
+    (void)notification;
+    if (!self.handledOpenEvent) {{
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(150 * NSEC_PER_MSEC)),
+                       dispatch_get_main_queue(), ^{{
+            if (!self.handledOpenEvent) {{
+                const char *idle_exit = getenv("WINE_PARITY_EXIT_WHEN_IDLE");
+                if (idle_exit && strcmp(idle_exit, "1") == 0) {{
+                    exit(0);
+                }}
+                [NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
+                self.settingsController = [[WineParitySettingsController alloc] init];
+                [self.settingsController setupUI];
+                [NSApp activateIgnoringOtherApps:YES];
+            }}
+        }});
+    }}
+}}
+
+@end
 #endif
 
 static int handle_config_ui(int dry_run)
@@ -1321,6 +1384,13 @@ int main(int argc, char **argv)
             dry_run = 1;
     }}
 
+    if (argc >= 1 && argv[0] != NULL) {{
+        if (has_suffix_ci(argv[0], "WineParityConfig") ||
+            has_suffix_ci(argv[0], "wine-parity-config")) {{
+            return handle_config_ui(dry_run);
+        }}
+    }}
+
     if (argc >= 2) {{
         if (strcmp(argv[1], "--register") == 0)
             return handle_register(dry_run);
@@ -1332,10 +1402,10 @@ int main(int argc, char **argv)
             return handle_config_ui(dry_run);
     }}
 
-    /* Check for direct CLI file argument (skipping LaunchServices -psn_* if present) */
+    /* Check for direct CLI file argument (skipping LaunchServices -psn_* and --dry-run if present) */
     int target_idx = -1;
     for (int i = 1; i < argc; ++i) {{
-        if (strncmp(argv[i], "-psn_", 5) == 0)
+        if (strncmp(argv[i], "-psn_", 5) == 0 || strcmp(argv[i], "--dry-run") == 0)
             continue;
         if (strcmp(argv[i], "--") == 0) {{
             if (i + 1 < argc)
@@ -1646,12 +1716,30 @@ def build_macos_exe_handler(dry_run: bool = False) -> dict[str, Any]:
             SHELL_HELPER_PATH.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH
         )
 
+        # Also build the standalone configuration program bundle: builds/WineParityConfig.app
+        cfg_contents_dir = CONFIG_APP_BUNDLE_DIR / "Contents"
+        cfg_macos_dir = cfg_contents_dir / "MacOS"
+        cfg_info_plist = cfg_contents_dir / "Info.plist"
+        cfg_pkg_info = cfg_contents_dir / "PkgInfo"
+        cfg_app_bin = cfg_macos_dir / "WineParityConfig"
+
+        cfg_macos_dir.mkdir(parents=True, exist_ok=True)
+        cfg_info_plist.write_text(_generate_config_app_info_plist(), encoding="utf-8")
+        cfg_pkg_info.write_text("APPLWPRC", encoding="utf-8")
+        shutil.copy2(app_bin, cfg_app_bin)
+        cfg_app_bin.chmod(cfg_app_bin.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+    else:
+        cfg_app_bin = CONFIG_APP_BUNDLE_DIR / "Contents" / "MacOS" / "WineParityConfig"
+
     return {
         "action": "build-exe-handler",
         "bundle_id": BUNDLE_ID,
         "app_bundle": str(APP_BUNDLE_DIR),
         "app_binary": str(app_bin),
         "info_plist": str(info_plist),
+        "config_bundle_id": CONFIG_BUNDLE_ID,
+        "config_app_bundle": str(CONFIG_APP_BUNDLE_DIR),
+        "config_app_binary": str(cfg_app_bin),
         "interpose_dylib": str(DYLIB_PATH) if sys.platform == "darwin" else None,
         "shell_helper": str(SHELL_HELPER_PATH),
         "x86_launcher": str(x86_launcher),

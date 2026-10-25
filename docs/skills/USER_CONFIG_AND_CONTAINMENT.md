@@ -85,9 +85,9 @@ By default, every `.exe` and `.msi` launched via `WineParity.app` or `bin/wine-p
 
 ---
 
-## 3. Canonical Script Entrypoints
+## 3. Canonical Script Entrypoints & Turnkey macOS DMG Installer
 
-All configuration, cascading, Seatbelt profile generation, and native UI operations run through the repository's canonical scripts in `scripts/`:
+All configuration, cascading, Seatbelt profile generation, native UI operations, and DMG packaging run through the repository's canonical scripts in `scripts/`:
 
 ```sh
 # 1. Initialize or inspect the active configuration (and generated Seatbelt + registry cascade plan)
@@ -98,4 +98,18 @@ All configuration, cascading, Seatbelt profile generation, and native UI operati
 
 # 3. Update configuration keys from CLI and cascade to the Wine prefix registry hives
 ./scripts/launch.sh --set-config network.outgoing=http_https_only --set-config network.incoming=deny --set-config wine_environment.windows_version=win11
+
+# 4. Build the turnkey macOS DMG installer package (builds/WineParity-Installer.dmg)
+#    Includes WineParity.app, standalone WineParity Config.app, and Install WineParity.command
+#    Pass -nz (or --notarize) to code-sign with Hardened Runtime, submit via xcrun notarytool, and staple the ticket
+./scripts/build.sh --dmg
+./scripts/build.sh --dmg -nz
 ```
+
+### Turnkey macOS `.dmg` Package, Standalone `WineParity Config.app` & Apple Notarization (`-nz`)
+
+Running `./scripts/build.sh --dmg` (implemented in [`scripts/lib/dmg_packager.py`](../../scripts/lib/dmg_packager.py)) builds `builds/WineParity-Installer.dmg` from `builds/dmg_staging/`, containing:
+1. **`WineParity.app`** (`org.wine-parity.launcher`): The `.exe` / `.msi` LaunchServices dispatcher and 3-gate PE security scanner. Launching `WineParity.app` directly without a target file opens the native **Wine Parity Settings** window.
+2. **`WineParity Config.app`** (`builds/WineParityConfig.app`, `org.wine-parity.config`): A standalone macOS AppKit application bundle that launches the 4-tab **Wine Parity Settings** window (`General`, `Security`, `Sandbox & Network`, `Graphics & Acceleration`) directly when opened from `/Applications`, Dock, or Spotlight.
+3. **`Install WineParity.command`**: A double-clickable macOS installer script that installs `WineParity.app` and `WineParity Config.app` into `/Applications` (or `~/Applications`), creates the `wine-parity` and `wine-parity-config` CLI wrappers, registers `.exe` / `.msi` LaunchServices associations, initializes `~/.config/wine-parity/config.json` (`0600`) + `$WINEPREFIX/user.reg`, and opens `WineParity Config.app`.
+4. **Apple Notarization (`-nz` / `--notarize`)**: Passing `-nz` (with optional `--codesign-identity <id>` and `--notary-profile <profile>`) signs all staged bundles and the `.dmg` with Hardened Runtime (`codesign --force --options runtime --timestamp`), submits the package via `xcrun notarytool submit ... --wait`, and staples the ticket via `xcrun stapler staple`.

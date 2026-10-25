@@ -145,6 +145,11 @@ All host/VM orchestration, compilation, differential testing, stub discovery, an
 ./scripts/launch.sh --register-exe-handler
 ./scripts/launch.sh --exe-handler-status
 ./scripts/stop.sh --unregister-exe-handler
+
+# 10. Build Turnkey macOS DMG Installer Package (WineParity-Installer.dmg + standalone WineParity Config.app)
+#     Pass -nz (or --notarize) to code-sign with Hardened Runtime, submit to Apple Notary Service (notarytool), and staple the ticket
+./scripts/build.sh --dmg
+./scripts/build.sh --dmg -nz
 ```
 
 ---
@@ -230,9 +235,23 @@ Every launch and security scan resolves settings in strict priority order:
 3. **Per-Executable Profile Overrides** (`app_profiles["<exe_basename_lower>"]` in `config.json`)
 4. **Global User Configuration** (`~/.config/wine-parity/config.json`)
 
-### Native macOS AppKit Configuration Dialog (`--config-ui`)
+### Turnkey macOS `.dmg` Installer & Standalone Configuration Program (`WineParity Config.app`)
 
-Instead of requiring users to navigate the legacy Windows-style `winecfg` tool for common workflows, `builds/WineParity.app` includes a native macOS AppKit Settings window (`WineParitySettingsController`, launched via `./scripts/launch.sh --config-ui`) organized into four streamlined tabs:
+To make installation and configuration effortless on macOS, `./scripts/build.sh --dmg` builds a turnkey compressed disk image (`builds/WineParity-Installer.dmg`, staged from `builds/dmg_staging/` via `scripts/lib/dmg_packager.py`) containing:
+- **`WineParity.app`** (`org.wine-parity.launcher`): The automatic `.exe` / `.msi` LaunchServices dispatcher and 3-gate PE security scanner. Opening `WineParity.app` directly from Finder without a target `.exe`/`.msi` file also launches the native **Wine Parity Settings** window.
+- **`WineParity Config.app`** (`builds/WineParityConfig.app`, `org.wine-parity.config`): A dedicated, standalone native macOS AppKit Settings application that users can run anytime from `/Applications`, Dock, or Spotlight to configure `wine-parity`.
+- **`Install WineParity.command`**: A double-clickable macOS installer script (also supporting CLI flags `--target-dir <dir>`, `--bin-dir <dir>`, `--config-file <path>`, `--wineprefix <dir>`, `--user`, `--no-open-config`, `--dry-run`) that:
+  1. Installs `WineParity.app` and `WineParity Config.app` into `/Applications` (or `~/Applications`).
+  2. Installs the `wine-parity` and `wine-parity-config` CLI commands into `/usr/local/bin` (or `~/.local/bin`).
+  3. Registers `.exe` and `.msi` LaunchServices associations.
+  4. Initializes `~/.config/wine-parity/config.json` (`0600`) and cascades settings to `~/.wine/user.reg`.
+  5. Automatically opens **`WineParity Config.app`** so the user can immediately review or customize their setup.
+- **`Applications` Symlink & `README.txt`**: Enables standard macOS drag-and-drop installation alongside the one-click installer script.
+- **Apple Notarization & Hardened Runtime Signing (`-nz` / `--notarize`)**: Passing `-nz` (e.g. `./scripts/build.sh --dmg -nz` or `./scripts/build.sh -nz`) signs `WineParity.app`, `WineParity Config.app`, `Install WineParity.command`, and `builds/WineParity-Installer.dmg` with Hardened Runtime (`codesign --force --options runtime --timestamp`), submits the disk image to Apple Notary Service via `xcrun notarytool submit ... --wait` (using `--notary-profile <profile>` / `WINE_PARITY_NOTARY_PROFILE` or `WINE_PARITY_APPLE_ID` + `WINE_PARITY_TEAM_ID` + `WINE_PARITY_APP_PASSWORD`), and staples the offline Gatekeeper ticket via `xcrun stapler staple`.
+
+### Native macOS AppKit Configuration Dialog (`WineParity Config.app` & `--config-ui`)
+
+Instead of requiring users to navigate the legacy Windows-style `winecfg` tool for common workflows, `WineParity Config.app` (`builds/WineParityConfig.app`), `wine-parity-config`, and `./scripts/launch.sh --config-ui` open the native macOS AppKit Settings window (`WineParitySettingsController`) organized into four streamlined tabs:
 
 1. **General**:
    - **Windows Version**: Selects reported Windows version (`win11`, `win10`, `win81`, `win7`) and cascades `Version` to `[Software\\Wine]` in `user.reg`.

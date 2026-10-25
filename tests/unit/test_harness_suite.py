@@ -2297,9 +2297,185 @@ class TestWineParityArchitecture(unittest.TestCase):
         self.assertEqual(doc_winetest["regressions_vs_upstream"], 0)
         self.assertTrue(doc_winetest["ab_comparison"]["asan_ubsan_passed"])
 
+    def test_27_macos_dmg_installer_and_standalone_config_app(self) -> None:
+        """Verify ./scripts/build.sh --dmg creates WineParity-Installer.dmg, standalone WineParityConfig.app, and Install WineParity.command."""
+        import stat
+        import tempfile
+
+        build_sh = REPO_ROOT / "scripts" / "build.sh"
+
+        # 1. Build the DMG installer package and standalone configuration app
+        res_dmg = subprocess.run(
+            [str(build_sh), "--dmg"],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(
+            res_dmg.returncode,
+            0,
+            f"./scripts/build.sh --dmg failed:\n{res_dmg.stdout}\n{res_dmg.stderr}",
+        )
+        dmg_report = json.loads(res_dmg.stdout)
+        self.assertEqual(dmg_report["action"], "build-dmg-installer")
+
+        dmg_path = Path(dmg_report["dmg_path"])
+        self.assertTrue(dmg_path.is_file(), f"Missing DMG file at {dmg_path}")
+        self.assertGreater(dmg_path.stat().st_size, 1024, "DMG file is unexpectedly small")
+
+        # 2. Verify standalone WineParityConfig.app bundle and executable
+        config_app_bundle = Path(dmg_report["config_app_bundle"])
+        config_app_bin = Path(dmg_report["config_app_binary"])
+        self.assertTrue(config_app_bundle.is_dir(), f"Missing WineParityConfig.app at {config_app_bundle}")
+        self.assertTrue(config_app_bin.is_file(), f"Missing WineParityConfig binary at {config_app_bin}")
+        self.assertTrue(os.access(config_app_bin, os.X_OK), "WineParityConfig binary must be executable (+x)")
+
+        # 3. Verify running WineParityConfig directly (with --dry-run) opens the 4-tab settings interface without needing --config-ui
+        res_cfg_app = subprocess.run(
+            [str(config_app_bin), "--dry-run"],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(
+            res_cfg_app.returncode,
+            0,
+            f"WineParityConfig --dry-run failed:\n{res_cfg_app.stdout}\n{res_cfg_app.stderr}",
+        )
+        cfg_ui_doc = json.loads(res_cfg_app.stdout)
+        self.assertEqual(cfg_ui_doc["action"], "config-ui")
+        self.assertEqual(cfg_ui_doc["window_title"], "Wine Parity Settings")
+        self.assertEqual(
+            cfg_ui_doc["sections"],
+            ["General", "Security", "Sandbox & Network", "Graphics & Acceleration"],
+        )
+
+        # 4. Verify DMG staging directory contents (WineParity.app, WineParity Config.app, Install WineParity.command, Applications symlink, README.txt)
+        staging_dir = Path(dmg_report["staging_dir"])
+        installer_cmd = Path(dmg_report["installer_script"])
+        self.assertTrue((staging_dir / "WineParity.app").is_dir())
+        self.assertTrue((staging_dir / "WineParity Config.app").is_dir())
+        self.assertTrue(installer_cmd.is_file())
+        self.assertTrue(os.access(installer_cmd, os.X_OK), "Install WineParity.command must be executable (+x)")
+        self.assertTrue((staging_dir / "Applications").is_symlink())
+        self.assertTrue((staging_dir / "README.txt").is_file())
+
+        # 5. Execute Install WineParity.command into an isolated temporary target directory
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_root = Path(tmp)
+            target_apps = tmp_root / "Applications"
+            target_bin = tmp_root / "bin"
+            target_cfg = tmp_root / "config" / "config.json"
+            target_prefix = tmp_root / "wineprefix"
+
+            res_install = subprocess.run(
+                [
+                    str(installer_cmd),
+                    "--target-dir",
+                    str(target_apps),
+                    "--bin-dir",
+                    str(target_bin),
+                    "--config-file",
+                    str(target_cfg),
+                    "--wineprefix",
+                    str(target_prefix),
+                    "--no-open-config",
+                ],
+                cwd=REPO_ROOT,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(
+                res_install.returncode,
+                0,
+                f"Install WineParity.command failed:\n{res_install.stdout}\n{res_install.stderr}",
+            )
+
+            # Verify installed app bundles
+            installed_launcher = target_apps / "WineParity.app" / "Contents" / "MacOS" / "WineParity"
+            installed_config_app = (
+                target_apps / "WineParity Config.app" / "Contents" / "MacOS" / "WineParityConfig"
+            )
+            self.assertTrue(installed_launcher.is_file() and os.access(installed_launcher, os.X_OK))
+            self.assertTrue(installed_config_app.is_file() and os.access(installed_config_app, os.X_OK))
+
+            # Verify CLI wrappers (wine-parity and wine-parity-config)
+            cli_wine_parity = target_bin / "wine-parity"
+            cli_wine_parity_config = target_bin / "wine-parity-config"
+            self.assertTrue(cli_wine_parity.is_file() and os.access(cli_wine_parity, os.X_OK))
+            self.assertTrue(cli_wine_parity_config.is_file() and os.access(cli_wine_parity_config, os.X_OK))
+
+            # Verify running wine-parity-config --dry-run invokes the configuration UI
+            res_cli_cfg = subprocess.run(
+                [str(cli_wine_parity_config), "--dry-run"],
+                cwd=REPO_ROOT,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(res_cli_cfg.returncode, 0, res_cli_cfg.stdout + res_cli_cfg.stderr)
+            cli_cfg_doc = json.loads(res_cli_cfg.stdout)
+            self.assertEqual(cli_cfg_doc["action"], "config-ui")
+
+            # Verify config.json (0600) and WINEPREFIX cascade were initialized by the installer
+            self.assertTrue(target_cfg.is_file())
+            self.assertEqual(stat.S_IMODE(target_cfg.stat().st_mode), 0o600)
+            self.assertTrue((target_prefix / "user.reg").is_file())
+
+        # 6. Verify -nz (--notarize) option in ./scripts/build.sh (--dmg -nz and standalone -nz)
+        res_nz_dry = subprocess.run(
+            [
+                str(build_sh),
+                "--dmg",
+                "-nz",
+                "--codesign-identity",
+                "Developer ID Application: WineParity Test (TEAM123456)",
+                "--notary-profile",
+                "wine-parity-notary-test",
+                "--dry-run",
+            ],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(
+            res_nz_dry.returncode,
+            0,
+            f"./scripts/build.sh --dmg -nz --dry-run failed:\n{res_nz_dry.stdout}\n{res_nz_dry.stderr}",
+        )
+        nz_doc = json.loads(res_nz_dry.stdout)
+        self.assertTrue(nz_doc["notarize"])
+        self.assertIn("notarization", nz_doc)
+        nz_info = nz_doc["notarization"]
+        self.assertTrue(nz_info["enabled"])
+        self.assertTrue(nz_info["hardened_runtime"])
+        self.assertEqual(
+            nz_info["codesign_identity"],
+            "Developer ID Application: WineParity Test (TEAM123456)",
+        )
+        self.assertEqual(nz_info["notary_profile"], "wine-parity-notary-test")
+        self.assertIn("notarytool", " ".join(nz_info["notarytool_command"]))
+        self.assertIn("stapler", " ".join(nz_info["stapler_command"]))
+
+        # Verify standalone -nz flag implies --dmg and notarizes/signs the package
+        res_nz_short = subprocess.run(
+            [str(build_sh), "-nz", "--dry-run"],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(res_nz_short.returncode, 0, res_nz_short.stdout + res_nz_short.stderr)
+        nz_short_doc = json.loads(res_nz_short.stdout)
+        self.assertEqual(nz_short_doc["action"], "build-dmg-installer")
+        self.assertTrue(nz_short_doc["notarize"])
+        self.assertTrue(nz_short_doc["notarization"]["enabled"])
+
+
 
 if __name__ == "__main__":
     unittest.main()
-
-
-

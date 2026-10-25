@@ -18,6 +18,10 @@ BUILD_WINETEST=0
 FULL_WINE_TARGET=""
 SKIP_MONOLITHIC_COMPILE=0
 BUILD_EXE_HANDLER=0
+BUILD_DMG=0
+NOTARIZE_DMG=0
+CODESIGN_IDENTITY=""
+NOTARY_PROFILE=""
 
 usage() {
     cat <<EOF
@@ -26,6 +30,7 @@ Usage: ./scripts/build.sh --dll <dll_name> [--test <test_name>] [--winetest] [--
        ./scripts/build.sh --full-x86|--x86 [--dry-run] [--skip-monolithic-compile]
        ./scripts/build.sh --full-arm64|--arm64 [--dry-run] [--skip-monolithic-compile]
        ./scripts/build.sh --exe-handler [--dry-run]
+       ./scripts/build.sh --dmg|--package-dmg [-nz|--notarize] [--codesign-identity <id>] [--notary-profile <profile>] [--dry-run]
 
 Surgical single-target build & upstream Wine borrow script (macOS First, Linux Second).
 Examples:
@@ -97,6 +102,23 @@ while [[ $# -gt 0 ]]; do
             BUILD_EXE_HANDLER=1
             shift
             ;;
+        --dmg|--package-dmg)
+            BUILD_DMG=1
+            shift
+            ;;
+        -nz|--notarize)
+            BUILD_DMG=1
+            NOTARIZE_DMG=1
+            shift
+            ;;
+        --codesign-identity)
+            CODESIGN_IDENTITY="${2:-}"
+            shift 2
+            ;;
+        --notary-profile)
+            NOTARY_PROFILE="${2:-}"
+            shift 2
+            ;;
         -h|--help)
             usage
             exit 0
@@ -108,6 +130,24 @@ while [[ $# -gt 0 ]]; do
             ;;
     esac
 done
+
+if [[ "$BUILD_DMG" -eq 1 ]]; then
+    DMG_ARGS=()
+    if [[ "$DRY_RUN" -eq 1 ]]; then
+        DMG_ARGS+=(--dry-run)
+    fi
+    if [[ "$NOTARIZE_DMG" -eq 1 ]]; then
+        DMG_ARGS+=(-nz)
+    fi
+    if [[ -n "$CODESIGN_IDENTITY" ]]; then
+        DMG_ARGS+=(--codesign-identity "$CODESIGN_IDENTITY")
+    fi
+    if [[ -n "$NOTARY_PROFILE" ]]; then
+        DMG_ARGS+=(--notary-profile "$NOTARY_PROFILE")
+    fi
+    python3 "$REPO_ROOT/scripts/lib/dmg_packager.py" ${DMG_ARGS[@]+"${DMG_ARGS[@]}"}
+    exit 0
+fi
 
 if [[ "$BUILD_EXE_HANDLER" -eq 1 ]]; then
     EXE_HANDLER_ARGS=(--action build)

@@ -39,6 +39,11 @@ Use this skill whenever modifying, extending, or auditing:
 
 # Open the native macOS AppKit Configuration Dialog
 ./scripts/launch.sh --config-ui
+
+# Build the turnkey macOS DMG installer package (WineParity-Installer.dmg + WineParity Config.app)
+# Pass -nz (or --notarize) to code-sign with Hardened Runtime, submit via notarytool, and staple the ticket
+./scripts/build.sh --dmg
+./scripts/build.sh --dmg -nz
 ```
 
 ## Reference Documentation
