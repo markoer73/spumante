@@ -16,7 +16,7 @@ Every AI assistant (Antigravity, Gemini, Claude, Codex, OpenCode, Cline) MUST co
 - Inspect `git status`, `docs/TASK_QUEUE.md`, and `docs/TASK_LOG.md`.
 - **STRICT INVARIANT (Multi-Agent & Multi-Conversation)**: If any file in the working tree or any task in the queue is currently in progress or marked `*-WIP` by another agent—or belongs to another conversation/session—you are **STRICTLY FORBIDDEN** from modifying those files, staging them, committing them, or touching that task.
 - Isolation applies across both different agents AND different conversation threads of the same agent. Never assume uncommitted files in the working tree belong to your current conversation.
-- Before beginning implementation, record your assigned task as `\[<AGENT_NAME>-WIP\]` with a timestamp in `docs/TASK_QUEUE.md` and `docs/TASK_LOG.md` (ensuring square brackets are escaped to comply with Markdown specifications).
+- Before beginning implementation, record your assigned task as **`[<AGENT_NAME>-WIP YYYY-MM-DD]`** with a timestamp in `docs/TASK_QUEUE.md` and `docs/TASK_LOG.md` (wrapping the bracketed badge in inline code backticks so CommonMark link warnings and KaTeX display-math errors are both avoided).
 
 ### Gate 2: The Iron Law of Architecture
 
@@ -53,7 +53,7 @@ Every AI assistant (Antigravity, Gemini, Claude, Codex, OpenCode, Cline) MUST co
   1. **Strict Conversation & Task Scope**: Stage ONLY files and hunks that you personally created or modified for the specific task requested in the CURRENT conversation. NEVER stage or commit changes made in another conversation or session, even if made by the same agent identity.
   2. **No Broad Staging Commands (Mandatory)**: NEVER run `git add .`, `git add -A`, or `git add -u`. Always explicitly specify each individual file path (`git add <file1> <file2>`). Before committing, run `git diff --cached --name-only` to verify that strictly zero files outside your active task are staged. Unstage any foreign files immediately (`git restore --staged <file>`).
   3. **Single Task per Commit**: Each commit must encompass strictly ONE logical task. Never bundle multiple tasks together into a single commit unless the user explicitly requested bundling those specific tasks.
-  4. **Mandatory Documentation & Task Updates**: Create all corresponding documentation for YOUR task. In `docs/TASK_QUEUE.md` and `docs/TASK_LOG.md`, update and complete ONLY the single task assigned to the current conversation. Strictly remove completed tasks from `docs/TASK_LEFT_SUMMARY.md` (which must exclusively list remaining uncompleted tasks) in the same patch. All markdown files authored or updated must strictly fulfill Markdown specifications properly, especially escaping square brackets (`\[...\]` on status badges, tags, and array/range notations) to eliminate broken reference link warnings. NEVER touch or complete entries for other tasks whose files happen to be in the working tree.
+  4. **Mandatory Documentation & Task Updates**: Create all corresponding documentation for YOUR task. In `docs/TASK_QUEUE.md` and `docs/TASK_LOG.md`, update and complete ONLY the single task assigned to the current conversation. Strictly remove completed tasks from `docs/TASK_LEFT_SUMMARY.md` (which must exclusively list remaining uncompleted tasks) in the same patch. All markdown files authored or updated must strictly fulfill Markdown specifications properly, especially wrapping bracketed badges in inline code backticks (`` **`[...]`** `` on status badges, tags, and array/range notations) to eliminate broken reference link warnings. NEVER touch or complete entries for other tasks whose files happen to be in the working tree.
   5. **README Updates**: Describe tasks concisely in `README.md` if required (e.g. if user-visible surface, controls, CLI, or features changed).
   6. **Branch Reconciliation**: If you have branched, reconcile the branch to `main` and delete the branch.
   7. **Mandatory `Co-authored-by:` Trailer**: Introspect your actual agent identity and append the trailer after a blank line:
@@ -142,7 +142,7 @@ Apply the `test-driven-development` skill for all new API implementations, bug f
 - **The `marcommit` Workflow**: When requested to commit, follow strict hygiene:
   1. Stage ONLY files you authored for the single active task of the CURRENT conversation (`git add <file1> <file2>`). NEVER run `git add .` or `git add -A`.
   2. Single task per commit: Each commit must represent strictly ONE logical change.
-  3. Mandatory documentation & task updates: Update `docs/TASK_QUEUE.md` and `docs/TASK_LOG.md`, and strictly remove completed tasks from `docs/TASK_LEFT_SUMMARY.md`. All markdown entries must properly escape square brackets (`\[...\]`).
+  3. Mandatory documentation & task updates: Update `docs/TASK_QUEUE.md` and `docs/TASK_LOG.md`, and strictly remove completed tasks from `docs/TASK_LEFT_SUMMARY.md`. All markdown entries must wrap bracketed status badges in inline code backticks (`` **`[...]`** ``).
   4. Include the mandatory `Co-authored-by:` trailer identifying your agent identity.
   5. Never commit credentials, VM disks, build artifacts, or proprietary binaries.
 

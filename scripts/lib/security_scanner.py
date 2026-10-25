@@ -140,12 +140,16 @@ def gate_static_sast_and_sandbox_scan() -> dict[str, Any]:
 
 def gate_asan_ubsan_memory_safety(dll: str, test_name: str) -> dict[str, Any]:
     """Gate C: Compile target DLL + conformance test with ASan+UBSan and execute."""
+    if dll == "wineusb" and (REPO_ROOT / "dlls" / "wineusb.sys").is_dir():
+        dll = "wineusb.sys"
     host_cc = shutil.which("clang") or shutil.which("gcc") or shutil.which("cc")
     if not host_cc:
         return {"passed": False, "findings": ["No host C compiler found for ASan/UBSan"]}
 
     dll_dir = REPO_ROOT / "dlls" / dll
     test_c = REPO_ROOT / "tests" / "conformance" / dll / f"{test_name}.c"
+    if not test_c.is_file() and dll.endswith(".sys"):
+        test_c = REPO_ROOT / "tests" / "conformance" / dll[:-4] / f"{test_name}.c"
     c_sources = sorted(str(p) for p in dll_dir.glob("*.c"))
     if dll == "kernelbase":
         ntdll_dir = REPO_ROOT / "dlls" / "ntdll"
@@ -177,6 +181,8 @@ def gate_asan_ubsan_memory_safety(dll: str, test_name: str) -> dict[str, Any]:
                 "CoreAudio",
                 "-framework",
                 "Metal",
+                "-framework",
+                "IOKit",
                 "-lobjc",
                 "-pthread",
             ]

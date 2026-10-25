@@ -2159,6 +2159,75 @@ class TestWineParityArchitecture(unittest.TestCase):
             self.assertEqual(run_trace["allowed_outgoing_ports"], [80, 443])
             self.assertTrue(Path(run_trace["seatbelt_profile"]).is_file())
 
+    def test_25_wineusb_macos_backend_parity(self) -> None:
+        """Verify dlls/wineusb.sys macOS USB backend (IOKit/libusb-1.0) and SetupDi service installation parity."""
+        build_sh = REPO_ROOT / "scripts" / "build.sh"
+        test_sh = REPO_ROOT / "scripts" / "test.sh"
+
+        # 1. Verify clean-room spec packets exist for wineusb
+        for api in (
+            "DriverEntry",
+            "unix_usb_init",
+            "unix_usb_main_loop",
+            "unix_usb_submit_urb",
+        ):
+            spec_file = REPO_ROOT / "specs" / "wineusb" / f"{api}.json"
+            self.assertTrue(spec_file.is_file(), f"Missing clean-room spec packet: {spec_file}")
+
+        # 2. Surgically build wineusb.sys + test_wineusb_parity
+        res_build = subprocess.run(
+            [str(build_sh), "--dll", "wineusb.sys", "--test", "test_wineusb_parity"],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(res_build.returncode, 0, res_build.stdout + res_build.stderr)
+
+        # 3. Verify GREEN match against Windows Ground Truth (12 assertions)
+        res_green = subprocess.run(
+            [str(test_sh), "--dll", "wineusb.sys", "--test", "test_wineusb_parity"],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(
+            res_green.returncode,
+            0,
+            f"test_wineusb_parity failed:\n{res_green.stdout}\n{res_green.stderr}",
+        )
+        self.assertIn("MATCHED (0 discrepancies) [12 assertions]", res_green.stdout)
+
+        # 4. Surgically build winetest anti-regression suite
+        res_build_winetest = subprocess.run(
+            [str(build_sh), "--dll", "wineusb.sys", "--winetest"],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(res_build_winetest.returncode, 0, res_build_winetest.stdout + res_build_winetest.stderr)
+
+        # 5. Verify upstream winetest execution (53 assertions, 0 regressions, ASan/UBSan clean)
+        res_winetest = subprocess.run(
+            [str(test_sh), "--winetest", "--dll", "wineusb.sys"],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(
+            res_winetest.returncode,
+            0,
+            f"wineusb winetest failed:\n{res_winetest.stdout}\n{res_winetest.stderr}",
+        )
+        doc_winetest = json.loads(res_winetest.stdout)
+        self.assertTrue(doc_winetest["passed"])
+        self.assertEqual(doc_winetest["failures"], 0)
+        self.assertEqual(doc_winetest["regressions_vs_upstream"], 0)
+        self.assertTrue(doc_winetest["ab_comparison"]["asan_ubsan_passed"])
+
 
 if __name__ == "__main__":
     unittest.main()

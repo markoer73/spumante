@@ -153,6 +153,24 @@
       "required_conformance_tests": [
         "test_winegstreamer_macos"
       ]
+    },
+    "wineusb.sys": {
+      "upstream_path": "dlls/wineusb.sys",
+      "upstream_tests_path": "dlls/wineusb.sys/tests",
+      "base_upstream_commit": "wine-10.0-base",
+      "merge_strategy": "3-way-backport-preserving-macos-blocks",
+      "macos_acceleration": "IOKit (IOUSBDevice / IOUSBHostDevice) / libusb-1.0 dynamic bridge",
+      "tracked_files": [
+        "dlls/wineusb.sys/wineusb.h",
+        "dlls/wineusb.sys/unixlib.h",
+        "dlls/wineusb.sys/wineusb.sys.spec",
+        "dlls/wineusb.sys/wineusb.inf",
+        "dlls/wineusb.sys/unixlib.c",
+        "dlls/wineusb.sys/wineusb.c"
+      ],
+      "required_conformance_tests": [
+        "test_wineusb_parity"
+      ]
     }
   }
 }

@@ -1,0 +1,33 @@
+{
+  "dll": "wineusb.sys",
+  "api_name": "unix_usb_main_loop",
+  "header": "unixlib.h",
+  "ms_learn_url": "https://learn.microsoft.com/en-us/windows-hardware/drivers/usbcon/",
+  "signature": "NTSTATUS unix_usb_main_loop(void *args)",
+  "parameters": [
+    {
+      "name": "args",
+      "direction": "in",
+      "type": "struct usb_main_loop_params*",
+      "optional": false
+    }
+  ],
+  "return_codes": {
+    "STATUS_SUCCESS": "0x00000000",
+    "STATUS_PENDING": "0x00000103"
+  },
+  "empirical_windows_behavior": [
+    "Pumps USB events (USB_EVENT_ADD_DEVICE, USB_EVENT_REMOVE_DEVICE, USB_EVENT_TRANSFER_COMPLETE) to the Windows driver.",
+    "Returns STATUS_PENDING while events are queued, and STATUS_SUCCESS when thread shutdown is requested."
+  ],
+  "macos_backend_strategy": "Process IOKit notification run-loop events and dispatch USB_EVENT_ADD_DEVICE with macOS USB device descriptors.",
+  "clean_room_attestation": {
+    "sources": [
+      "Apple Developer IOKit USB notifications documentation",
+      "Public Wine dlls/wineusb.sys/unixlib.h declarations",
+      "Black-box Windows differential conformance observations"
+    ],
+    "no_leaked_source_exposure": true,
+    "no_proprietary_decompilation": true
+  }
+}

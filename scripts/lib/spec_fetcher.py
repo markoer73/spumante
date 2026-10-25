@@ -1191,6 +1191,123 @@ KNOWN_CLEAN_ROOM_SPECS: dict[str, dict[str, Any]] = {
             "no_proprietary_decompilation": True,
         },
     },
+    "wineusb:DriverEntry": {
+        "dll": "wineusb.sys",
+        "api_name": "DriverEntry",
+        "header": "wineusb.h",
+        "ms_learn_url": "https://learn.microsoft.com/en-us/windows-hardware/drivers/wdf/driverentry-for-kmdf-drivers",
+        "signature": "NTSTATUS WINAPI DriverEntry(DRIVER_OBJECT *driver, UNICODE_STRING *path)",
+        "parameters": [
+            {"name": "driver", "direction": "in", "type": "DRIVER_OBJECT*", "optional": False},
+            {"name": "path", "direction": "in", "type": "UNICODE_STRING*", "optional": False},
+        ],
+        "return_codes": {
+            "STATUS_SUCCESS": "0x00000000",
+            "STATUS_DLL_NOT_FOUND": "0xc0000135",
+            "STATUS_UNSUCCESSFUL": "0xc0000001",
+        },
+        "empirical_windows_behavior": [
+            "Initializes the wineusb WDM root bus driver, registers AddDevice, DriverUnload, IRP_MJ_PNP, and IRP_MJ_INTERNAL_DEVICE_CONTROL dispatchers.",
+            "Initializes Unix library via __wine_init_unix_call(); returns STATUS_SUCCESS when wineusb.so initializes, or STATUS_DLL_NOT_FOUND (0xc0000135) when Unix library fails to load.",
+            "Successful DriverEntry allows SetupDiInstallDevice to complete driver installation for ROOT\\WINE\\wineusb with exit code 0 (ERROR_SUCCESS), eliminating Win32 service start errors 126 (ERROR_MOD_NOT_FOUND) and 1062 (ERROR_SERVICE_NOT_ACTIVE).",
+        ],
+        "macos_backend_strategy": "Bind to macOS wineusb.so backed by native Darwin IOKit/IOUSBHost USB enumeration and dynamic libusb-1.0 loader.",
+        "clean_room_attestation": {
+            "sources": [
+                "Microsoft Learn WDM DriverEntry & USB bus driver architecture",
+                "Public Wine dlls/wineusb.sys/wineusb.c declarations",
+                "Black-box Windows 11 USB bus driver differential conformance observations",
+            ],
+            "no_leaked_source_exposure": True,
+            "no_proprietary_decompilation": True,
+        },
+    },
+    "wineusb:unix_usb_init": {
+        "dll": "wineusb.sys",
+        "api_name": "unix_usb_init",
+        "header": "unixlib.h",
+        "ms_learn_url": "https://learn.microsoft.com/en-us/windows-hardware/drivers/usbcon/",
+        "signature": "NTSTATUS unix_usb_init(void *args)",
+        "parameters": [
+            {"name": "args", "direction": "in_opt", "type": "void*", "optional": True},
+        ],
+        "return_codes": {
+            "STATUS_SUCCESS": "0x00000000",
+            "STATUS_UNSUCCESSFUL": "0xc0000001",
+        },
+        "empirical_windows_behavior": [
+            "Initializes the host USB discovery backend. On macOS, registers IOKit USB matching notifications and/or initializes dynamic libusb-1.0 context.",
+            "Returns STATUS_SUCCESS to ensure DriverEntry never fails with 0xc0000135 on macOS hosts.",
+        ],
+        "macos_backend_strategy": "Use macOS IOKit IOServiceAddMatchingNotification for IOUSBDevice/IOUSBHostDevice with dynamic libusb-1.0 bridge fallback.",
+        "clean_room_attestation": {
+            "sources": [
+                "Apple Developer IOKit Fundamentals and USB Device Access Guide",
+                "Public Wine dlls/wineusb.sys/unixlib.h declarations",
+                "Black-box Windows differential conformance observations",
+            ],
+            "no_leaked_source_exposure": True,
+            "no_proprietary_decompilation": True,
+        },
+    },
+    "wineusb:unix_usb_main_loop": {
+        "dll": "wineusb.sys",
+        "api_name": "unix_usb_main_loop",
+        "header": "unixlib.h",
+        "ms_learn_url": "https://learn.microsoft.com/en-us/windows-hardware/drivers/usbcon/",
+        "signature": "NTSTATUS unix_usb_main_loop(void *args)",
+        "parameters": [
+            {"name": "args", "direction": "in", "type": "struct usb_main_loop_params*", "optional": False},
+        ],
+        "return_codes": {
+            "STATUS_SUCCESS": "0x00000000",
+            "STATUS_PENDING": "0x00000103",
+        },
+        "empirical_windows_behavior": [
+            "Pumps USB events (USB_EVENT_ADD_DEVICE, USB_EVENT_REMOVE_DEVICE, USB_EVENT_TRANSFER_COMPLETE) to the Windows driver.",
+            "Returns STATUS_PENDING while events are queued, and STATUS_SUCCESS when thread shutdown is requested.",
+        ],
+        "macos_backend_strategy": "Process IOKit notification run-loop events and dispatch USB_EVENT_ADD_DEVICE with macOS USB device descriptors.",
+        "clean_room_attestation": {
+            "sources": [
+                "Apple Developer IOKit USB notifications documentation",
+                "Public Wine dlls/wineusb.sys/unixlib.h declarations",
+                "Black-box Windows differential conformance observations",
+            ],
+            "no_leaked_source_exposure": True,
+            "no_proprietary_decompilation": True,
+        },
+    },
+    "wineusb:unix_usb_submit_urb": {
+        "dll": "wineusb.sys",
+        "api_name": "unix_usb_submit_urb",
+        "header": "unixlib.h",
+        "ms_learn_url": "https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/usb/ns-usb-_urb",
+        "signature": "NTSTATUS unix_usb_submit_urb(void *args)",
+        "parameters": [
+            {"name": "args", "direction": "in", "type": "struct usb_submit_urb_params*", "optional": False},
+        ],
+        "return_codes": {
+            "STATUS_SUCCESS": "0x00000000",
+            "STATUS_PENDING": "0x00000103",
+            "STATUS_NOT_IMPLEMENTED": "0xc0000002",
+            "STATUS_INVALID_PARAMETER": "0xc000000d",
+        },
+        "empirical_windows_behavior": [
+            "Handles USB Request Blocks (URBs): GET_DESCRIPTOR_FROM_DEVICE, SELECT_CONFIGURATION, VENDOR/CLASS control requests, and BULK/INTERRUPT transfers.",
+            "Translates Windows URBs to macOS IOKit IOUSBDevRequest or libusb control/transfer submissions.",
+        ],
+        "macos_backend_strategy": "Submit control and data transfers via macOS IOUSBDeviceInterface / DeviceRequest or libusb-1.0.",
+        "clean_room_attestation": {
+            "sources": [
+                "Microsoft Learn USB Request Block (URB) specification",
+                "Apple Developer IOUSBDeviceInterface DeviceRequest documentation",
+                "Black-box Windows differential conformance observations",
+            ],
+            "no_leaked_source_exposure": True,
+            "no_proprietary_decompilation": True,
+        },
+    },
 }
 
 

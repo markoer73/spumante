@@ -52,7 +52,7 @@ Attempting to cover the entire Win32/NT surface simultaneously is impractical. D
 * **Conformance (`./scripts/test.sh --lint`):** Enforces WineHQ and repository coding conventions:
   * 4-space indentation, no tabs, pure C99/C11, classic `#ifndef` include guards (no `#pragma once`).
   * Wine debug logging (`TRACE`, `WARN`, `FIXME`, `ERR`; zero raw `printf`/`fprintf` in `dlls/`).
-  * Strict Markdown CommonMark/GFM compliance with escaped square brackets (`\[...\]`).
+  * Strict Markdown CommonMark/GFM compliance with inline-code bracketed badges (`` **`[...]`** ``).
 * **4-Gate Security Scanner (`./scripts/test.sh --security`):** Enforces read-only upstream guard (`DISABLE_PUSH_READ_ONLY_UPSTREAM`), zero external URLs in static skills, C/Python SAST, and Clang ASan+UBSan (`-fsanitize=address,undefined`) runtime checks.
 * **Surgical Regression Testing & CI:** Targeted per-DLL regression runs and GitHub Actions CI running on `macos-latest` (primary) and `ubuntu-latest` (secondary).
 

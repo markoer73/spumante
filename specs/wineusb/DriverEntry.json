@@ -1,0 +1,41 @@
+{
+  "dll": "wineusb.sys",
+  "api_name": "DriverEntry",
+  "header": "wineusb.h",
+  "ms_learn_url": "https://learn.microsoft.com/en-us/windows-hardware/drivers/wdf/driverentry-for-kmdf-drivers",
+  "signature": "NTSTATUS WINAPI DriverEntry(DRIVER_OBJECT *driver, UNICODE_STRING *path)",
+  "parameters": [
+    {
+      "name": "driver",
+      "direction": "in",
+      "type": "DRIVER_OBJECT*",
+      "optional": false
+    },
+    {
+      "name": "path",
+      "direction": "in",
+      "type": "UNICODE_STRING*",
+      "optional": false
+    }
+  ],
+  "return_codes": {
+    "STATUS_SUCCESS": "0x00000000",
+    "STATUS_DLL_NOT_FOUND": "0xc0000135",
+    "STATUS_UNSUCCESSFUL": "0xc0000001"
+  },
+  "empirical_windows_behavior": [
+    "Initializes the wineusb WDM root bus driver, registers AddDevice, DriverUnload, IRP_MJ_PNP, and IRP_MJ_INTERNAL_DEVICE_CONTROL dispatchers.",
+    "Initializes Unix library via __wine_init_unix_call(); returns STATUS_SUCCESS when wineusb.so initializes, or STATUS_DLL_NOT_FOUND (0xc0000135) when Unix library fails to load.",
+    "Successful DriverEntry allows SetupDiInstallDevice to complete driver installation for ROOT\\WINE\\wineusb with exit code 0 (ERROR_SUCCESS), eliminating Win32 service start errors 126 (ERROR_MOD_NOT_FOUND) and 1062 (ERROR_SERVICE_NOT_ACTIVE)."
+  ],
+  "macos_backend_strategy": "Bind to macOS wineusb.so backed by native Darwin IOKit/IOUSBHost USB enumeration and dynamic libusb-1.0 loader.",
+  "clean_room_attestation": {
+    "sources": [
+      "Microsoft Learn WDM DriverEntry & USB bus driver architecture",
+      "Public Wine dlls/wineusb.sys/wineusb.c declarations",
+      "Black-box Windows 11 USB bus driver differential conformance observations"
+    ],
+    "no_leaked_source_exposure": true,
+    "no_proprietary_decompilation": true
+  }
+}

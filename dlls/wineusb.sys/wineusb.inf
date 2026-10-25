@@ -1,0 +1,42 @@
+; Wine USB Bus Driver Installation File
+; Copyright 2026 Wine Parity Contributors
+
+[Version]
+Signature="$CHICAGO$"
+Class=USB
+ClassGUID={36fc9e60-c465-11cf-8056-444553540000}
+Provider=%Wine%
+DriverVer=10/25/2026,1.0.0.0
+
+[Manufacturer]
+%Wine%=WineDevices,NTx86,NTamd64,NTarm64
+
+[WineDevices.NTx86]
+%WineUSB.DeviceDesc%=WineUSB_Install,root\wineusb
+
+[WineDevices.NTamd64]
+%WineUSB.DeviceDesc%=WineUSB_Install,root\wineusb
+
+[WineDevices.NTarm64]
+%WineUSB.DeviceDesc%=WineUSB_Install,root\wineusb
+
+[WineUSB_Install.NT]
+CopyFiles=WineUSB_CopyFiles
+
+[WineUSB_CopyFiles]
+wineusb.sys
+
+[WineUSB_Install.NT.Services]
+AddService=wineusb,0x00000002,WineUSB_Service_Install
+
+[WineUSB_Service_Install]
+DisplayName=%WineUSB.ServiceDesc%
+ServiceType=1
+StartType=3
+ErrorControl=1
+ServiceBinary=%12%\wineusb.sys
+
+[Strings]
+Wine="Wine Parity Project"
+WineUSB.DeviceDesc="Wine USB Bus Driver"
+WineUSB.ServiceDesc="Wine USB Root Bus Service"

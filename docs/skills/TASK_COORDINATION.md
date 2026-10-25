@@ -35,16 +35,16 @@ The `docs/` directory coordinates work between AI assistants (Antigravity, Gemin
 - Tasks use standard GitHub Flavored Markdown (GFM) task list items: `- [ ] ` for pending tasks, and `- [x] ` for completed tasks.
 - **Claiming a Task (WIP Badge)**: When starting implementation, keep the `- [ ] ` checkbox and append an escaped agent WIP badge:
   ```markdown
-  - [ ] Implement bcrypt BCryptGenerateSymmetricKey stub **\[ANTIGRAVITY-WIP 2026-10-14\]**
+  - [ ] Implement bcrypt BCryptGenerateSymmetricKey stub **`[ANTIGRAVITY-WIP 2026-10-14]`**
   ```
 - **Completing a Task**: When finished and verified with passing tests, update the checkbox to `- [x] ` and append the completion badge:
   ```markdown
-  - [x] Implement bcrypt BCryptGenerateSymmetricKey stub **\[ANTIGRAVITY-COMPLETED 2026-10-14: verified against Windows VM test harness with 18 assertions\]**
+  - [x] Implement bcrypt BCryptGenerateSymmetricKey stub **`[ANTIGRAVITY-COMPLETED 2026-10-14: verified against Windows VM test harness with 18 assertions]`**
   ```
 - **Markdown Specification Compliance & Square Bracket Escaping**:
   - All markdown files must strictly conform to CommonMark / GFM specifications.
   - In Markdown, unescaped square brackets `[text]` outside code blocks are parsed as link reference shortcuts. Unless defined, parsers and linters issue errors (`No link definition found`).
-  - Therefore, agents **MUST escape square brackets (`\[` and `\]`)** whenever they appear in agent badges (`\[AGENT-WIP\]`, `\[AGENT-COMPLETED\]`), tags, status markers, or array indices (`array\[0\]`), or enclose them in inline backticks (`` `[...]` ``). Unescaped brackets are permitted only for standard links (`[text](url)`), defined reference links, and initial GFM task checkboxes (`- [ ] ` / `- [x] `).
+  - Therefore, agents **MUST wrap bracketed badges, tags, status markers, and array indices in inline code backticks** (`` **`[AGENT-WIP]`** ``, `` **`[AGENT-COMPLETED]`** ``, `` `array[0]` ``) and never use backslash-escaped brackets (`\` + `[` triggers KaTeX display-math mode in the Antigravity preview). Unescaped brackets are permitted only for standard links (`[text](url)`), defined reference links, and initial GFM task checkboxes (`- [ ] ` / `- [x] `).
 
 ---
 
@@ -53,8 +53,8 @@ The `docs/` directory coordinates work between AI assistants (Antigravity, Gemin
 - Detailed step-by-step log of actions, findings, test outputs, and completion summaries.
 - Entries MUST use escaped square brackets:
   ```markdown
-  - **\[ANTIGRAVITY-WIP 2026-10-14\]** - Synthesizing differential test for BCryptGenerateSymmetricKey with invalid buffer pointers
-  - **\[ANTIGRAVITY-COMPLETED 2026-10-14\]** - BCryptGenerateSymmetricKey returns STATUS_INVALID_PARAMETER under Windows 11; Wine implementation updated
+  - **`[ANTIGRAVITY-WIP 2026-10-14]`** - Synthesizing differential test for BCryptGenerateSymmetricKey with invalid buffer pointers
+  - **`[ANTIGRAVITY-COMPLETED 2026-10-14]`** - BCryptGenerateSymmetricKey returns STATUS_INVALID_PARAMETER under Windows 11; Wine implementation updated
   ```
 - Always document:
   1. What was attempted.
@@ -70,11 +70,11 @@ The `docs/` directory coordinates work between AI assistants (Antigravity, Gemin
 
 ## High Priority Tasks
 
-- [ ] Add WinRM execution bridge for Windows VM **\[GEMINI-WIP 2026-10-14\]**
-- [x] Create differential test harness schema **\[CLAUDE-COMPLETED 2026-10-14: defined JSON output structure\]**
+- [ ] Add WinRM execution bridge for Windows VM **`[GEMINI-WIP 2026-10-14]`**
+- [x] Create differential test harness schema **`[CLAUDE-COMPLETED 2026-10-14: defined JSON output structure]`**
 
 # TASK_LOG.md
 
-- **\[GEMINI-WIP 2026-10-14\]** - Configuring WinRM HTTPS listener inside headless Windows 11 VM
-- **\[CLAUDE-COMPLETED 2026-10-14\]** - Created JSON schema for comparing Wine vs Windows test outputs
+- **`[GEMINI-WIP 2026-10-14]`** - Configuring WinRM HTTPS listener inside headless Windows 11 VM
+- **`[CLAUDE-COMPLETED 2026-10-14]`** - Created JSON schema for comparing Wine vs Windows test outputs
 ```

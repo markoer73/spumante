@@ -58,9 +58,7 @@ def lint_markdown_files() -> list[str]:
     unescaped_badge_re = re.compile(
         r"(?<!\\)\[(?:ANTIGRAVITY|GEMINI|CLAUDE|CODEX|OPENCODE|AGENT)-(?:WIP|COMPLETED)[^\]]*\]"
     )
-    katex_hazard_re = re.compile(
-        r"\\\[(?:ANTIGRAVITY|GEMINI|CLAUDE|CODEX|OPENCODE|AGENT)-(?:WIP|COMPLETED)[^\]]*[#&%$][^\]]*\\\]"
-    )
+    katex_bracket_re = re.compile(r"\\[\[\]]")
 
     for md_path in sorted(REPO_ROOT.rglob("*.md")):
         if ".git" in md_path.parts or "builds" in md_path.parts or ".wine-upstream" in md_path.parts:
@@ -75,15 +73,15 @@ def lint_markdown_files() -> list[str]:
                 continue
             if in_fence:
                 continue
-            # Remove inline code spans before checking badges
-            no_inline = re.sub(r"`[^`]*`", "", line)
+            # Remove inline code spans before checking badges and KaTeX delimiters
+            no_inline = re.sub(r"``.*?``|`[^`]*`", "", line)
             if unescaped_badge_re.search(no_inline):
                 errors.append(
-                    f"{rel}:{idx}: Unescaped opening square bracket in agent badge (use \\[...])"
+                    f"{rel}:{idx}: Unwrapped square bracket in agent badge (use **`[AGENT-...]`**)"
                 )
-            if katex_hazard_re.search(no_inline):
+            if katex_bracket_re.search(no_inline):
                 errors.append(
-                    f"{rel}:{idx}: KaTeX math collision in \\[...\\] badge containing #/&/%/$ (use \\[...] without closing backslash)"
+                    f"{rel}:{idx}: KaTeX display-math delimiter \\[ or \\] outside code span (use **`[AGENT-...]`** instead)"
                 )
     return errors
 

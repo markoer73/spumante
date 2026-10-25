@@ -1,0 +1,140 @@
+{
+  "dll": "wineusb.sys",
+  "test_name": "test_wineusb_parity",
+  "architecture": "x86_64",
+  "environment": "windows_vm",
+  "assertions": [
+    {
+      "id": "wineusb_driver_entry_init",
+      "case": "WineUsb_DriverEntry_Init",
+      "api": "DriverEntry",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 1,
+      "buffer_hex": "00000000010000000100000001000000",
+      "handle_valid": true
+    },
+    {
+      "id": "wineusb_add_device_bus_fdo",
+      "case": "WineUsb_AddDevice_BusFdo",
+      "api": "driver_add_device",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 1,
+      "buffer_hex": "000000002a0000000100000001000000",
+      "handle_valid": true
+    },
+    {
+      "id": "wineusb_start_device_main_loop",
+      "case": "WineUsb_StartDevice_MainLoop",
+      "api": "WineUsbSimulatePnpStart",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 1,
+      "buffer_hex": "00000000010000000100000001000000",
+      "handle_valid": true
+    },
+    {
+      "id": "wineusb_query_bus_relations",
+      "case": "WineUsb_Query_BusRelations",
+      "api": "WineUsbSimulateQueryRelations",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 1,
+      "buffer_hex": "00000000010000000100000001000000",
+      "handle_valid": true
+    },
+    {
+      "id": "wineusb_query_device_id_root_hub",
+      "case": "WineUsb_Query_DeviceIdRootHub",
+      "api": "WineUsbSimulateQueryId",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 12,
+      "buffer_hex": "0000000001000000010000000c000000",
+      "handle_valid": true
+    },
+    {
+      "id": "wineusb_query_hardware_ids",
+      "case": "WineUsb_Query_HardwareIds",
+      "api": "WineUsbSimulateQueryId",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 35,
+      "buffer_hex": "00000000010000000100000023000000",
+      "handle_valid": true
+    },
+    {
+      "id": "wineusb_query_compatible_ids",
+      "case": "WineUsb_Query_CompatibleIds",
+      "api": "WineUsbSimulateQueryId",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 17,
+      "buffer_hex": "00000000010000000100000011000000",
+      "handle_valid": true
+    },
+    {
+      "id": "wineusb_submit_urb_get_descriptor",
+      "case": "WineUsb_SubmitUrb_GetDescriptor",
+      "api": "WineUsbSimulateSubmitUrb",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 18,
+      "buffer_hex": "00000000010000000100000001000000",
+      "handle_valid": true
+    },
+    {
+      "id": "wineusb_submit_urb_select_configuration",
+      "case": "WineUsb_SubmitUrb_SelectConfiguration",
+      "api": "WineUsbSimulateSubmitUrb",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 1,
+      "buffer_hex": "00000000010000000100000001000000",
+      "handle_valid": true
+    },
+    {
+      "id": "wineusb_submit_urb_vendor_or_class_request",
+      "case": "WineUsb_SubmitUrb_VendorOrClassRequest",
+      "api": "WineUsbSimulateSubmitUrb",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 1,
+      "buffer_hex": "00000000010000000100000001000000",
+      "handle_valid": true
+    },
+    {
+      "id": "wineusb_invalid_urb_function_error",
+      "case": "WineUsb_InvalidUrbFunction_Error",
+      "api": "WineUsbSimulateSubmitUrb",
+      "comparison_mode": "exact",
+      "status": "0xc0000002",
+      "last_error": 0,
+      "out_length": 0,
+      "buffer_hex": "020000c0010000000100000000000000",
+      "handle_valid": true
+    },
+    {
+      "id": "wineusb_setupdi_service_install_success",
+      "case": "WineUsb_SetupDi_ServiceInstallSuccess",
+      "api": "WineUsbSimulateSetupDiInstall",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 0,
+      "buffer_hex": "00000000010000000100000000000000",
+      "handle_valid": true
+    }
+  ]
+}

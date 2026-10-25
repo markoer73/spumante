@@ -29,6 +29,8 @@ SPEC_EXPORT_RE = re.compile(r"^\s*(?:@|\d+)\s+(?:stdcall|cdecl|varargs|extern)\b
 
 def inspect_upstream_winetest_catalog(dll: str) -> dict[str, Any]:
     """Compare local dlls/<dll> against .wine-upstream/dlls/<dll> when available on disk."""
+    if dll == "wineusb" and (REPO_ROOT / "dlls" / "wineusb.sys").is_dir():
+        dll = "wineusb.sys"
     manifest = load_manifest()
     sparse_cache = REPO_ROOT / manifest.get("local_sparse_cache", ".wine-upstream")
     dll_meta = manifest.get("borrowed_dlls", {}).get(dll, {})
@@ -66,6 +68,8 @@ def inspect_upstream_winetest_catalog(dll: str) -> dict[str, Any]:
 
 def build_winetest(dll: str, arch: str = "x86_64") -> dict[str, Any]:
     """Surgically compile the upstream winetest anti-regression binary (host, ASan+UBSan, and MinGW PE)."""
+    if dll == "wineusb" and (REPO_ROOT / "dlls" / "wineusb.sys").is_dir():
+        dll = "wineusb.sys"
     dll_dir = REPO_ROOT / "dlls" / dll
     winetest_c = REPO_ROOT / "tests" / "winetest" / dll / f"winetest_{dll}.c"
     if not dll_dir.is_dir():
@@ -113,6 +117,8 @@ def build_winetest(dll: str, arch: str = "x86_64") -> dict[str, Any]:
             "CoreAudio",
             "-framework",
             "Metal",
+            "-framework",
+            "IOKit",
             "-lobjc",
             "-pthread",
         ]
@@ -242,6 +248,8 @@ def run_winetest_and_ab(
     subtest_filter: str | None = None,
 ) -> tuple[int, dict[str, Any]]:
     """Run upstream winetest suite against baseline & wine-parity + ASan/UBSan and compare A/B results."""
+    if dll == "wineusb" and (REPO_ROOT / "dlls" / "wineusb.sys").is_dir():
+        dll = "wineusb.sys"
     build_dir = REPO_ROOT / "builds" / arch / dll
     winetest_bin = build_dir / f"winetest_{dll}.bin"
     winetest_asan = build_dir / f"winetest_{dll}_asan.bin"

@@ -1,0 +1,33 @@
+{
+  "dll": "wineusb.sys",
+  "api_name": "unix_usb_init",
+  "header": "unixlib.h",
+  "ms_learn_url": "https://learn.microsoft.com/en-us/windows-hardware/drivers/usbcon/",
+  "signature": "NTSTATUS unix_usb_init(void *args)",
+  "parameters": [
+    {
+      "name": "args",
+      "direction": "in_opt",
+      "type": "void*",
+      "optional": true
+    }
+  ],
+  "return_codes": {
+    "STATUS_SUCCESS": "0x00000000",
+    "STATUS_UNSUCCESSFUL": "0xc0000001"
+  },
+  "empirical_windows_behavior": [
+    "Initializes the host USB discovery backend. On macOS, registers IOKit USB matching notifications and/or initializes dynamic libusb-1.0 context.",
+    "Returns STATUS_SUCCESS to ensure DriverEntry never fails with 0xc0000135 on macOS hosts."
+  ],
+  "macos_backend_strategy": "Use macOS IOKit IOServiceAddMatchingNotification for IOUSBDevice/IOUSBHostDevice with dynamic libusb-1.0 bridge fallback.",
+  "clean_room_attestation": {
+    "sources": [
+      "Apple Developer IOKit Fundamentals and USB Device Access Guide",
+      "Public Wine dlls/wineusb.sys/unixlib.h declarations",
+      "Black-box Windows differential conformance observations"
+    ],
+    "no_leaked_source_exposure": true,
+    "no_proprietary_decompilation": true
+  }
+}

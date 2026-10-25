@@ -52,6 +52,8 @@ def surgical_build(
     export_patch: bool = False,
 ) -> dict[str, Any]:
     """Surgically build ONLY the specified Wine DLL and/or single conformance test."""
+    if dll == "wineusb" and (REPO_ROOT / "dlls" / "wineusb.sys").is_dir():
+        dll = "wineusb.sys"
     dll_dir = REPO_ROOT / "dlls" / dll
     if not dll_dir.is_dir():
         raise FileNotFoundError(f"Target DLL directory not found: {dll_dir}")
@@ -101,6 +103,8 @@ def surgical_build(
             "CoreAudio",
             "-framework",
             "Metal",
+            "-framework",
+            "IOKit",
             "-lobjc",
             "-pthread",
         ]
@@ -169,6 +173,8 @@ def surgical_build(
     # 2. Surgically compile ONLY the requested single conformance test binary
     if test_name:
         test_c = REPO_ROOT / "tests" / "conformance" / dll / f"{test_name}.c"
+        if not test_c.is_file() and dll.endswith(".sys"):
+            test_c = REPO_ROOT / "tests" / "conformance" / dll[:-4] / f"{test_name}.c"
         if not test_c.is_file():
             raise FileNotFoundError(f"Conformance test source not found: {test_c}")
         test_deps = [*dep_paths, test_c]
@@ -242,6 +248,8 @@ def run_differential_test(
     simulate_stub: bool = False,
 ) -> tuple[int, dict[str, Any]]:
     """Execute a single conformance test in an isolated prefix and compare with Ground Truth."""
+    if dll == "wineusb" and (REPO_ROOT / "dlls" / "wineusb.sys").is_dir():
+        dll = "wineusb.sys"
     build_dir = REPO_ROOT / "builds" / arch / dll
     test_bin = build_dir / f"{test_name}.bin"
     if not test_bin.is_file():
@@ -249,6 +257,8 @@ def run_differential_test(
 
     # 1. Obtain Windows Ground-Truth JSON (Live VM via VirtIO serial qemu-ga if requested & online, else cached fixture)
     gt_path = REPO_ROOT / "tests" / "ground_truth" / dll / f"{test_name}.json"
+    if not gt_path.is_file() and dll.endswith(".sys"):
+        gt_path = REPO_ROOT / "tests" / "ground_truth" / dll[:-4] / f"{test_name}.json"
     windows_doc: dict[str, Any] | None = None
 
     if live_vm and DEFAULT_QGA_SOCK.exists():

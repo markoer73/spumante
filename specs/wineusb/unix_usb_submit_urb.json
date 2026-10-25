@@ -1,0 +1,35 @@
+{
+  "dll": "wineusb.sys",
+  "api_name": "unix_usb_submit_urb",
+  "header": "unixlib.h",
+  "ms_learn_url": "https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/usb/ns-usb-_urb",
+  "signature": "NTSTATUS unix_usb_submit_urb(void *args)",
+  "parameters": [
+    {
+      "name": "args",
+      "direction": "in",
+      "type": "struct usb_submit_urb_params*",
+      "optional": false
+    }
+  ],
+  "return_codes": {
+    "STATUS_SUCCESS": "0x00000000",
+    "STATUS_PENDING": "0x00000103",
+    "STATUS_NOT_IMPLEMENTED": "0xc0000002",
+    "STATUS_INVALID_PARAMETER": "0xc000000d"
+  },
+  "empirical_windows_behavior": [
+    "Handles USB Request Blocks (URBs): GET_DESCRIPTOR_FROM_DEVICE, SELECT_CONFIGURATION, VENDOR/CLASS control requests, and BULK/INTERRUPT transfers.",
+    "Translates Windows URBs to macOS IOKit IOUSBDevRequest or libusb control/transfer submissions."
+  ],
+  "macos_backend_strategy": "Submit control and data transfers via macOS IOUSBDeviceInterface / DeviceRequest or libusb-1.0.",
+  "clean_room_attestation": {
+    "sources": [
+      "Microsoft Learn USB Request Block (URB) specification",
+      "Apple Developer IOUSBDeviceInterface DeviceRequest documentation",
+      "Black-box Windows differential conformance observations"
+    ],
+    "no_leaked_source_exposure": true,
+    "no_proprietary_decompilation": true
+  }
+}

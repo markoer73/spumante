@@ -108,6 +108,11 @@ All host/VM orchestration, compilation, differential testing, stub discovery, an
 ./scripts/test.sh --dll d2d1 --test test_d2d1_msl_parity
 ./scripts/test.sh --winetest --dll d2d1
 
+# 9. Build & verify macOS IOKit USB enumeration, libusb-1.0 & SetupDi service install in wineusb.sys
+./scripts/build.sh --dll wineusb.sys --test test_wineusb_parity
+./scripts/test.sh --dll wineusb.sys --test test_wineusb_parity
+./scripts/test.sh --winetest --dll wineusb.sys
+
 # 5. Discover & rank unimplemented stubs across Wine DLLs
 ./scripts/test.sh --discover-stubs --dll bcrypt
 
