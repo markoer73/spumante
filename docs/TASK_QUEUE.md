@@ -3,6 +3,7 @@
 This queue coordinates tasks between AI assistants (Antigravity, Gemini, Claude, Codex, OpenCode, Cline) and human developers.
 
 > **Rules:**
+>
 > 1. Mark in-progress tasks as **`[AGENT-WIP YYYY-MM-DD]`** (wrapping the bracketed badge in inline code backticks so CommonMark link parsing and KaTeX display-math mode are both avoided).
 > 2. Mark completed tasks as `- [x]` with **`[AGENT-COMPLETED YYYY-MM-DD: <summary>]`**.
 > 3. Concurrently update `docs/TASK_LOG.md` and remove completed tasks from `docs/TASK_LEFT_SUMMARY.md`.

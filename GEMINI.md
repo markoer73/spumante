@@ -3,7 +3,7 @@
 This document is the canonical, succinct specification of repository behavior, architectural policies, coding standards, and workflow conventions for all AI assistants (Antigravity, Gemini, Claude, Codex/OpenAI, OpenCode, Cline) and human contributors.
 
 > [!IMPORTANT]
-> All agent configuration entrypoints (`AGENTS.md`, `GEMINI.md`, `CLAUDE.md`, `CODEX.md`, `.clinerules`, `.cursorrules`) are unified symlinks to this file. Detailed subsystem guides are referenced in [Section 10](#10-deep-dive-reference-index).
+> All agent configuration entrypoints (`AGENTS.md`, `GEMINI.md`, `CLAUDE.md`, `CODEX.md`, `.clinerules`, `.cursorrules`) are unified symlinks to this file. Detailed subsystem guides are referenced in [Section 8](#8-deep-dive-reference-index).
 
 ---
 
@@ -69,7 +69,7 @@ Every AI assistant (Antigravity, Gemini, Claude, Codex, OpenCode, Cline) MUST co
 ## 1. Mission & Non-Negotiable Legal Invariants
 
 - **Goal**: Achieve verifiable feature and user experience (UX) parity between Wine and modern Windows APIs through closed-loop automated testing and clean-room implementation.
-- **Black-Box Behavioral Reproduction (Not Reverse Engineering)**: 
+- **Black-Box Behavioral Reproduction (Not Reverse Engineering)**:
   - AI coding agents are explicitly tasked with reproducing user experience, observable runtime semantics, and feature/UX parity. Agents are never tasked with reverse engineering Windows internals.
   - Strictly **zero** exposure to leaked Windows source code (Windows Research Kernel, leaked NT/2000/XP trees) or proprietary decompilations (IDA Pro, Ghidra).
   - Implementations must derive exclusively from public specifications (Microsoft Learn / MSDN), public Wine headers, and black-box differential test behavior observed on genuine Windows VMs.

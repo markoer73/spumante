@@ -7,6 +7,7 @@ This document defines the architectural principles, subsystem boundaries, and cl
 ## 1. Core Architectural Pillars
 
 ### Pillar 1: Clean-Room Reverse Engineering & Legal Hygiene
+
 - **Strict Invariant:** Zero exposure to leaked Microsoft source code (WRK, Windows 2000/XP leaked archives) or decompiled proprietary binaries (via IDA Pro, Ghidra, etc.).
 - **Specification Source:** Implementations must derive strictly from:
   1. Public Microsoft Learn / MSDN documentation.
@@ -14,15 +15,18 @@ This document defines the architectural principles, subsystem boundaries, and cl
   3. Empirical differential behavior observed on genuine Windows VMs.
 
 ### Pillar 2: Generic Subsystem Fidelity (No Title-Specific Hacks)
+
 - Subsystem implementations must solve generic operating system and library behavior.
 - **Strict Invariant:** Never introduce application-specific branches, executable name checks (e.g. `if (strstr(cmdline, "app.exe"))`), or checksum detection to bypass bugs. If an application fails, identify and fix the underlying missing API behavior or error code.
 
 ### Pillar 3: Strict Separation of Harness and Target
+
 - **Harness & Centralized Script Layer (`scripts/build.sh`, `scripts/launch.sh`, `scripts/stop.sh`, `scripts/test.sh`, and `scripts/lib/`):** Orchestrates virtual machines (QEMU `hvf`/`tcg` on macOS, `kvm` on Linux), transmits test binaries via VirtIO serial `qemu-ga`, manages QMP `loadvm` snapshots, caches Ground-Truth JSON traces, compiles single target tests/DLLs surgically, and computes field-level differential diffs.
 - **Target Layer (`dlls/`, `patches/`, `wine/`):** The actual Wine compatibility code being developed, tested, and patched (prioritizing macOS native frameworks under `#ifdef __APPLE__` first, and Linux `#ifdef __linux__` second).
 - The target layer must never contain dependencies on the test harness.
 
 ### Pillar 4: Centralized Parametrized Scripts & Surgical Single-Target Execution
+
 - All developer and AI agent workflows operate exclusively through four canonical shell entrypoints in `scripts/`:
   1. `scripts/build.sh` (`--dll`, `--test`, `--arch x86_64|arm64`, `--export-patch`, `--all`)
   2. `scripts/launch.sh` (`--arch arm64|x86_64`, `--snapshot clean_ready`, `--status`, `--verify`)
@@ -36,7 +40,7 @@ This document defines the architectural principles, subsystem boundaries, and cl
 
 Understanding where code belongs is critical to avoid architectural corruption:
 
-```
+```text
   ┌────────────────────────────────────────────────────────┐
   │                   Windows Application                  │
   └───────────────────────────┬────────────────────────────┘
