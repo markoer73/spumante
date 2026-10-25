@@ -1,0 +1,42 @@
+{
+  "dll": "winebth.sys",
+  "api_name": "DriverEntry",
+  "header": "winebth.h",
+  "ms_learn_url": "https://learn.microsoft.com/en-us/windows-hardware/drivers/bluetooth/bluetooth-driver-stack",
+  "signature": "NTSTATUS WINAPI DriverEntry(DRIVER_OBJECT *driver, UNICODE_STRING *path)",
+  "parameters": [
+    {
+      "name": "driver",
+      "direction": "in",
+      "type": "DRIVER_OBJECT*",
+      "optional": false
+    },
+    {
+      "name": "path",
+      "direction": "in",
+      "type": "UNICODE_STRING*",
+      "optional": true
+    }
+  ],
+  "return_codes": {
+    "STATUS_SUCCESS": "0x00000000",
+    "STATUS_INTERNAL_ERROR": "0xc00000e5",
+    "STATUS_INVALID_PARAMETER": "0xc000000d"
+  },
+  "empirical_windows_behavior": [
+    "Initializes the winebth Bluetooth bus driver and creates the \\Device\\WINEBTHAUTH control device.",
+    "Initializes the Unix Bluetooth subsystem via __wine_init_unix_call() and unix_bluetooth_init.",
+    "Returns STATUS_SUCCESS when Bluetooth subsystem is active, eliminating ZwLoadDriver error 0xc00000e5.",
+    "Successful DriverEntry allows SetupDiInstallDevice to complete root\\winebth installation with exit code 0 (ERROR_SUCCESS), eliminating Win32 service errors 1359 (ERROR_INTERNAL_ERROR) and 1062 (ERROR_SERVICE_NOT_ACTIVE)."
+  ],
+  "macos_backend_strategy": "Bind to macOS winebth.so backed by native Darwin IOBluetooth HostController and CoreBluetooth.",
+  "clean_room_attestation": {
+    "sources": [
+      "Microsoft Learn Bluetooth Driver Stack Documentation",
+      "Apple Developer IOBluetooth / IOBluetoothHostController documentation",
+      "Public Wine dlls/winebth.sys/winebth.c declarations"
+    ],
+    "no_leaked_source_exposure": true,
+    "no_proprietary_decompilation": true
+  }
+}

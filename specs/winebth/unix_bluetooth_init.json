@@ -1,0 +1,33 @@
+{
+  "dll": "winebth.sys",
+  "api_name": "unix_bluetooth_init",
+  "header": "unixlib.h",
+  "ms_learn_url": "https://learn.microsoft.com/en-us/windows-hardware/drivers/bluetooth/bluetooth-architecture",
+  "signature": "NTSTATUS unix_bluetooth_init(void *params)",
+  "parameters": [
+    {
+      "name": "params",
+      "direction": "in",
+      "type": "void*",
+      "optional": true
+    }
+  ],
+  "return_codes": {
+    "STATUS_SUCCESS": "0x00000000",
+    "STATUS_INTERNAL_ERROR": "0xc00000e5"
+  },
+  "empirical_windows_behavior": [
+    "Initializes the host Bluetooth controller and adapter monitor.",
+    "On macOS, queries IOBluetoothHostController defaultController or establishes fallback virtual radio adapter.",
+    "Returns STATUS_SUCCESS instead of Linux-only D-Bus STATUS_INTERNAL_ERROR (0xc00000e5)."
+  ],
+  "macos_backend_strategy": "Query Darwin IOBluetoothHostController and CoreBluetooth central manager.",
+  "clean_room_attestation": {
+    "sources": [
+      "Apple Developer IOBluetooth framework reference",
+      "Public Wine dlls/winebth.sys/unixlib.h declarations"
+    ],
+    "no_leaked_source_exposure": true,
+    "no_proprietary_decompilation": true
+  }
+}

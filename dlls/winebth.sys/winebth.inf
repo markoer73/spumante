@@ -1,0 +1,44 @@
+; Wine Bluetooth Bus Driver Installation File
+; Copyright 2026 Wine Parity Contributors
+
+[Version]
+Signature="$CHICAGO$"
+ClassGuid={4d36e97d-e325-11ce-bfc1-08002be10318}
+Class=System
+Provider=%Wine%
+DriverVer=10/25/2026,1.0.0.0
+
+[Manufacturer]
+%Wine%=WineDevices,NTx86,NTamd64,NTarm64
+
+[WineDevices.NTx86]
+%WineBTH.DeviceDesc%=WineBTH_Install,root\winebth
+
+[WineDevices.NTamd64]
+%WineBTH.DeviceDesc%=WineBTH_Install,root\winebth
+
+[WineDevices.NTarm64]
+%WineBTH.DeviceDesc%=WineBTH_Install,root\winebth
+
+[WineBTH_Install.NT]
+CopyFiles=WineBTH_CopyFiles
+
+[WineBTH_CopyFiles]
+winebth.sys
+
+[WineBTH_Install.NT.Services]
+AddService=winebth,0x00000002,WineBTH_Service_Install
+
+[WineBTH_Service_Install]
+DisplayName=%WineBTH.ServiceDesc%
+Description=%WineBTH.ServiceDesc%
+ServiceType=1
+StartType=3
+ErrorControl=1
+ServiceBinary=%12%\winebth.sys
+LoadOrderGroup=WinePlugPlay
+
+[Strings]
+Wine="Wine Parity Project"
+WineBTH.DeviceDesc="Wine Bluetooth Bus Driver"
+WineBTH.ServiceDesc="Wine Bluetooth Bus Service"

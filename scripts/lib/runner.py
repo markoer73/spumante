@@ -54,6 +54,8 @@ def surgical_build(
     """Surgically build ONLY the specified Wine DLL and/or single conformance test."""
     if dll == "wineusb" and (REPO_ROOT / "dlls" / "wineusb.sys").is_dir():
         dll = "wineusb.sys"
+    if dll == "winebth" and (REPO_ROOT / "dlls" / "winebth.sys").is_dir():
+        dll = "winebth.sys"
     dll_dir = REPO_ROOT / "dlls" / dll
     if not dll_dir.is_dir():
         raise FileNotFoundError(f"Target DLL directory not found: {dll_dir}")
@@ -105,6 +107,10 @@ def surgical_build(
             "Metal",
             "-framework",
             "IOKit",
+            "-framework",
+            "IOBluetooth",
+            "-framework",
+            "CoreBluetooth",
             "-lobjc",
             "-pthread",
         ]
@@ -250,6 +256,8 @@ def run_differential_test(
     """Execute a single conformance test in an isolated prefix and compare with Ground Truth."""
     if dll == "wineusb" and (REPO_ROOT / "dlls" / "wineusb.sys").is_dir():
         dll = "wineusb.sys"
+    if dll == "winebth" and (REPO_ROOT / "dlls" / "winebth.sys").is_dir():
+        dll = "winebth.sys"
     build_dir = REPO_ROOT / "builds" / arch / dll
     test_bin = build_dir / f"{test_name}.bin"
     if not test_bin.is_file():

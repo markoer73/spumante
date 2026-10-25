@@ -8,7 +8,6 @@ Executive summary of all remaining open tasks in `docs/TASK_QUEUE.md`.
 
 ## Remaining Open Tasks
 
-- [ ] Borrow and implement a macOS `IOBluetooth`/`CoreBluetooth` backend for `dlls/winebth.sys` (`winebth.so` replacing the Linux-only D-Bus/BlueZ backend on Darwin) to eliminate `err:ntoskrnl:ZwLoadDriver ... winebth: c00000e5` and `SetupDiInstallDevice` service errors `1359`/`1062` for `ROOT\WINE\winebth`
 - [ ] Fix `ole32`/`rpcrt4`/`services.exe` `RpcSs` startup synchronization, `IID_IServiceProvider` (`{6d5140c1-7436-11ce-8034-00aa006009fa}`) proxy/stub interface marshaling (`StdMarshalImpl_MarshalInterface` / `CoMarshalInterface` / `apartment_get_local_server_stream` `hr 0x80004002`), and `scmdatabase_autostart_services` shutdown ordering (`MountMgr` timeout `1053` and `PlugPlay`/`Eventlog`/`nsiproxy`/`NDIS`/`winebus`/`wineusb`/`winebth` shutdown race `1115`) during `wineboot --init`
 - [ ] Fix `ntdll` activation context WinSxS manifest resolution (`parse_depend_manifests`) and `wine-install-*` manifest packaging so dependent assembly `Microsoft.Windows.Common-Controls` (`6.0.0.0`) resolves cleanly during `wineboot --init`
 - [ ] Borrow and implement `SP_COPY_NOOVERWRITE` (`0x10`) file copy style handling in `dlls/setupapi` (`do_file_copyW`) to eliminate `err:setupapi:do_file_copyW Unsupported style(s) 0x10` during prefix initialization

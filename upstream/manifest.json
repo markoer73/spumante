@@ -171,6 +171,24 @@
       "required_conformance_tests": [
         "test_wineusb_parity"
       ]
+    },
+    "winebth.sys": {
+      "upstream_path": "dlls/winebth.sys",
+      "upstream_tests_path": "dlls/winebth.sys/tests",
+      "base_upstream_commit": "wine-10.0-base",
+      "merge_strategy": "3-way-backport-preserving-macos-blocks",
+      "macos_acceleration": "IOBluetooth (IOBluetoothHCIController / IOBluetoothDevice) / CoreBluetooth",
+      "tracked_files": [
+        "dlls/winebth.sys/winebth.h",
+        "dlls/winebth.sys/unixlib.h",
+        "dlls/winebth.sys/winebth.sys.spec",
+        "dlls/winebth.sys/winebth.inf",
+        "dlls/winebth.sys/unixlib.c",
+        "dlls/winebth.sys/winebth.c"
+      ],
+      "required_conformance_tests": [
+        "test_winebth_parity"
+      ]
     }
   }
 }

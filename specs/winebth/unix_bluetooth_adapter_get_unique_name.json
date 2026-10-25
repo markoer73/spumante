@@ -1,0 +1,31 @@
+{
+  "dll": "winebth.sys",
+  "api_name": "unix_bluetooth_adapter_get_unique_name",
+  "header": "unixlib.h",
+  "ms_learn_url": "https://learn.microsoft.com/en-us/windows/win32/api/bluetoothapis/nf-bluetoothapis-bluetoothgetradioinfo",
+  "signature": "NTSTATUS unix_bluetooth_adapter_get_unique_name(void *params)",
+  "parameters": [
+    {
+      "name": "params",
+      "direction": "inout",
+      "type": "struct bluetooth_adapter_get_unique_name_params*",
+      "optional": false
+    }
+  ],
+  "return_codes": {
+    "STATUS_SUCCESS": "0x00000000",
+    "STATUS_BUFFER_TOO_SMALL": "0xc0000023"
+  },
+  "empirical_windows_behavior": [
+    "Returns canonical radio address string (e.g., '00:1B:DC:00:00:01') for the primary Bluetooth adapter."
+  ],
+  "macos_backend_strategy": "Format addressAsString from IOBluetoothHostController or virtual adapter.",
+  "clean_room_attestation": {
+    "sources": [
+      "Microsoft Learn BluetoothGetRadioInfo reference",
+      "Apple Developer IOBluetoothHostController addressAsString"
+    ],
+    "no_leaked_source_exposure": true,
+    "no_proprietary_decompilation": true
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "dll": "winebth.sys",
+  "api_name": "unix_bluetooth_get_event",
+  "header": "unixlib.h",
+  "ms_learn_url": "https://learn.microsoft.com/en-us/windows/win32/bluetooth/bluetooth-programming-with-windows-sockets",
+  "signature": "NTSTATUS unix_bluetooth_get_event(void *params)",
+  "parameters": [
+    {
+      "name": "params",
+      "direction": "inout",
+      "type": "struct bluetooth_get_event_params*",
+      "optional": false
+    }
+  ],
+  "return_codes": {
+    "STATUS_SUCCESS": "0x00000000",
+    "STATUS_PENDING": "0x00000103"
+  },
+  "empirical_windows_behavior": [
+    "Dequeues Bluetooth device and adapter notifications (WINEBLUETOOTH_EVENT_ADAPTER_ADDED, WINEBLUETOOTH_EVENT_DEVICE_ADDED).",
+    "Supplies device address (BTH_ADDR), name, class of device, and RSSI to winebth WDM PDO enumerator."
+  ],
+  "macos_backend_strategy": "Pump events from IOBluetoothDevice recent/paired list and IOBluetoothDeviceInquiry.",
+  "clean_room_attestation": {
+    "sources": [
+      "Apple Developer IOBluetoothDevice notifications and inquiry documentation",
+      "Public Wine dlls/winebth.sys/unixlib.h declarations"
+    ],
+    "no_leaked_source_exposure": true,
+    "no_proprietary_decompilation": true
+  }
+}

@@ -1,0 +1,140 @@
+{
+  "dll": "winebth.sys",
+  "test_name": "test_winebth_parity",
+  "architecture": "x86_64",
+  "environment": "windows_vm",
+  "assertions": [
+    {
+      "id": "winebth_driver_entry_init",
+      "case": "WineBth_DriverEntry_Init",
+      "api": "DriverEntry",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 1,
+      "buffer_hex": "00000000010000000100000001000000",
+      "handle_valid": true
+    },
+    {
+      "id": "winebth_add_device_bus_fdo",
+      "case": "WineBth_AddDevice_BusFdo",
+      "api": "driver_add_device",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 1,
+      "buffer_hex": "000000002a0000000100000001000000",
+      "handle_valid": true
+    },
+    {
+      "id": "winebth_start_device_event_pump",
+      "case": "WineBth_StartDevice_EventPump",
+      "api": "WineBthSimulatePnpStart",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 1,
+      "buffer_hex": "00000000010000000100000001000000",
+      "handle_valid": true
+    },
+    {
+      "id": "winebth_query_bus_relations",
+      "case": "WineBth_Query_BusRelations",
+      "api": "WineBthSimulateQueryRelations",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 1,
+      "buffer_hex": "00000000010000000100000001000000",
+      "handle_valid": true
+    },
+    {
+      "id": "winebth_query_device_id_radio",
+      "case": "WineBth_Query_DeviceIdRadio",
+      "api": "WineBthSimulateQueryId",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 14,
+      "buffer_hex": "0000000001000000010000000e000000",
+      "handle_valid": true
+    },
+    {
+      "id": "winebth_query_hardware_ids",
+      "case": "WineBth_Query_HardwareIds",
+      "api": "WineBthSimulateQueryId",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 37,
+      "buffer_hex": "00000000010000000100000025000000",
+      "handle_valid": true
+    },
+    {
+      "id": "winebth_query_compatible_ids",
+      "case": "WineBth_Query_CompatibleIds",
+      "api": "WineBthSimulateQueryId",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 18,
+      "buffer_hex": "00000000010000000100000012000000",
+      "handle_valid": true
+    },
+    {
+      "id": "winebth_ioctl_get_local_radio_info",
+      "case": "WineBth_Ioctl_GetLocalRadioInfo",
+      "api": "WineBthSimulateIoctl",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 277,
+      "buffer_hex": "00000000010000000100000001000000",
+      "handle_valid": true
+    },
+    {
+      "id": "winebth_ioctl_get_radio_info",
+      "case": "WineBth_Ioctl_GetRadioInfo",
+      "api": "WineBthSimulateIoctl",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 12,
+      "buffer_hex": "00000000010000000100000001000000",
+      "handle_valid": true
+    },
+    {
+      "id": "winebth_ioctl_disconnect_device",
+      "case": "WineBth_Ioctl_DisconnectDevice",
+      "api": "WineBthSimulateIoctl",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 1,
+      "buffer_hex": "00000000010000000100000001000000",
+      "handle_valid": true
+    },
+    {
+      "id": "winebth_invalid_ioctl_error",
+      "case": "WineBth_InvalidIoctl_Error",
+      "api": "WineBthSimulateIoctl",
+      "comparison_mode": "exact",
+      "status": "0xc00000bb",
+      "last_error": 0,
+      "out_length": 0,
+      "buffer_hex": "bb0000c0010000000100000000000000",
+      "handle_valid": true
+    },
+    {
+      "id": "winebth_setupdi_service_install_success",
+      "case": "WineBth_SetupDi_ServiceInstallSuccess",
+      "api": "WineBthSimulateSetupDiInstall",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 0,
+      "buffer_hex": "00000000010000000100000000000000",
+      "handle_valid": true
+    }
+  ]
+}

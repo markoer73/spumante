@@ -142,6 +142,8 @@ def gate_asan_ubsan_memory_safety(dll: str, test_name: str) -> dict[str, Any]:
     """Gate C: Compile target DLL + conformance test with ASan+UBSan and execute."""
     if dll == "wineusb" and (REPO_ROOT / "dlls" / "wineusb.sys").is_dir():
         dll = "wineusb.sys"
+    if dll == "winebth" and (REPO_ROOT / "dlls" / "winebth.sys").is_dir():
+        dll = "winebth.sys"
     host_cc = shutil.which("clang") or shutil.which("gcc") or shutil.which("cc")
     if not host_cc:
         return {"passed": False, "findings": ["No host C compiler found for ASan/UBSan"]}
@@ -183,6 +185,10 @@ def gate_asan_ubsan_memory_safety(dll: str, test_name: str) -> dict[str, Any]:
                 "Metal",
                 "-framework",
                 "IOKit",
+                "-framework",
+                "IOBluetooth",
+                "-framework",
+                "CoreBluetooth",
                 "-lobjc",
                 "-pthread",
             ]

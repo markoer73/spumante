@@ -102,6 +102,13 @@ jobs:
           ./scripts/test.sh --security --dll wineusb.sys --test test_wineusb_parity
           ./scripts/test.sh --winetest --dll wineusb.sys
 
+      - name: Surgically Build & Test winebth.sys macOS Bluetooth Backend & SetupDi Parity
+        run: |
+          ./scripts/build.sh --dll winebth.sys --test test_winebth_parity
+          ./scripts/test.sh --dll winebth.sys --test test_winebth_parity
+          ./scripts/test.sh --security --dll winebth.sys --test test_winebth_parity
+          ./scripts/test.sh --winetest --dll winebth.sys
+
       - name: Run Full Architecture & Harness Unit Suite
         run: python3 -m unittest -v tests/unit/test_harness_suite.py
 

@@ -113,6 +113,11 @@ All host/VM orchestration, compilation, differential testing, stub discovery, an
 ./scripts/test.sh --dll wineusb.sys --test test_wineusb_parity
 ./scripts/test.sh --winetest --dll wineusb.sys
 
+# 10. Build & verify macOS IOBluetooth HCI enumeration & SetupDi service install in winebth.sys
+./scripts/build.sh --dll winebth.sys --test test_winebth_parity
+./scripts/test.sh --dll winebth.sys --test test_winebth_parity
+./scripts/test.sh --winetest --dll winebth.sys
+
 # 5. Discover & rank unimplemented stubs across Wine DLLs
 ./scripts/test.sh --discover-stubs --dll bcrypt
 

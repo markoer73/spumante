@@ -1308,6 +1308,119 @@ KNOWN_CLEAN_ROOM_SPECS: dict[str, dict[str, Any]] = {
             "no_proprietary_decompilation": True,
         },
     },
+    "winebth:DriverEntry": {
+        "dll": "winebth.sys",
+        "api_name": "DriverEntry",
+        "header": "winebth.h",
+        "ms_learn_url": "https://learn.microsoft.com/en-us/windows-hardware/drivers/bluetooth/bluetooth-driver-stack",
+        "signature": "NTSTATUS WINAPI DriverEntry(DRIVER_OBJECT *driver, UNICODE_STRING *path)",
+        "parameters": [
+            {"name": "driver", "direction": "in", "type": "DRIVER_OBJECT*", "optional": False},
+            {"name": "path", "direction": "in", "type": "UNICODE_STRING*", "optional": True},
+        ],
+        "return_codes": {
+            "STATUS_SUCCESS": "0x00000000",
+            "STATUS_INTERNAL_ERROR": "0xc00000e5",
+            "STATUS_INVALID_PARAMETER": "0xc000000d",
+        },
+        "empirical_windows_behavior": [
+            "Initializes the winebth Bluetooth bus driver and creates the \\Device\\WINEBTHAUTH control device.",
+            "Initializes the Unix Bluetooth subsystem via __wine_init_unix_call() and unix_bluetooth_init.",
+            "Returns STATUS_SUCCESS when Bluetooth subsystem is active, eliminating ZwLoadDriver error 0xc00000e5.",
+            "Successful DriverEntry allows SetupDiInstallDevice to complete root\\winebth installation with exit code 0 (ERROR_SUCCESS), eliminating Win32 service errors 1359 (ERROR_INTERNAL_ERROR) and 1062 (ERROR_SERVICE_NOT_ACTIVE).",
+        ],
+        "macos_backend_strategy": "Bind to macOS winebth.so backed by native Darwin IOBluetooth HostController and CoreBluetooth.",
+        "clean_room_attestation": {
+            "sources": [
+                "Microsoft Learn Bluetooth Driver Stack Documentation",
+                "Apple Developer IOBluetooth / IOBluetoothHostController documentation",
+                "Public Wine dlls/winebth.sys/winebth.c declarations",
+            ],
+            "no_leaked_source_exposure": True,
+            "no_proprietary_decompilation": True,
+        },
+    },
+    "winebth:unix_bluetooth_init": {
+        "dll": "winebth.sys",
+        "api_name": "unix_bluetooth_init",
+        "header": "unixlib.h",
+        "ms_learn_url": "https://learn.microsoft.com/en-us/windows-hardware/drivers/bluetooth/bluetooth-architecture",
+        "signature": "NTSTATUS unix_bluetooth_init(void *params)",
+        "parameters": [
+            {"name": "params", "direction": "in", "type": "void*", "optional": True},
+        ],
+        "return_codes": {
+            "STATUS_SUCCESS": "0x00000000",
+            "STATUS_INTERNAL_ERROR": "0xc00000e5",
+        },
+        "empirical_windows_behavior": [
+            "Initializes the host Bluetooth controller and adapter monitor.",
+            "On macOS, queries IOBluetoothHostController defaultController or establishes fallback virtual radio adapter.",
+            "Returns STATUS_SUCCESS instead of Linux-only D-Bus STATUS_INTERNAL_ERROR (0xc00000e5).",
+        ],
+        "macos_backend_strategy": "Query Darwin IOBluetoothHostController and CoreBluetooth central manager.",
+        "clean_room_attestation": {
+            "sources": [
+                "Apple Developer IOBluetooth framework reference",
+                "Public Wine dlls/winebth.sys/unixlib.h declarations",
+            ],
+            "no_leaked_source_exposure": True,
+            "no_proprietary_decompilation": True,
+        },
+    },
+    "winebth:unix_bluetooth_get_event": {
+        "dll": "winebth.sys",
+        "api_name": "unix_bluetooth_get_event",
+        "header": "unixlib.h",
+        "ms_learn_url": "https://learn.microsoft.com/en-us/windows/win32/bluetooth/bluetooth-programming-with-windows-sockets",
+        "signature": "NTSTATUS unix_bluetooth_get_event(void *params)",
+        "parameters": [
+            {"name": "params", "direction": "inout", "type": "struct bluetooth_get_event_params*", "optional": False},
+        ],
+        "return_codes": {
+            "STATUS_SUCCESS": "0x00000000",
+            "STATUS_PENDING": "0x00000103",
+        },
+        "empirical_windows_behavior": [
+            "Dequeues Bluetooth device and adapter notifications (WINEBLUETOOTH_EVENT_ADAPTER_ADDED, WINEBLUETOOTH_EVENT_DEVICE_ADDED).",
+            "Supplies device address (BTH_ADDR), name, class of device, and RSSI to winebth WDM PDO enumerator.",
+        ],
+        "macos_backend_strategy": "Pump events from IOBluetoothDevice recent/paired list and IOBluetoothDeviceInquiry.",
+        "clean_room_attestation": {
+            "sources": [
+                "Apple Developer IOBluetoothDevice notifications and inquiry documentation",
+                "Public Wine dlls/winebth.sys/unixlib.h declarations",
+            ],
+            "no_leaked_source_exposure": True,
+            "no_proprietary_decompilation": True,
+        },
+    },
+    "winebth:unix_bluetooth_adapter_get_unique_name": {
+        "dll": "winebth.sys",
+        "api_name": "unix_bluetooth_adapter_get_unique_name",
+        "header": "unixlib.h",
+        "ms_learn_url": "https://learn.microsoft.com/en-us/windows/win32/api/bluetoothapis/nf-bluetoothapis-bluetoothgetradioinfo",
+        "signature": "NTSTATUS unix_bluetooth_adapter_get_unique_name(void *params)",
+        "parameters": [
+            {"name": "params", "direction": "inout", "type": "struct bluetooth_adapter_get_unique_name_params*", "optional": False},
+        ],
+        "return_codes": {
+            "STATUS_SUCCESS": "0x00000000",
+            "STATUS_BUFFER_TOO_SMALL": "0xc0000023",
+        },
+        "empirical_windows_behavior": [
+            "Returns canonical radio address string (e.g., '00:1B:DC:00:00:01') for the primary Bluetooth adapter.",
+        ],
+        "macos_backend_strategy": "Format addressAsString from IOBluetoothHostController or virtual adapter.",
+        "clean_room_attestation": {
+            "sources": [
+                "Microsoft Learn BluetoothGetRadioInfo reference",
+                "Apple Developer IOBluetoothHostController addressAsString",
+            ],
+            "no_leaked_source_exposure": True,
+            "no_proprietary_decompilation": True,
+        },
+    },
 }
 
 
