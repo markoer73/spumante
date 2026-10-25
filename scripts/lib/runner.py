@@ -127,6 +127,45 @@ def surgical_build(
             subprocess.run(cmd_dll, check=True)
         built_artifacts.append(str(dll_out.relative_to(REPO_ROOT)))
 
+        # Build and stamp 64-bit and 32-bit Wine builtin PE DLLs for winegstreamer so wmadmod.dll / wineboot --init succeed
+        if dll == "winegstreamer":
+            winebuild_bin = REPO_ROOT / "builds" / "wine-full-x86" / "tools" / "winebuild" / "winebuild"
+            for pe_arch, pe_cc_name, extra_ldflags in [
+                ("x86_64-windows", "x86_64-w64-mingw32-gcc", ["-Wl,--export-all-symbols"]),
+                ("i386-windows", "i686-w64-mingw32-gcc", ["-Wl,--kill-at", "-Wl,--export-all-symbols"]),
+            ]:
+                pe_cc = shutil.which(pe_cc_name)
+                if not pe_cc:
+                    continue
+                pe_arch_dir = build_dir / pe_arch
+                pe_arch_dir.mkdir(parents=True, exist_ok=True)
+                pe_dll_out = pe_arch_dir / f"{dll}.dll"
+                if not is_artifact_up_to_date(pe_dll_out, dep_paths):
+                    cmd_pe_dll = [
+                        pe_cc,
+                        "-std=c11",
+                        "-Wall",
+                        "-Wextra",
+                        "-O2",
+                        "-shared",
+                        *c_sources,
+                        *extra_ldflags,
+                        "-o",
+                        str(pe_dll_out),
+                    ]
+                    subprocess.run(cmd_pe_dll, check=True)
+                    if winebuild_bin.is_file():
+                        subprocess.run([str(winebuild_bin), "--builtin", str(pe_dll_out)], check=True)
+                built_artifacts.append(str(pe_dll_out.relative_to(REPO_ROOT)))
+
+                for install_root in [
+                    REPO_ROOT / "builds" / "wine-install-x86" / "lib" / "wine" / pe_arch,
+                    REPO_ROOT / "builds" / "wine-full-x86" / "dlls" / dll / pe_arch,
+                ]:
+                    if install_root.parent.is_dir():
+                        install_root.mkdir(parents=True, exist_ok=True)
+                        shutil.copy2(pe_dll_out, install_root / f"{dll}.dll")
+
     # 2. Surgically compile ONLY the requested single conformance test binary
     if test_name:
         test_c = REPO_ROOT / "tests" / "conformance" / dll / f"{test_name}.c"

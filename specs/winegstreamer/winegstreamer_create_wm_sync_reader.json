@@ -1,0 +1,27 @@
+{
+  "dll": "winegstreamer",
+  "api_name": "winegstreamer_create_wm_sync_reader",
+  "header": "winegstreamer.h",
+  "ms_learn_url": "https://learn.microsoft.com/en-us/windows/win32/wmformat/iwmsyncreader-interface",
+  "signature": "HRESULT WINAPI winegstreamer_create_wm_sync_reader(IUnknown *outer, void **out)",
+  "return_codes": {
+    "S_OK": "0x00000000",
+    "E_POINTER": "0x80004003",
+    "E_INVALIDARG": "0x80070057",
+    "NS_E_INVALID_REQUEST": "0xc00d002b"
+  },
+  "empirical_windows_behavior": [
+    "Exported by winegstreamer.dll and imported by wmvcore.dll (WMCreateSyncReader) to instantiate the synchronous ASF/WMA/WMV stream reader.",
+    "Exposes IUnknown, IWMSyncReader, and IWMSyncReader2 with stream selection, output format enumeration, and sample retrieval."
+  ],
+  "macos_backend_strategy": "Apple CoreMedia (CMBlockBuffer / CMSampleBuffer) and AudioToolbox stream reader state machine with C99 fallback.",
+  "clean_room_attestation": {
+    "sources": [
+      "Microsoft Learn IWMSyncReader / IWMSyncReader2 documentation",
+      "Public Wine dlls/winegstreamer/wm_reader.c and dlls/wmvcore/wmvcore_main.c declarations",
+      "Black-box Windows 11 differential conformance test observations"
+    ],
+    "no_leaked_source_exposure": true,
+    "no_proprietary_decompilation": true
+  }
+}

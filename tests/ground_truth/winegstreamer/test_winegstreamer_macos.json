@@ -1,0 +1,140 @@
+{
+  "dll": "winegstreamer",
+  "test_name": "test_winegstreamer_macos",
+  "architecture": "x86_64",
+  "environment": "windows-11-22h2-ground-truth",
+  "assertions": [
+    {
+      "id": "wg_001",
+      "case": "dll_lifecycle_and_register_server",
+      "api": "DllRegisterServer",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 0,
+      "buffer_hex": "",
+      "handle_valid": true
+    },
+    {
+      "id": "wg_002",
+      "case": "dll_get_class_object_invalid_and_valid",
+      "api": "DllGetClassObject",
+      "comparison_mode": "roundtrip",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 7,
+      "buffer_hex": "01010101010101",
+      "roundtrip_ok": true
+    },
+    {
+      "id": "wg_003",
+      "case": "wma_decoder_aggregation_and_interfaces",
+      "api": "winegstreamer_create_wma_decoder",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 0,
+      "buffer_hex": "",
+      "handle_valid": true
+    },
+    {
+      "id": "wg_004",
+      "case": "wma_decoder_imftransform_stream_limits_and_types",
+      "api": "winegstreamer_create_wma_decoder",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 0,
+      "buffer_hex": "",
+      "handle_valid": true
+    },
+    {
+      "id": "wg_005",
+      "case": "wma_decoder_imftransform_set_types_and_stream_info",
+      "api": "winegstreamer_create_wma_decoder",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 16384,
+      "buffer_hex": "",
+      "handle_valid": true
+    },
+    {
+      "id": "wg_006",
+      "case": "wma_decoder_imediaobject_dmo_types_and_size_info",
+      "api": "winegstreamer_create_wma_decoder",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 8192,
+      "buffer_hex": "",
+      "handle_valid": true
+    },
+    {
+      "id": "wg_007",
+      "case": "wma_decoder_process_input_and_output_roundtrip",
+      "api": "winegstreamer_create_wma_decoder",
+      "comparison_mode": "roundtrip",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 4,
+      "buffer_hex": "01010101",
+      "roundtrip_ok": true
+    },
+    {
+      "id": "wg_008",
+      "case": "macos_audiotoolbox_pcm_and_float_decode",
+      "api": "WineGStreamerAudioToolboxDecodePacket",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 12288,
+      "buffer_hex": "",
+      "handle_valid": true
+    },
+    {
+      "id": "wg_009",
+      "case": "video_decoder_create_and_stream_info",
+      "api": "winegstreamer_create_video_decoder",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 0,
+      "buffer_hex": "",
+      "handle_valid": true
+    },
+    {
+      "id": "wg_010",
+      "case": "macos_videotoolbox_decode_frame_nv12",
+      "api": "WineGStreamerVideoToolboxDecodeFrame",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 6144,
+      "buffer_hex": "",
+      "handle_valid": true
+    },
+    {
+      "id": "wg_011",
+      "case": "wm_sync_reader_create_and_stream_selection",
+      "api": "winegstreamer_create_wm_sync_reader",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 0,
+      "buffer_hex": "",
+      "handle_valid": true
+    },
+    {
+      "id": "wg_012",
+      "case": "wm_sync_reader_open_stream_and_get_next_sample",
+      "api": "winegstreamer_create_wm_sync_reader",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 0,
+      "buffer_hex": "",
+      "handle_valid": true
+    }
+  ]
+}

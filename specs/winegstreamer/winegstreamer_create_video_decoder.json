@@ -1,0 +1,28 @@
+{
+  "dll": "winegstreamer",
+  "api_name": "winegstreamer_create_video_decoder",
+  "header": "winegstreamer.h",
+  "ms_learn_url": "https://learn.microsoft.com/en-us/windows/win32/medfound/h-264-video-decoder",
+  "signature": "HRESULT WINAPI winegstreamer_create_video_decoder(IMFTransform **out)",
+  "return_codes": {
+    "S_OK": "0x00000000",
+    "E_POINTER": "0x80004003",
+    "MF_E_INVALIDMEDIATYPE": "0xc00d36b4",
+    "MF_E_TRANSFORM_TYPE_NOT_SET": "0xc00d6d60"
+  },
+  "empirical_windows_behavior": [
+    "Exported by winegstreamer.dll and imported by ir50_32.dll and Media Foundation video decoder MFT factories.",
+    "Returns an IMFTransform instance supporting 1 input stream and 1 output stream, advertising NV12, YUY2, YV12, and RGB32 output media types.",
+    "Decodes compressed video packets into contiguous NV12/RGB32 output sample buffers."
+  ],
+  "macos_backend_strategy": "Apple VideoToolbox (CMVideoFormatDescriptionCreate, VTDecompressionSessionCreate) and CoreVideo (CVPixelBufferCreate) hardware-accelerated video frame bridge with C99 fallback.",
+  "clean_room_attestation": {
+    "sources": [
+      "Microsoft Learn IMFTransform Video Decoder MFT documentation",
+      "Public Wine dlls/winegstreamer/video_decoder.c and dlls/ir50_32/ir50.c declarations",
+      "Black-box Windows 11 differential conformance test observations"
+    ],
+    "no_leaked_source_exposure": true,
+    "no_proprietary_decompilation": true
+  }
+}

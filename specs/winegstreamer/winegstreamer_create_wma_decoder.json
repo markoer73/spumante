@@ -1,0 +1,28 @@
+{
+  "dll": "winegstreamer",
+  "api_name": "winegstreamer_create_wma_decoder",
+  "header": "winegstreamer.h",
+  "ms_learn_url": "https://learn.microsoft.com/en-us/windows/win32/medfound/wmaudio-decoder",
+  "signature": "HRESULT WINAPI winegstreamer_create_wma_decoder(IUnknown *outer, REFIID riid, void **out)",
+  "return_codes": {
+    "S_OK": "0x00000000",
+    "E_POINTER": "0x80004003",
+    "E_NOINTERFACE": "0x80004002",
+    "CLASS_E_NOAGGREGATION": "0x80040110"
+  },
+  "empirical_windows_behavior": [
+    "Exported by winegstreamer.dll and imported by wmadmod.dll to instantiate CLSID_WMADecMediaObject ({2eeb4adf-4578-4d10-bca7-bb955f56320a}).",
+    "Supports COM aggregation when outer != NULL and riid == IID_IUnknown, and exposes IMFTransform, IMediaObject, and IPropertyBag on the inner/delegated object.",
+    "Accepts MSAUDIO1 (0x0160), WMAudioV8 (0x0161), WMAudioV9 (0x0162), and WMAudio_Lossless (0x0163) input media types and produces 16-bit PCM or 32-bit IEEE Float audio frames."
+  ],
+  "macos_backend_strategy": "Apple AudioToolbox (AudioConverterNew / AudioFormatGetProperty) and CoreMedia (CMBlockBufferCreateWithMemoryBlock) audio frame conversion with deterministic C99 PCM/Float synthesis fallback.",
+  "clean_room_attestation": {
+    "sources": [
+      "Microsoft Learn WMAudio Decoder MFT / DMO documentation",
+      "Public Wine dlls/wmadmod/wmadmod.c and dlls/winegstreamer/wma_decoder.c declarations",
+      "Black-box Windows 11 differential conformance test observations"
+    ],
+    "no_leaked_source_exposure": true,
+    "no_proprietary_decompilation": true
+  }
+}
