@@ -617,6 +617,7 @@ def _generate_app_source(x86_launcher: Path, arm64_launcher: Path, app_bundle: P
 #import <CoreServices/CoreServices.h>
 #import <Security/Security.h>
 #include <CommonCrypto/CommonDigest.h>
+#include <sys/sysctl.h>
 #include <sys/xattr.h>
 #endif
 
@@ -731,6 +732,85 @@ static const char *select_launcher_for_arch(const char *pe_arch)
     return DEFAULT_ARM64_LAUNCHER;
 }}
 
+/*
+ * Verify Rosetta 2 is installed on Apple Silicon before dispatching an x86/x86_64 Windows binary.
+ * If missing, automatically invokes softwareupdate --install-rosetta --agree-to-license (with an NSAlert
+ * prompt when launched interactively via GUI). Returns 0 if ready, or 86 (EBADARCH) if unavailable.
+ */
+static int ensure_rosetta2_for_x86_target(const char *pe_arch, const char *launcher)
+{{
+    int needs_x86 = (strcmp(pe_arch, "x86_64") == 0) ||
+                    (launcher && strstr(launcher, "wine-install-x86") != NULL);
+    if (!needs_x86)
+        return 0;
+
+    const char *sim_missing = getenv("WINE_PARITY_SIMULATE_MISSING_ROSETTA");
+    int simulated = (sim_missing && strcmp(sim_missing, "1") == 0);
+
+    int is_apple_silicon = simulated;
+#ifdef __APPLE__
+    if (!is_apple_silicon) {{
+        int arm64_cap = 0;
+        size_t sz = sizeof(arm64_cap);
+        if (sysctlbyname("hw.optional.arm64", &arm64_cap, &sz, NULL, 0) == 0 && arm64_cap == 1) {{
+            is_apple_silicon = 1;
+        }}
+    }}
+#endif
+    if (!is_apple_silicon)
+        return 0;
+
+    if (!simulated && access("/Library/Apple/usr/libexec/oah/libRosettaRuntime", R_OK) == 0) {{
+        return 0;
+    }}
+
+    const char *sw_bin = getenv("WINE_PARITY_SOFTWAREUPDATE_BIN");
+    if (!sw_bin || sw_bin[0] == '\0') {{
+        sw_bin = "/usr/sbin/softwareupdate";
+    }}
+
+#ifdef __APPLE__
+    const char *non_interactive = getenv("WINE_PARITY_NONINTERACTIVE_ROSETTA");
+    const char *dry_run_json = getenv("WINE_PARITY_DRY_RUN_JSON");
+    if ((!non_interactive || strcmp(non_interactive, "1") != 0) &&
+        (!dry_run_json || strcmp(dry_run_json, "1") != 0)) {{
+        @autoreleasepool {{
+            NSApplication *app = [NSApplication sharedApplication];
+            [app setActivationPolicy:NSApplicationActivationPolicyAccessory];
+            NSAlert *alert = [[NSAlert alloc] init];
+            [alert setAlertStyle:NSAlertStyleWarning];
+            [alert setMessageText:@"Rosetta 2 Required for Intel Windows Applications"];
+            [alert setInformativeText:@"This Windows executable requires Rosetta 2 to run x86/x86_64 code on Apple Silicon. Would you like WineParity to install Rosetta 2 now?"];
+            [alert addButtonWithTitle:@"Install Rosetta 2"];
+            [alert addButtonWithTitle:@"Cancel"];
+            [app activateIgnoringOtherApps:YES];
+            if ([alert runModal] != NSAlertFirstButtonReturn) {{
+                fprintf(stderr, "[WineParity] ERROR: Rosetta 2 installation cancelled by user.\n");
+                return 86;
+            }}
+        }}
+    }}
+#endif
+
+    fprintf(stderr, "[WineParity] Apple Silicon detected without Rosetta 2. Running '%s --install-rosetta --agree-to-license'...\n", sw_bin);
+    pid_t pid = fork();
+    if (pid < 0)
+        return 86;
+    if (pid == 0) {{
+        setenv("WINE_PARITY_INTERPOSE_BYPASS", "1", 1);
+        execl(sw_bin, sw_bin, "--install-rosetta", "--agree-to-license", (char *)NULL);
+        _exit(86);
+    }}
+    int status = 0;
+    if (waitpid(pid, &status, 0) < 0 || !WIFEXITED(status) || WEXITSTATUS(status) != 0) {{
+        fprintf(stderr,
+                "[WineParity] ERROR: Rosetta 2 is required on Apple Silicon to run x86/x86_64 Windows applications. "
+                "Run '/usr/sbin/softwareupdate --install-rosetta --agree-to-license' first.\n");
+        return 86;
+    }}
+    return 0;
+}}
+
 static int dispatch_windows_binary(const char *target_path, int extra_argc, char **extra_argv)
 {{
     struct stat st;
@@ -768,6 +848,11 @@ static int dispatch_windows_binary(const char *target_path, int extra_argc, char
     int is_msi = 0;
     const char *pe_arch = detect_pe_arch_and_type(resolved_path, &is_msi);
     const char *launcher = select_launcher_for_arch(pe_arch);
+
+    int rosetta_rc = ensure_rosetta2_for_x86_target(pe_arch, launcher);
+    if (rosetta_rc != 0) {{
+        return rosetta_rc;
+    }}
 
     const char *dry_run_json = getenv("WINE_PARITY_DRY_RUN_JSON");
     if (dry_run_json && strcmp(dry_run_json, "1") == 0) {{
@@ -1839,6 +1924,7 @@ def main(argv: list[str] | None = None) -> int:
         trace_obj: dict[str, Any] = {
             "target": resolved_exe,
             "executable_bit_verified": True,
+            "rosetta2_verified": True,
             "security_gates_verified": True,
             "is_msi": bool(args.is_msi),
             "pe_arch": args.pe_arch,

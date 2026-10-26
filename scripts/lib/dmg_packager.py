@@ -141,7 +141,46 @@ DEST_CONFIG_APP="$TARGET_APPS_DIR/WineParity Config.app"
 DEST_LAUNCHER_BIN="$DEST_LAUNCHER_APP/Contents/MacOS/WineParity"
 DEST_CONFIG_BIN="$DEST_CONFIG_APP/Contents/MacOS/WineParityConfig"
 
+is_apple_silicon() {{
+    if [[ "$(uname -s)" == "Darwin" ]] && ([[ "$(uname -m)" == "arm64" ]] || [[ "$(sysctl -n hw.optional.arm64 2>/dev/null || echo 0)" == "1" ]]); then
+        return 0
+    fi
+    return 1
+}}
+
+is_rosetta2_installed() {{
+    if [[ "${{WINE_PARITY_SIMULATE_MISSING_ROSETTA:-0}}" == "1" ]]; then
+        return 1
+    fi
+    if ! is_apple_silicon; then
+        return 0
+    fi
+    if [[ -f "/Library/Apple/usr/libexec/oah/libRosettaRuntime" ]] && arch -x86_64 /usr/bin/true >/dev/null 2>&1; then
+        return 0
+    fi
+    return 1
+}}
+
+ensure_rosetta2_installed() {{
+    if is_rosetta2_installed; then
+        return 0
+    fi
+    local sw_bin="${{WINE_PARITY_SOFTWAREUPDATE_BIN:-/usr/sbin/softwareupdate}}"
+    echo "[WineParity Installer] Apple Silicon detected without Rosetta 2. Installing Rosetta 2 for x86/x86_64 Windows app support..."
+    if "$sw_bin" --install-rosetta --agree-to-license; then
+        echo "[WineParity Installer] Rosetta 2 installation succeeded."
+        return 0
+    fi
+    echo "[WineParity Installer] ERROR: Rosetta 2 is required on Apple Silicon to run 32/64-bit Intel (x86/x86_64) Windows applications." >&2
+    echo "[WineParity Installer] Run '/usr/sbin/softwareupdate --install-rosetta --agree-to-license' and re-run this installer." >&2
+    exit 86
+}}
+
 if [[ "$DRY_RUN" -eq 1 ]]; then
+    ROSETTA_READY="false"
+    if is_rosetta2_installed; then
+        ROSETTA_READY="true"
+    fi
     cat <<EOF
 {{
   "action": "install-wine-parity",
@@ -151,7 +190,10 @@ if [[ "$DRY_RUN" -eq 1 ]]; then
   "installed_config_app": "$DEST_CONFIG_APP",
   "target_bin_dir": "$TARGET_BIN_DIR",
   "config_file": "$CONFIG_FILE",
-  "wineprefix": "$WINEPREFIX_DIR"
+  "wineprefix": "$WINEPREFIX_DIR",
+  "rosetta2_check_enabled": true,
+  "rosetta2_installed": $ROSETTA_READY,
+  "rosetta2_install_command": "/usr/sbin/softwareupdate --install-rosetta --agree-to-license"
 }}
 EOF
     exit 0
@@ -165,6 +207,8 @@ echo "  CLI Wrapper Directory  : $TARGET_BIN_DIR"
 echo "  User Config File       : $CONFIG_FILE"
 echo "  Wine Prefix            : $WINEPREFIX_DIR"
 echo "------------------------------------------------------------------"
+
+ensure_rosetta2_installed
 
 mkdir -p "$TARGET_APPS_DIR"
 mkdir -p "$TARGET_BIN_DIR"

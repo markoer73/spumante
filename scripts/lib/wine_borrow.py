@@ -352,11 +352,19 @@ export MVK_CONFIG_LOG_LEVEL="${{MVK_CONFIG_LOG_LEVEL:-1}}"
 run_wine_bin() {{
     local bin="$1"
     shift
-    if [ "{1 if is_x86 else 0}" = "1" ] && [ "$(uname -s)" = "Darwin" ] && [ "$(uname -m)" = "arm64" ] && arch -x86_64 /usr/bin/true >/dev/null 2>&1 && file "$bin" 2>/dev/null | grep -q "x86_64"; then
-        exec arch -x86_64 "$bin" "$@"
-    else
-        exec "$bin" "$@"
+    if [ "{1 if is_x86 else 0}" = "1" ] && [ "$(uname -s)" = "Darwin" ] && ( [ "$(uname -m)" = "arm64" ] || [ "$(sysctl -n hw.optional.arm64 2>/dev/null || echo 0)" = "1" ] ); then
+        if [ "${{WINE_PARITY_SIMULATE_MISSING_ROSETTA:-0}}" = "1" ] || [ ! -f "/Library/Apple/usr/libexec/oah/libRosettaRuntime" ] || ! arch -x86_64 /usr/bin/true >/dev/null 2>&1; then
+            echo "[wine-parity] Apple Silicon detected without Rosetta 2. Attempting automatic installation..." >&2
+            if ! "${{WINE_PARITY_SOFTWAREUPDATE_BIN:-/usr/sbin/softwareupdate}}" --install-rosetta --agree-to-license; then
+                echo "[wine-parity] ERROR: Rosetta 2 is required on Apple Silicon to run x86/x86_64 Windows applications. Run '/usr/sbin/softwareupdate --install-rosetta --agree-to-license' first." >&2
+                exit 86
+            fi
+        fi
+        if file "$bin" 2>/dev/null | grep -q "x86_64"; then
+            exec arch -x86_64 "$bin" "$@"
+        fi
     fi
+    exec "$bin" "$@"
 }}
 
 if [ -x "{bin_dir}/wine64" ]; then

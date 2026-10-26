@@ -2449,6 +2449,130 @@ class TestWineParityArchitecture(unittest.TestCase):
             self.assertEqual(stat.S_IMODE(target_cfg.stat().st_mode), 0o600)
             self.assertTrue((target_prefix / "user.reg").is_file())
 
+            # 5B. Verify 2-layer Rosetta 2 verification & auto-installation in Install WineParity.command and WineParity.app
+            res_inst_dry = subprocess.run(
+                [str(installer_cmd), "--dry-run"],
+                cwd=REPO_ROOT,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(res_inst_dry.returncode, 0, res_inst_dry.stdout + res_inst_dry.stderr)
+            inst_dry_doc = json.loads(res_inst_dry.stdout)
+            self.assertTrue(inst_dry_doc["rosetta2_check_enabled"])
+            self.assertEqual(
+                inst_dry_doc["rosetta2_install_command"],
+                "/usr/sbin/softwareupdate --install-rosetta --agree-to-license",
+            )
+
+            # Simulate missing Rosetta 2 with a mock softwareupdate binary that records its arguments
+            rosetta_log = tmp_root / "rosetta_install.log"
+            mock_swupdate_ok = tmp_root / "mock_softwareupdate_ok.sh"
+            mock_swupdate_ok.write_text(
+                f'#!/usr/bin/env bash\necho "$@" >> "{rosetta_log}"\nexit 0\n',
+                encoding="utf-8",
+            )
+            mock_swupdate_ok.chmod(0o755)
+
+            mock_swupdate_fail = tmp_root / "mock_softwareupdate_fail.sh"
+            mock_swupdate_fail.write_text(
+                '#!/usr/bin/env bash\necho "softwareupdate failed" >&2\nexit 1\n',
+                encoding="utf-8",
+            )
+            mock_swupdate_fail.chmod(0o755)
+
+            rosetta_probe_exe = tmp_root / "rosetta_probe.exe"
+            pe_buf = bytearray(256)
+            pe_buf[0:2] = b"MZ"
+            pe_buf[0x3C:0x40] = (0x80).to_bytes(4, "little")
+            pe_buf[0x80:0x84] = b"PE\x00\x00"
+            pe_buf[0x84:0x86] = (0x8664).to_bytes(2, "little")
+            rosetta_probe_exe.write_bytes(bytes(pe_buf))
+            rosetta_probe_exe.chmod(0o755)
+
+            env_rosetta_ok = os.environ.copy()
+            env_rosetta_ok["WINE_PARITY_CONFIG"] = str(target_cfg)
+            env_rosetta_ok["WINEPREFIX"] = str(target_prefix)
+            env_rosetta_ok["WINE_PARITY_DRY_RUN_JSON"] = "1"
+            env_rosetta_ok["WINE_PARITY_SIMULATE_MISSING_ROSETTA"] = "1"
+            env_rosetta_ok["WINE_PARITY_SOFTWAREUPDATE_BIN"] = str(mock_swupdate_ok)
+            env_rosetta_ok["WINE_PARITY_NONINTERACTIVE_ROSETTA"] = "1"
+
+            res_inst_rosetta = subprocess.run(
+                [
+                    str(installer_cmd),
+                    "--target-dir",
+                    str(target_apps),
+                    "--bin-dir",
+                    str(target_bin),
+                    "--config-file",
+                    str(target_cfg),
+                    "--wineprefix",
+                    str(target_prefix),
+                    "--no-open-config",
+                ],
+                cwd=REPO_ROOT,
+                env=env_rosetta_ok,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(
+                res_inst_rosetta.returncode,
+                0,
+                f"Installer with auto-rosetta failed:\n{res_inst_rosetta.stdout}\n{res_inst_rosetta.stderr}",
+            )
+            self.assertTrue(rosetta_log.is_file(), "Installer must invoke softwareupdate when Rosetta 2 is missing")
+            self.assertIn("--install-rosetta --agree-to-license", rosetta_log.read_text(encoding="utf-8"))
+
+            res_app_rosetta_ok = subprocess.run(
+                [str(installed_launcher), str(rosetta_probe_exe)],
+                cwd=REPO_ROOT,
+                env=env_rosetta_ok,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(res_app_rosetta_ok.returncode, 0, res_app_rosetta_ok.stdout + res_app_rosetta_ok.stderr)
+            self.assertTrue(json.loads(res_app_rosetta_ok.stdout)["rosetta2_verified"])
+
+            # Verify installer exits 86 (EBADARCH) when Rosetta 2 is missing and softwareupdate fails
+            env_rosetta_fail = env_rosetta_ok.copy()
+            env_rosetta_fail["WINE_PARITY_SOFTWAREUPDATE_BIN"] = str(mock_swupdate_fail)
+            res_inst_rosetta_fail = subprocess.run(
+                [
+                    str(installer_cmd),
+                    "--target-dir",
+                    str(target_apps),
+                    "--bin-dir",
+                    str(target_bin),
+                    "--config-file",
+                    str(target_cfg),
+                    "--wineprefix",
+                    str(target_prefix),
+                    "--no-open-config",
+                ],
+                cwd=REPO_ROOT,
+                env=env_rosetta_fail,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(res_inst_rosetta_fail.returncode, 86)
+            self.assertIn("Rosetta 2", res_inst_rosetta_fail.stderr)
+
+            # Verify WineParity.app runtime guard exits 86 when Rosetta 2 is missing and installation fails
+            res_app_rosetta_fail = subprocess.run(
+                [str(installed_launcher), str(rosetta_probe_exe)],
+                cwd=REPO_ROOT,
+                env=env_rosetta_fail,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(res_app_rosetta_fail.returncode, 86)
+            self.assertIn("Rosetta 2", res_app_rosetta_fail.stderr)
+
         # 6. Verify -nz (--notarize) option in ./scripts/build.sh (--dmg -nz and standalone -nz)
         res_nz_dry = subprocess.run(
             [
