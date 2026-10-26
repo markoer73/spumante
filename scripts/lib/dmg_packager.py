@@ -257,14 +257,16 @@ Quick Installation:
 """
 
 
-def _detect_codesign_identity(explicit_identity: str | None = None) -> str:
-    """Resolve Developer ID Application signing identity or fallback to ad-hoc ('-')."""
-    if explicit_identity and explicit_identity.strip():
-        return explicit_identity.strip()
-    for env_key in ("WINE_PARITY_CODESIGN_IDENTITY", "CODESIGN_IDENTITY"):
-        val = os.environ.get(env_key, "").strip()
-        if val:
-            return val
+def _detect_codesign_identity(explicit_identity: str | None = None) -> tuple[str, str]:
+    """Resolve Developer ID Application signing identity (returning (sign_token, display_name))."""
+    raw_explicit = (explicit_identity or "").strip()
+    if not raw_explicit:
+        for env_key in ("WINE_PARITY_CODESIGN_IDENTITY", "CODESIGN_IDENTITY"):
+            val = os.environ.get(env_key, "").strip()
+            if val:
+                raw_explicit = val
+                break
+
     if sys.platform == "darwin" and shutil.which("security"):
         res = subprocess.run(
             ["security", "find-identity", "-v", "-p", "codesigning"],
@@ -273,11 +275,48 @@ def _detect_codesign_identity(explicit_identity: str | None = None) -> str:
             check=False,
         )
         for line in res.stdout.splitlines():
-            if "Developer ID Application:" in line and '"' in line:
+            target_match = raw_explicit if raw_explicit else "Developer ID Application:"
+            if target_match in line and '"' in line:
+                tokens = line.strip().split()
+                sha1_token = tokens[1] if len(tokens) >= 2 and len(tokens[1]) == 40 else ""
                 parts = line.split('"')
-                if len(parts) >= 2 and parts[1].strip():
-                    return parts[1].strip()
-    return "-"
+                cn_name = parts[1].strip() if len(parts) >= 2 else ""
+                if sha1_token and cn_name:
+                    return sha1_token, raw_explicit or f"{cn_name} ({sha1_token})"
+                if cn_name:
+                    return cn_name, raw_explicit or cn_name
+
+    if raw_explicit:
+        return raw_explicit, raw_explicit
+    return "-", "-"
+
+
+def _resolve_appstoreconnect_api_credentials() -> tuple[str, str, str] | None:
+    """Discover App Store Connect API (.p8) key path, key ID, and issuer ID from env or ~/.appstoreconnect."""
+    key_path_str = os.environ.get("APP_STORE_CONNECT_API_KEY_PATH", "").strip()
+    key_id = os.environ.get("APP_STORE_CONNECT_API_KEY_ID", "").strip()
+    issuer_id = os.environ.get("APP_STORE_CONNECT_ISSUER_ID", "").strip()
+
+    asc_dir = Path.home() / ".appstoreconnect"
+    if not issuer_id:
+        issuer_file = asc_dir / "issuer_id"
+        if issuer_file.is_file():
+            issuer_id = issuer_file.read_text(encoding="utf-8").strip()
+
+    key_path: Path | None = Path(key_path_str) if key_path_str else None
+    if not key_path or not key_path.is_file():
+        candidates = sorted(asc_dir.rglob("AuthKey_*.p8")) if asc_dir.is_dir() else []
+        if candidates:
+            key_path = candidates[0]
+
+    if key_path and key_path.is_file() and not key_id:
+        stem = key_path.stem
+        if stem.startswith("AuthKey_"):
+            key_id = stem[len("AuthKey_") :]
+
+    if key_path and key_path.is_file() and key_id and issuer_id:
+        return str(key_path), key_id, issuer_id
+    return None
 
 
 def build_dmg_package(
@@ -296,13 +335,15 @@ def build_dmg_package(
     readme_file = DMG_STAGING_DIR / "README.txt"
     dmg_format = "UDZO"
 
-    resolved_identity = _detect_codesign_identity(codesign_identity)
-    resolved_profile = (
+    sign_token, resolved_identity = _detect_codesign_identity(codesign_identity)
+    explicit_profile = (
         (notary_profile or "").strip()
         or os.environ.get("WINE_PARITY_NOTARY_PROFILE", "").strip()
         or os.environ.get("NOTARYTOOL_PROFILE", "").strip()
-        or "wine-parity-notary"
     )
+    resolved_profile = explicit_profile or "wine-parity-notary"
+    asc_creds = _resolve_appstoreconnect_api_credentials()
+
     apple_id = (
         os.environ.get("WINE_PARITY_APPLE_ID", "").strip()
         or os.environ.get("APPLE_ID", "").strip()
@@ -319,10 +360,26 @@ def build_dmg_package(
     signed_targets = [
         str(staged_launcher_app),
         str(staged_config_app),
-        str(installer_script),
         str(DMG_OUTPUT_PATH),
     ]
-    if apple_id and team_id and app_password:
+    if not explicit_profile and asc_creds is not None:
+        asc_key_path, asc_key_id, asc_issuer_id = asc_creds
+        notarytool_cmd = [
+            "xcrun",
+            "notarytool",
+            "submit",
+            str(DMG_OUTPUT_PATH),
+            "--key",
+            asc_key_path,
+            "--key-id",
+            asc_key_id,
+            "--issuer",
+            asc_issuer_id,
+            "--wait",
+            "--output-format",
+            "json",
+        ]
+    elif apple_id and team_id and app_password:
         notarytool_cmd = [
             "xcrun",
             "notarytool",
@@ -374,26 +431,27 @@ def build_dmg_package(
             apps_symlink.unlink()
         apps_symlink.symlink_to("/Applications")
 
+        if sys.platform == "darwin" and shutil.which("xattr"):
+            subprocess.run(
+                ["xattr", "-cr", str(DMG_STAGING_DIR)],
+                cwd=REPO_ROOT,
+                capture_output=True,
+                check=False,
+            )
+
         codesign_bin = shutil.which("codesign")
         if notarize and sys.platform == "darwin" and codesign_bin:
             cs_base = [codesign_bin, "--force", "--options", "runtime"]
-            if resolved_identity != "-":
+            if sign_token != "-":
                 cs_base.append("--timestamp")
             for bundle_target in (staged_launcher_app, staged_config_app):
                 subprocess.run(
-                    [*cs_base, "--deep", "--sign", resolved_identity, str(bundle_target)],
+                    [*cs_base, "--deep", "--sign", sign_token, str(bundle_target)],
                     cwd=REPO_ROOT,
                     capture_output=True,
                     text=True,
-                    check=False,
+                    check=True,
                 )
-            subprocess.run(
-                [*cs_base, "--sign", resolved_identity, str(installer_script)],
-                cwd=REPO_ROOT,
-                capture_output=True,
-                text=True,
-                check=False,
-            )
 
         if DMG_OUTPUT_PATH.exists():
             DMG_OUTPUT_PATH.unlink()
@@ -437,19 +495,19 @@ def build_dmg_package(
         if notarize:
             if sys.platform == "darwin" and codesign_bin:
                 cs_dmg = [codesign_bin, "--force"]
-                if resolved_identity != "-":
+                if sign_token != "-":
                     cs_dmg.append("--timestamp")
                 subprocess.run(
-                    [*cs_dmg, "--sign", resolved_identity, str(DMG_OUTPUT_PATH)],
+                    [*cs_dmg, "--sign", sign_token, str(DMG_OUTPUT_PATH)],
                     cwd=REPO_ROOT,
                     capture_output=True,
                     text=True,
-                    check=False,
+                    check=True,
                 )
 
-            if sys.platform == "darwin" and shutil.which("xcrun") and resolved_identity != "-":
+            if sys.platform == "darwin" and shutil.which("xcrun") and sign_token != "-":
                 exec_notary_cmd = list(notarytool_cmd)
-                if apple_id and team_id and app_password:
+                if apple_id and team_id and app_password and "@env:WINE_PARITY_APP_PASSWORD" in exec_notary_cmd:
                     idx = exec_notary_cmd.index("@env:WINE_PARITY_APP_PASSWORD")
                     exec_notary_cmd[idx] = app_password
                 res_notary = subprocess.run(
@@ -459,12 +517,42 @@ def build_dmg_package(
                     text=True,
                     check=False,
                 )
+                # If a keychain profile was requested but not found in Keychain, fallback to ~/.appstoreconnect API key
+                if res_notary.returncode != 0 and asc_creds is not None and "--keychain-profile" in exec_notary_cmd:
+                    asc_key_path, asc_key_id, asc_issuer_id = asc_creds
+                    fallback_cmd = [
+                        "xcrun",
+                        "notarytool",
+                        "submit",
+                        str(DMG_OUTPUT_PATH),
+                        "--key",
+                        asc_key_path,
+                        "--key-id",
+                        asc_key_id,
+                        "--issuer",
+                        asc_issuer_id,
+                        "--wait",
+                        "--output-format",
+                        "json",
+                    ]
+                    notarytool_cmd = fallback_cmd
+                    res_notary = subprocess.run(
+                        fallback_cmd,
+                        cwd=REPO_ROOT,
+                        capture_output=True,
+                        text=True,
+                        check=False,
+                    )
+
                 if res_notary.stdout.strip():
                     try:
                         notary_submission_output = json.loads(res_notary.stdout)
                     except ValueError:
                         notary_submission_output = {"raw": res_notary.stdout.strip()}
-                if res_notary.returncode == 0:
+                elif res_notary.stderr.strip():
+                    notary_submission_output = {"error": res_notary.stderr.strip()}
+
+                if res_notary.returncode == 0 and notary_submission_output.get("status") in (None, "Accepted"):
                     res_staple = subprocess.run(
                         stapler_cmd,
                         cwd=REPO_ROOT,
