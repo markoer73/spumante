@@ -153,6 +153,7 @@ Apply the `test-driven-development` skill for all new API implementations, bug f
 
 | Topic | Authority Document |
 | :--- | :--- |
+| **Developer & Architecture Guide** | [`DEVELOPER_GUIDE.md`](DEVELOPER_GUIDE.md) |
 | **System Architecture & Harness** | [`docs/skills/ARCHITECTURE.md`](docs/skills/ARCHITECTURE.md) |
 | **Upstream Wine Borrow & Alignment** | [`docs/skills/WINE_BORROW.md`](docs/skills/WINE_BORROW.md), [`.agents/skills/wine-borrow/SKILL.md`](.agents/skills/wine-borrow/SKILL.md) |
 | **Security Audit & Commit Scanning** | [`docs/skills/SECURITY_AUDIT.md`](docs/skills/SECURITY_AUDIT.md), [`.agents/skills/security-audit/SKILL.md`](.agents/skills/security-audit/SKILL.md) |

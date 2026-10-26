@@ -556,11 +556,25 @@ run_wine_bin() {{
             fi
         fi
         if file "$bin" 2>/dev/null | grep -q "x86_64"; then
-            exec arch -x86_64 "$bin" "$@"
+            set +e
+            arch -x86_64 "$bin" "$@"
+            local _wp_rc=$?
+            set -e
+            python3 "{REPO_ROOT / "scripts" / "lib" / "exe_handler.py"}" --action sync-drive-c --quiet-stdout >/dev/null 2>&1 || true
+            exit $_wp_rc
         fi
     fi
-    exec "$bin" "$@"
+    set +e
+    "$bin" "$@"
+    local _wp_rc=$?
+    set -e
+    python3 "{REPO_ROOT / "scripts" / "lib" / "exe_handler.py"}" --action sync-drive-c --quiet-stdout >/dev/null 2>&1 || true
+    exit $_wp_rc
 }}
+
+if [ "${{1:-}}" = "--sync-drive-c" ]; then
+    exec python3 "{REPO_ROOT / "scripts" / "lib" / "exe_handler.py"}" --action sync-drive-c
+fi
 
 if [ -x "{bin_dir}/wine64" ]; then
     run_wine_bin "{bin_dir}/wine64" "$@"

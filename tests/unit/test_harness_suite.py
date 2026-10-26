@@ -1602,6 +1602,50 @@ class TestWineParityArchitecture(unittest.TestCase):
                 self.assertEqual(dylib_trace["pe_arch"], "arm64")
                 self.assertEqual(dylib_trace["args"], ["--via-dylib"])
 
+            # 8. Verify automatic post-installer drive_c .exe/+x sync utility (e.g., 7-Zip installed into $WINEPREFIX/drive_c/Program Files/7-Zip/7zFM.exe with 0644)
+            seven_zip_dir = Path(env_trace["WINEPREFIX"]) / "drive_c" / "Program Files" / "7-Zip"
+            seven_zip_dir.mkdir(parents=True, exist_ok=True)
+            seven_zip_fm = seven_zip_dir / "7zFM.exe"
+            seven_zip_cli = seven_zip_dir / "7z.exe"
+            seven_zip_fm.write_bytes(make_pe_bytes(0x8664))
+            seven_zip_cli.write_bytes(make_pe_bytes(0x8664))
+            seven_zip_fm.chmod(0o644)
+            seven_zip_cli.chmod(0o644)
+            self.assertFalse(os.access(seven_zip_fm, os.X_OK))
+            self.assertFalse(os.access(seven_zip_cli, os.X_OK))
+
+            # Running WineParity.app on an installer automatically marks newly installed drive_c .exe files as +x
+            res_inst = subprocess.run(
+                [str(app_bin), str(exe_x64), "/S"],
+                cwd=REPO_ROOT,
+                env=env_trace,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(res_inst.returncode, 0, res_inst.stdout + res_inst.stderr)
+            inst_trace = json.loads(res_inst.stdout)
+            self.assertTrue(inst_trace.get("drive_c_executables_synced"), "Expected drive_c_executables_synced in runtime trace")
+            self.assertTrue(os.access(seven_zip_fm, os.X_OK), "7zFM.exe in drive_c should automatically be granted +x after installer finishes")
+            self.assertTrue(os.access(seven_zip_cli, os.X_OK), "7z.exe in drive_c should automatically be granted +x after installer finishes")
+
+            # Also verify standalone ./scripts/launch.sh --sync-drive-c utility
+            seven_zip_fm.chmod(0o644)
+            self.assertFalse(os.access(seven_zip_fm, os.X_OK))
+            res_sync_cli = subprocess.run(
+                [str(launch_sh), "--sync-drive-c"],
+                cwd=REPO_ROOT,
+                env=env_trace,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(res_sync_cli.returncode, 0, res_sync_cli.stdout + res_sync_cli.stderr)
+            sync_doc = json.loads(res_sync_cli.stdout)
+            self.assertEqual(sync_doc["action"], "sync-drive-c")
+            self.assertGreaterEqual(sync_doc["updated_count"], 1)
+            self.assertTrue(os.access(seven_zip_fm, os.X_OK))
+
     def test_23_pre_execution_pe_security_scanner_three_gates_and_virustotal(self) -> None:
         """Verify 3-gate pre-execution PE security scanner (Gate 1: Quarantine, Gate 2: Authenticode, Gate 3: Static PE + VirusTotal)."""
         import hashlib

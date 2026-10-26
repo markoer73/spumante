@@ -1314,6 +1314,18 @@ static int dispatch_windows_binary(const char *target_path, int extra_argc, char
     int status = 0;
     if (waitpid(pid, &status, 0) < 0)
         return 1;
+
+    /* Automatically sync +x executable permissions on newly installed .exe/.msi files inside $WINEPREFIX/drive_c/ */
+    pid_t sync_pid = fork();
+    if (sync_pid == 0) {{
+        setenv("WINE_PARITY_INTERPOSE_BYPASS", "1", 1);
+        execlp("python3", "python3", SCANNER_PY_SCRIPT, "--action", "sync-drive-c", "--quiet-stdout", (char *)NULL);
+        _exit(0);
+    }} else if (sync_pid > 0) {{
+        int sync_st = 0;
+        waitpid(sync_pid, &sync_st, 0);
+    }}
+
     if (WIFEXITED(status))
         return WEXITSTATUS(status);
     return 1;
@@ -1592,6 +1604,29 @@ static int handle_status(void)
     [NSApp terminate:nil];
 }}
 
+- (void)syncDriveCExecutablesAction:(id)sender
+{{
+    (void)sender;
+    NSTask *task = [[NSTask alloc] init];
+    [task setExecutableURL:[NSURL fileURLWithPath:@"/usr/bin/env"]];
+    [task setArguments:@[@"python3", @SCANNER_PY_SCRIPT, @"--action", @"sync-drive-c"]];
+    NSPipe *outPipe = [NSPipe pipe];
+    [task setStandardOutput:outPipe];
+    [task setStandardError:[NSPipe pipe]];
+    if ([task launchAndReturnError:nil]) {{
+        NSData *data = [[outPipe fileHandleForReading] readDataToEndOfFile];
+        [task waitUntilExit];
+        if (data && [data length] > 0 && self.handlerStatusLabel) {{
+            NSDictionary *rep = [NSJSONSerialization JSONObjectWithData:data options:0 error:nil];
+            if ([rep isKindOfClass:[NSDictionary class]]) {{
+                NSNumber *upd = [rep[@"updated_count"] isKindOfClass:[NSNumber class]] ? rep[@"updated_count"] : @(0);
+                NSNumber *scn = [rep[@"scanned_count"] isKindOfClass:[NSNumber class]] ? rep[@"scanned_count"] : @(0);
+                [self.handlerStatusLabel setStringValue:[NSString stringWithFormat:@"Synced +x permissions on %@ of %@ executables in drive_c.", upd, scn]];
+            }}
+        }}
+    }}
+}}
+
 - (void)runBuiltinAppByName:(NSString *)appName
 {{
     if (!appName || [appName length] == 0)
@@ -1694,6 +1729,9 @@ static int handle_status(void)
     NSButton *regBtn = [NSButton buttonWithTitle:@"Register .exe / .msi File Handler" target:self action:@selector(registerFileHandlersAction:)];
     [regBtn setFrame:NSMakeRect(20, 108, 250, 32)];
     [genView addSubview:regBtn];
+    NSButton *syncDriveCBtn = [NSButton buttonWithTitle:@"Sync Installed drive_c Apps (+x)" target:self action:@selector(syncDriveCExecutablesAction:)];
+    [syncDriveCBtn setFrame:NSMakeRect(280, 108, 260, 32)];
+    [genView addSubview:syncDriveCBtn];
     self.handlerStatusLabel = [self makeLabel:@"Config Path: ~/.config/wine-parity/config.json (0600)" frame:NSMakeRect(20, 76, 540, 20) bold:NO];
     [self.handlerStatusLabel setFont:[NSFont systemFontOfSize:11.0]];
     [self.handlerStatusLabel setTextColor:[NSColor secondaryLabelColor]];
@@ -1973,6 +2011,11 @@ int main(int argc, char **argv)
     for (int i = 1; i < argc; ++i) {{
         if (strcmp(argv[i], "--launch-builtin") == 0 && i + 1 < argc) {{
             return handle_launch_builtin(argv[i + 1], dry_run);
+        }}
+        if (strcmp(argv[i], "--sync-drive-c") == 0) {{
+            setenv("WINE_PARITY_INTERPOSE_BYPASS", "1", 1);
+            execlp("python3", "python3", SCANNER_PY_SCRIPT, "--action", "sync-drive-c", (char *)NULL);
+            return 1;
         }}
     }}
 
@@ -2346,6 +2389,53 @@ def build_macos_exe_handler(dry_run: bool = False) -> dict[str, Any]:
     }
 
 
+def sync_drive_c_executables(wineprefix: Path | None = None) -> dict[str, Any]:
+    """Automatically mark newly installed .exe/.msi/.com/.scr files inside $WINEPREFIX/drive_c/ as executable (+x)."""
+    if wineprefix is None:
+        env_prefix = os.environ.get("WINEPREFIX", "").strip()
+        if env_prefix:
+            wineprefix = Path(env_prefix).expanduser()
+        else:
+            cfg_status = get_config_status()
+            cfg_prefix = str(cfg_status["config"].get("wine_environment", {}).get("wineprefix", "")).strip()
+            wineprefix = Path(cfg_prefix).expanduser() if cfg_prefix else (Path.home() / ".wine")
+
+    drive_c = wineprefix / "drive_c"
+    scanned_count = 0
+    updated_files: list[str] = []
+    target_suffixes = {".exe", ".msi", ".com", ".scr"}
+
+    if drive_c.is_dir():
+        for root, dirs, files in os.walk(drive_c):
+            # Skip large internal WinSxS / metadata directories that do not contain user-installed apps
+            dirs[:] = [d for d in dirs if d.lower() not in {"winsxs"}]
+            root_path = Path(root)
+            for fname in files:
+                ext = Path(fname).suffix.lower()
+                if ext not in target_suffixes:
+                    continue
+                fpath = root_path / fname
+                if fpath.is_symlink() or not fpath.is_file():
+                    continue
+                scanned_count += 1
+                try:
+                    st_mode = fpath.stat().st_mode
+                    if (st_mode & (stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)) == 0 or not os.access(fpath, os.X_OK):
+                        fpath.chmod(st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+                        updated_files.append(str(fpath))
+                except OSError:
+                    pass
+
+    return {
+        "action": "sync-drive-c",
+        "wineprefix": str(wineprefix),
+        "drive_c": str(drive_c),
+        "scanned_count": scanned_count,
+        "updated_count": len(updated_files),
+        "updated_files": updated_files,
+    }
+
+
 def manage_exe_handler(action: str, dry_run: bool = False) -> dict[str, Any]:
     """Build (if needed) and invoke WineParity.app --register / --unregister / --status."""
     app_bin = APP_BUNDLE_DIR / "Contents" / "MacOS" / "WineParity"
@@ -2381,6 +2471,7 @@ def main(argv: list[str] | None = None) -> int:
             "config-ui-json",
             "runtime-trace",
             "launch-builtin",
+            "sync-drive-c",
         ],
         required=True,
     )
@@ -2396,6 +2487,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("extra_args", nargs="*", default=[])
     args = parser.parse_args(argv)
+
+    if args.action == "sync-drive-c":
+        report = sync_drive_c_executables()
+        if not args.quiet_stdout:
+            print(json.dumps(report, indent=2))
+        return 0
 
     if args.action == "launch-builtin":
         if not args.app:
@@ -2470,6 +2567,9 @@ def main(argv: list[str] | None = None) -> int:
         }
         if args.is_msi:
             trace_obj["msiexec_command"] = ["msiexec", "/i", resolved_exe, *extra]
+        sync_rep = sync_drive_c_executables()
+        trace_obj["drive_c_executables_synced"] = True
+        trace_obj["drive_c_sync_updated_count"] = sync_rep["updated_count"]
         print(json.dumps(trace_obj, indent=2))
         return 0
 

@@ -19,6 +19,7 @@ usage() {
 Usage: ./scripts/launch.sh [--arch arm64|x86_64] [--snapshot <name>] [--disk <qcow2_path>] [--status] [--dry-run]
        ./scripts/launch.sh --register-exe-handler [--dry-run]
        ./scripts/launch.sh --exe-handler-status
+       ./scripts/launch.sh --sync-drive-c
        ./scripts/launch.sh --config-status
        ./scripts/launch.sh --set-config <key=value> [--set-config <key=value> ...]
        ./scripts/launch.sh --config-ui [--dry-run]
@@ -54,6 +55,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --exe-handler-status)
             EXE_HANDLER_ACTION="status"
+            shift
+            ;;
+        --sync-drive-c|--sync-drive-c-exec)
+            EXE_HANDLER_ACTION="sync-drive-c"
             shift
             ;;
         --config-status)
