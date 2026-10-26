@@ -267,7 +267,7 @@ To make installation and configuration effortless on macOS, `./scripts/build.sh 
 
 ### Native macOS AppKit Configuration Dialog (`WineParity Config.app` & `--config-ui`)
 
-Instead of requiring users to navigate the legacy Windows-style `winecfg` tool for common workflows, `WineParity Config.app` (`builds/WineParityConfig.app`), `wine-parity-config`, and `./scripts/launch.sh --config-ui` open the native macOS AppKit Settings window (`WineParitySettingsController`) organized into four streamlined tabs:
+Instead of requiring users to navigate the legacy Windows-style `winecfg` tool for common workflows, `WineParity Config.app` (`builds/WineParityConfig.app`), `wine-parity-config`, and `./scripts/launch.sh --config-ui` open the native macOS AppKit Settings window (`WineParitySettingsController`) organized into five streamlined tabs:
 
 1. **General**:
    - **Windows Version**: Selects reported Windows version (`win11`, `win10`, `win81`, `win7`) and cascades `Version` to `[Software\\Wine]` in `user.reg`.
@@ -280,9 +280,12 @@ Instead of requiring users to navigate the legacy Windows-style `winecfg` tool f
 3. **Sandbox & Network (Zero-Trust Containment)**:
    - **macOS `sandbox-exec` Containment**: Enabled by default (`sandbox.enabled = true`). Blocks access to sensitive host credential stores (`~/.ssh`, `~/.aws`, `~/.gnupg`, `~/Library/Keychains`), blocks host file writes outside `$WINEPREFIX` and the target `.exe` directory (`sandbox.allow_exe_dir_rw = true`), and removes the `$WINEPREFIX/dosdevices/z:` root `/` symlink (`sandbox.strip_z_drive = true`).
    - **Incoming Network Firewall (`network.incoming`)**: Defaults to **`deny`** (all inbound TCP/UDP ` network-inbound ` sockets blocked at the Darwin kernel layer via Seatbelt; configurable to `allow` or `custom_ports`).
-   - **Outgoing Network Firewall (`network.outgoing`)**: Defaults to **`http_https_only`** (restricts remote TCP connections exclusively to ports **`80`** and **`443`** while keeping local Unix domain sockets and loopback IPC open for `wineserver`; configurable to `deny_all`, `allow_all`, or `custom_ports` via `network.allowed_outgoing_ports`).
+   - **Outgoing Network Firewall (`network.outgoing`)**: Defaults to **`http_https_only`** (restricts remote TCP connections exclusively to ports **`80`**, **`443`**, and **`53`** while keeping local Unix domain sockets and loopback IPC open for `wineserver`; configurable to `dns_only`, `deny_all`, `allow_all`, or `custom_ports` via `network.allowed_outgoing_ports`).
 4. **Graphics & Acceleration**:
    - Configures Retina High-DPI mode (`RetinaMode`), window decorations (`Decorated`), screen DPI (`LogPixels`), Direct3D renderer backend (` metal ` / `gl` / `vulkan`), and shader backend (`msl` / `glsl`), cascading directly into `[Software\\Wine\\Mac Driver]` and `[Software\\Wine\\Direct3D]`.
+5. **Built-in Apps (Bundled GUI & CLI `.exe` Programs)**:
+   - Bundles all 14 built-in Windows GUI and CLI `.exe` programs (`notepad.exe`, `winmine.exe` aliased from `winemine.exe`, `clock.exe`, `taskmgr.exe`, `wordpad.exe`, `regedit.exe`, `winecfg.exe`, `progman.exe`, `explorer.exe`, `cmd.exe`, `hostname.exe`, `ipconfig.exe`, `systeminfo.exe`, and `tasklist.exe`) into `Windows Apps/` inside `builds/WineParity-Installer.dmg` and `Contents/Resources/WindowsApps/` inside `WineParity.app` / `WineParity Config.app`.
+   - Provides one-click **Launch** buttons for all 9 GUI apps and an interactive output viewer for all 5 CLI diagnostics (`WINE_PARITY_SKIP_SECURITY_GATES=1`, `WINE_PARITY_REQUIRE_AUTHENTICODE=0`, `WINE_PARITY_NO_SANDBOX=1` scoped exclusively to built-in apps built from source).
 
 ### Non-Destructive Wine Registry Cascade & Coexistence with `winecfg`
 

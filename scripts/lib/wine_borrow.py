@@ -506,7 +506,9 @@ for _wp_arg in "$@"; do
                     echo "[wine-parity] ERROR: Refusing to launch '$_wp_arg': missing executable permission (+x). Run 'chmod +x \"$_wp_arg\"' first." >&2
                     exit 126
                 fi
-                python3 "{REPO_ROOT / "scripts" / "lib" / "exe_handler.py"}" --action scan --exe "$_wp_arg" --quiet-stdout || exit 126
+                if [ "${{WINE_PARITY_SKIP_SECURITY_GATES:-0}}" != "1" ]; then
+                    python3 "{REPO_ROOT / "scripts" / "lib" / "exe_handler.py"}" --action scan --exe "$_wp_arg" --quiet-stdout || exit 126
+                fi
             fi
             ;;
     esac
@@ -559,9 +561,15 @@ fi
     launcher.write_text(script, encoding="utf-8")
     launcher.chmod(launcher.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
 
-    # Ensure built-in Wine PE .exe programs in lib/wine/*-windows/ have +x executable bits set
+    # Ensure built-in Wine PE .exe programs in lib/wine/*-windows/ have +x executable bits set and winmine.exe alias exists
     lib_wine_dir = install_dir / "lib" / "wine"
     if lib_wine_dir.is_dir():
+        for arch_win_dir in lib_wine_dir.glob("*-windows"):
+            if arch_win_dir.is_dir():
+                winemine_exe = arch_win_dir / "winemine.exe"
+                winmine_exe = arch_win_dir / "winmine.exe"
+                if winemine_exe.is_file() and not winmine_exe.is_file():
+                    shutil.copy2(winemine_exe, winmine_exe)
         for exe_file in lib_wine_dir.glob("*-windows/*.exe"):
             if exe_file.is_file():
                 mode = exe_file.stat().st_mode

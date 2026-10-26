@@ -15,12 +15,16 @@ from pathlib import Path
 from typing import Any
 
 from exe_handler import (
+    ALL_BUILTIN_APPS,
     APP_BUNDLE_DIR,
+    BUILTIN_CLI_APPS,
+    BUILTIN_GUI_APPS,
     BUNDLE_ID,
     CONFIG_APP_BUNDLE_DIR,
     CONFIG_BUNDLE_ID,
     REPO_ROOT,
     build_macos_exe_handler,
+    ensure_builtin_windows_apps,
 )
 
 DMG_STAGING_DIR = REPO_ROOT / "builds" / "dmg_staging"
@@ -374,6 +378,7 @@ def build_dmg_package(
 
     staged_launcher_app = DMG_STAGING_DIR / "WineParity.app"
     staged_config_app = DMG_STAGING_DIR / "WineParity Config.app"
+    staged_windows_apps = DMG_STAGING_DIR / "Windows Apps"
     installer_script = DMG_STAGING_DIR / "Install WineParity.command"
     apps_symlink = DMG_STAGING_DIR / "Applications"
     readme_file = DMG_STAGING_DIR / "README.txt"
@@ -463,6 +468,21 @@ def build_dmg_package(
 
         shutil.copytree(APP_BUNDLE_DIR, staged_launcher_app, symlinks=True)
         shutil.copytree(CONFIG_APP_BUNDLE_DIR, staged_config_app, symlinks=True)
+
+        # Stage all 14 built-in GUI & CLI .exe programs into "Windows Apps/" inside the DMG
+        builtin_map = ensure_builtin_windows_apps(dry_run=False)
+        staged_windows_apps.mkdir(parents=True, exist_ok=True)
+        x86_win_dir = REPO_ROOT / "builds" / "wine-install-x86" / "lib" / "wine" / "x86_64-windows"
+        for app_name, src_str in builtin_map.items():
+            src_p = Path(src_str)
+            if src_p.is_file():
+                dst_p = staged_windows_apps / app_name
+                shutil.copy2(src_p, dst_p)
+                dst_p.chmod(dst_p.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+        if (x86_win_dir / "winemine.exe").is_file():
+            dst_wm = staged_windows_apps / "winemine.exe"
+            shutil.copy2(x86_win_dir / "winemine.exe", dst_wm)
+            dst_wm.chmod(dst_wm.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
 
         installer_script.write_text(_generate_installer_command_script(REPO_ROOT), encoding="utf-8")
         installer_script.chmod(
@@ -637,6 +657,10 @@ def build_dmg_package(
         "config_bundle_id": CONFIG_BUNDLE_ID,
         "staged_launcher_app": str(staged_launcher_app),
         "staged_config_app": str(staged_config_app),
+        "staged_windows_apps_dir": str(staged_windows_apps),
+        "bundled_gui_apps": list(BUILTIN_GUI_APPS),
+        "bundled_cli_apps": list(BUILTIN_CLI_APPS),
+        "bundled_windows_apps": list(ALL_BUILTIN_APPS),
         "installer_script": str(installer_script),
         "readme_path": str(readme_file),
         "notarize": bool(notarize),

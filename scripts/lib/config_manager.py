@@ -216,7 +216,8 @@ def cascade_config_to_wine_prefix(cfg: dict[str, Any], prefix_dir: Path | None =
     dosdevices_dir.mkdir(parents=True, exist_ok=True)
 
     z_stripped = False
-    if cfg.get("sandbox", {}).get("strip_z_drive", True):
+    system_reg_file = target_prefix / "system.reg"
+    if cfg.get("sandbox", {}).get("strip_z_drive", True) and system_reg_file.is_file():
         for z_name in ("z:", "Z:"):
             z_path = dosdevices_dir / z_name
             if z_path.is_symlink() or z_path.exists():
@@ -225,6 +226,27 @@ def cascade_config_to_wine_prefix(cfg: dict[str, Any], prefix_dir: Path | None =
                 except OSError:
                     pass
         z_stripped = not (dosdevices_dir / "z:").exists()
+    elif cfg.get("sandbox", {}).get("strip_z_drive", True):
+        for z_name in ("z:", "Z:"):
+            z_path = dosdevices_dir / z_name
+            if z_path.is_symlink() or z_path.exists():
+                try:
+                    z_path.unlink()
+                except OSError:
+                    pass
+        z_stripped = not (dosdevices_dir / "z:").exists()
+
+    # Keep .update-timestamp synchronized with wine.inf when system.reg is present so wineboot does not hang when Z: is stripped
+    wine_inf = REPO_ROOT / "builds" / "wine-install-x86" / "share" / "wine" / "wine.inf"
+    update_ts_file = target_prefix / ".update-timestamp"
+    if system_reg_file.is_file() and wine_inf.is_file():
+        try:
+            inf_mtime = str(int(wine_inf.stat().st_mtime))
+            cur_ts = update_ts_file.read_text(encoding="utf-8", errors="replace").strip() if update_ts_file.is_file() else ""
+            if cur_ts != inf_mtime:
+                update_ts_file.write_text(f"{inf_mtime}\n", encoding="utf-8")
+        except OSError:
+            pass
 
     user_reg = target_prefix / "user.reg"
     if user_reg.is_file():

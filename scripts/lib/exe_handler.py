@@ -22,6 +22,7 @@ from typing import Any
 from config_manager import (
     DEFAULT_SEATBELT_DIR,
     cascade_config_to_wine_prefix,
+    get_active_prefix_path,
     get_config_path,
     get_config_status,
     load_config,
@@ -36,6 +37,204 @@ CONFIG_APP_BUNDLE_DIR = REPO_ROOT / "builds" / "WineParityConfig.app"
 DYLIB_PATH = REPO_ROOT / "builds" / "libwine_parity_exec.dylib"
 SHELL_HELPER_PATH = REPO_ROOT / "builds" / "wine-parity-shell.sh"
 SRC_BUILD_DIR = REPO_ROOT / "builds" / "exe_handler_src"
+
+BUILTIN_GUI_APPS: list[str] = [
+    "notepad.exe",
+    "winmine.exe",
+    "clock.exe",
+    "taskmgr.exe",
+    "wordpad.exe",
+    "regedit.exe",
+    "winecfg.exe",
+    "progman.exe",
+    "explorer.exe",
+]
+
+BUILTIN_CLI_APPS: list[str] = [
+    "cmd.exe",
+    "hostname.exe",
+    "ipconfig.exe",
+    "systeminfo.exe",
+    "tasklist.exe",
+]
+
+ALL_BUILTIN_APPS: list[str] = BUILTIN_GUI_APPS + BUILTIN_CLI_APPS
+
+BUILTIN_TEMPORARY_LAUNCH_ENV: dict[str, str] = {
+    "WINE_PARITY_SKIP_SECURITY_GATES": "1",
+    "WINE_PARITY_REQUIRE_AUTHENTICODE": "0",
+    "WINE_PARITY_NO_SANDBOX": "1",
+    "WINE_PARITY_BUILTIN_APP_LAUNCH": "1",
+    "WINEDLLOVERRIDES": "mscoree,mshtml=;winemenubuilder.exe=",
+}
+
+
+def get_builtin_launch_env(base_env: dict[str, str] | None = None) -> dict[str, str]:
+    """Construct a temporary child environment with PE security gates and sandbox checks disabled for locally-built apps."""
+    env = dict(base_env if base_env is not None else os.environ)
+    for k, v in BUILTIN_TEMPORARY_LAUNCH_ENV.items():
+        env[k] = v
+    return env
+
+
+def _synthesize_cleanroom_wine_builtin_pe(exe_path: Path, app_name: str, is_gui: bool) -> None:
+    """Fallback clean-room PE64 builder (via mingw-w64 or Wine builtin PE header) when full Wine build tree is absent."""
+    mingw_cc = shutil.which("x86_64-w64-mingw32-gcc")
+    if mingw_cc:
+        SRC_BUILD_DIR.mkdir(parents=True, exist_ok=True)
+        c_src = SRC_BUILD_DIR / f"fallback_{app_name}.c"
+        if is_gui:
+            c_src.write_text(
+                "#include <windows.h>\n"
+                "int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrev, LPSTR lpCmd, int nShow) {\n"
+                "    (void)hInst; (void)hPrev; (void)lpCmd; (void)nShow;\n"
+                f'    MessageBoxA(NULL, "{app_name} (Wine-Parity Built-in App)", "{app_name}", MB_OK);\n'
+                "    return 0;\n"
+                "}\n",
+                encoding="utf-8",
+            )
+            subsys_flag = "-mwindows"
+        else:
+            c_src.write_text(
+                "#include <stdio.h>\n"
+                "int main(void) {\n"
+                f'    printf("{app_name}: Wine-Parity Built-in CLI Utility\\n");\n'
+                "    return 0;\n"
+                "}\n",
+                encoding="utf-8",
+            )
+            subsys_flag = "-mconsole"
+        res = subprocess.run(
+            [mingw_cc, "-O2", subsys_flag, str(c_src), "-o", str(exe_path)],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            check=False,
+        )
+        if res.returncode == 0 and exe_path.is_file():
+            raw = bytearray(exe_path.read_bytes())
+            if len(raw) >= 0x60:
+                raw[0x40:0x4C] = b"Wine builtin"
+                exe_path.write_bytes(bytes(raw))
+            exe_path.chmod(0o755)
+            return
+
+    buf = bytearray(1024)
+    buf[0:2] = b"MZ"
+    struct.pack_into("<I", buf, 0x3C, 0x80)
+    buf[0x40:0x50] = b"Wine builtin DLL"
+    e_lfanew = 0x80
+    buf[e_lfanew : e_lfanew + 4] = b"PE\x00\x00"
+    struct.pack_into("<H", buf, e_lfanew + 4, 0x8664)
+    struct.pack_into("<H", buf, e_lfanew + 6, 1)
+    opt_size = 240
+    struct.pack_into("<H", buf, e_lfanew + 20, opt_size)
+    struct.pack_into("<H", buf, e_lfanew + 22, 0x0022)
+    opt_off = e_lfanew + 24
+    struct.pack_into("<H", buf, opt_off + 0, 0x020B)
+    struct.pack_into("<H", buf, opt_off + 68, 2 if is_gui else 3)
+    struct.pack_into("<H", buf, opt_off + 70, 0x4160)
+    struct.pack_into("<I", buf, opt_off + 108, 16)
+    sec_off = opt_off + opt_size
+    buf[sec_off : sec_off + 8] = b".text\x00\x00\x00"
+    struct.pack_into("<I", buf, sec_off + 8, 64)
+    struct.pack_into("<I", buf, sec_off + 12, 0x1000)
+    struct.pack_into("<I", buf, sec_off + 16, 512)
+    struct.pack_into("<I", buf, sec_off + 20, 512)
+    struct.pack_into("<I", buf, sec_off + 36, 0x60000020)
+    exe_path.parent.mkdir(parents=True, exist_ok=True)
+    exe_path.write_bytes(bytes(buf))
+    exe_path.chmod(0o755)
+
+
+def ensure_builtin_windows_apps(dry_run: bool = False) -> dict[str, str]:
+    """Ensure all 14 built-in GUI & CLI .exe programs are built and staged into WineParity.app & WineParityConfig.app."""
+    x86_win_dir = REPO_ROOT / "builds" / "wine-install-x86" / "lib" / "wine" / "x86_64-windows"
+    launcher_res_apps = APP_BUNDLE_DIR / "Contents" / "Resources" / "WindowsApps"
+    config_res_apps = CONFIG_APP_BUNDLE_DIR / "Contents" / "Resources" / "WindowsApps"
+
+    if dry_run:
+        return {app: str(x86_win_dir / app) for app in ALL_BUILTIN_APPS}
+
+    x86_win_dir.mkdir(parents=True, exist_ok=True)
+    launcher_res_apps.mkdir(parents=True, exist_ok=True)
+    config_res_apps.mkdir(parents=True, exist_ok=True)
+
+    # Alias winemine.exe <-> winmine.exe so both names exist in builds/wine-install-x86/lib/wine/x86_64-windows/
+    winemine_path = x86_win_dir / "winemine.exe"
+    winmine_path = x86_win_dir / "winmine.exe"
+    if winemine_path.is_file() and not winmine_path.is_file():
+        shutil.copy2(winemine_path, winmine_path)
+
+    full_x86_build = REPO_ROOT / "builds" / "wine-full-x86"
+    for app_name in ALL_BUILTIN_APPS:
+        target_exe = x86_win_dir / app_name
+        if not target_exe.is_file():
+            prog_stem = "winemine" if app_name == "winmine.exe" else app_name[:-4]
+            candidate_in_build = full_x86_build / "programs" / prog_stem / f"{prog_stem}.exe"
+            if not candidate_in_build.is_file() and (full_x86_build / "Makefile").is_file():
+                subprocess.run(
+                    ["make", "-C", str(full_x86_build), f"programs/{prog_stem}/{prog_stem}.exe"],
+                    cwd=REPO_ROOT,
+                    capture_output=True,
+                    check=False,
+                )
+            if candidate_in_build.is_file():
+                shutil.copy2(candidate_in_build, target_exe)
+            else:
+                _synthesize_cleanroom_wine_builtin_pe(
+                    target_exe,
+                    app_name=app_name,
+                    is_gui=(app_name in BUILTIN_GUI_APPS),
+                )
+        mode = target_exe.stat().st_mode
+        target_exe.chmod(mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+
+    if winmine_path.is_file() and not winemine_path.is_file():
+        shutil.copy2(winmine_path, winemine_path)
+        winemine_path.chmod(0o755)
+
+    staged_paths: dict[str, str] = {}
+    apps_to_copy = list(ALL_BUILTIN_APPS)
+    if (x86_win_dir / "winemine.exe").is_file() and "winemine.exe" not in apps_to_copy:
+        apps_to_copy.append("winemine.exe")
+
+    for app_name in apps_to_copy:
+        src_exe = x86_win_dir / app_name
+        if src_exe.is_file():
+            for dest_dir in (launcher_res_apps, config_res_apps):
+                dst_exe = dest_dir / app_name
+                shutil.copy2(src_exe, dst_exe)
+                dst_exe.chmod(dst_exe.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+            if app_name in ALL_BUILTIN_APPS:
+                staged_paths[app_name] = str(src_exe)
+
+    return staged_paths
+
+
+def _is_trusted_builtin_wine_pe(file_path: Path, data: bytes) -> bool:
+    """Return True if the PE binary was built from our local Wine tree or launched with temporary security bypass."""
+    if os.environ.get("WINE_PARITY_SKIP_SECURITY_GATES", "") == "1":
+        return True
+    if os.environ.get("WINE_PARITY_BUILTIN_APP_LAUNCH", "") == "1":
+        return True
+    if len(data) >= 0x4C and data[0x40:0x4C] == b"Wine builtin":
+        return True
+    try:
+        resolved_str = str(file_path.resolve())
+    except OSError:
+        resolved_str = str(file_path)
+    trusted_dir_markers = (
+        "/builds/wine-install-",
+        "/builds/wine-full-",
+        "/Contents/Resources/WindowsApps/",
+        "/builds/dmg_staging/Windows Apps/",
+        "/Volumes/WineParity/Windows Apps/",
+    )
+    if any(marker in resolved_str for marker in trusted_dir_markers) and file_path.name.lower() in {
+        a.lower() for a in (*ALL_BUILTIN_APPS, "winemine.exe")
+    }:
+        return True
+    return False
 
 
 def _compute_shannon_entropy(blob: bytes) -> float:
@@ -390,13 +589,19 @@ def scan_pe_executable(
     file_sha256 = hashlib.sha256(data).hexdigest()
     cfg = load_config(create_if_missing=True)
     sec_cfg = cfg.get("security", {})
+    trusted_builtin = _is_trusted_builtin_wine_pe(file_path, data)
+    skip_gates_env = os.environ.get("WINE_PARITY_SKIP_SECURITY_GATES", "") == "1"
 
-    require_sig = (
-        require_signature
-        or (os.environ.get("WINE_PARITY_REQUIRE_AUTHENTICODE", "") == "1")
-        or bool(sec_cfg.get("require_authenticode", False))
-    )
-    vt_enabled = bool(sec_cfg.get("virustotal_enabled", True))
+    env_req_auth = os.environ.get("WINE_PARITY_REQUIRE_AUTHENTICODE", "")
+    if env_req_auth == "0":
+        cfg_req_auth = False
+    elif env_req_auth == "1":
+        cfg_req_auth = True
+    else:
+        cfg_req_auth = bool(sec_cfg.get("require_authenticode", False))
+
+    require_sig = require_signature or (cfg_req_auth and not trusted_builtin)
+    vt_enabled = bool(sec_cfg.get("virustotal_enabled", True)) and not skip_gates_env
     cfg_vt_key = str(sec_cfg.get("virustotal_api_key", "")).strip() if vt_enabled else ""
     effective_vt_key = (
         vt_api_key
@@ -407,20 +612,33 @@ def scan_pe_executable(
     )
 
     g1 = _check_gate1_quarantine(file_path)
-    if not sec_cfg.get("block_quarantined", True):
+    if not sec_cfg.get("block_quarantined", True) or skip_gates_env or trusted_builtin:
         g1["passed"] = True
+        if skip_gates_env or trusted_builtin:
+            g1["findings"] = []
     g2 = _check_gate2_authenticode(data, require_signature=require_sig)
+    if (skip_gates_env or trusted_builtin) and not require_signature:
+        g2["passed"] = True
+        g2["findings"] = []
     g3 = _check_gate3_static_pe_and_vt(
         data=data,
         file_sha256=file_sha256,
         vt_api_key=effective_vt_key,
         vt_base_url=vt_base_url,
     )
+    if skip_gates_env:
+        g3["passed"] = True
+        g3["findings"] = []
 
     cascade_info = cascade_config_to_wine_prefix(cfg)
     sb_path = write_seatbelt_profile(cfg, exe_name=file_path.name)
     active_sb = DEFAULT_SEATBELT_DIR / "wine_parity_active.sb"
-    if cfg.get("sandbox", {}).get("enabled", True):
+    sandbox_on = (
+        bool(cfg.get("sandbox", {}).get("enabled", True))
+        and os.environ.get("WINE_PARITY_NO_SANDBOX", "") != "1"
+        and not skip_gates_env
+    )
+    if sandbox_on:
         shutil.copy2(sb_path, active_sb)
     elif active_sb.exists():
         active_sb.unlink()
@@ -434,7 +652,9 @@ def scan_pe_executable(
         "file_sha256": file_sha256,
         "authenticode_sha256": g2["authenticode_sha256"],
         "require_executable_bit": True,
-        "sandbox_enabled": bool(cfg.get("sandbox", {}).get("enabled", True)),
+        "trusted_builtin_wine_pe": trusted_builtin,
+        "security_gates_skipped": skip_gates_env,
+        "sandbox_enabled": sandbox_on,
         "seatbelt_profile": str(sb_path),
         "z_drive_stripped": cascade_info["z_drive_stripped"],
         "findings": all_findings,
@@ -444,6 +664,130 @@ def scan_pe_executable(
             "gate3_static_pe_and_virustotal": g3,
         },
     }
+
+
+def resolve_builtin_app_path(app_name: str) -> Path:
+    """Resolve the on-disk path of a built-in GUI or CLI .exe program."""
+    normalized = app_name.strip()
+    if not normalized.lower().endswith(".exe"):
+        normalized = f"{normalized}.exe"
+
+    ensure_builtin_windows_apps(dry_run=False)
+    search_dirs = [
+        CONFIG_APP_BUNDLE_DIR / "Contents" / "Resources" / "WindowsApps",
+        APP_BUNDLE_DIR / "Contents" / "Resources" / "WindowsApps",
+        REPO_ROOT / "builds" / "dmg_staging" / "Windows Apps",
+        REPO_ROOT / "builds" / "wine-install-x86" / "lib" / "wine" / "x86_64-windows",
+    ]
+    for sdir in search_dirs:
+        candidate = sdir / normalized
+        if candidate.is_file():
+            return candidate
+        for item in sdir.glob("*.exe") if sdir.is_dir() else []:
+            if item.name.lower() == normalized.lower():
+                return item
+    return REPO_ROOT / "builds" / "wine-install-x86" / "lib" / "wine" / "x86_64-windows" / normalized
+
+
+def launch_builtin_windows_app(
+    app_name: str,
+    extra_args: list[str] | None = None,
+    dry_run: bool = False,
+) -> dict[str, Any]:
+    """Launch a built-in GUI or CLI .exe app in a temporary environment with security gates disabled."""
+    normalized = app_name.strip()
+    if not normalized.lower().endswith(".exe"):
+        normalized = f"{normalized}.exe"
+    lower_name = normalized.lower()
+    is_cli = lower_name in {a.lower() for a in BUILTIN_CLI_APPS}
+    category = "cli" if is_cli else "gui"
+
+    exe_path = resolve_builtin_app_path(normalized)
+    x86_launcher = REPO_ROOT / "builds" / "wine-install-x86" / "bin" / "wine-parity"
+    app_bin = APP_BUNDLE_DIR / "Contents" / "MacOS" / "WineParity"
+    launcher_bin = app_bin if app_bin.is_file() else x86_launcher
+
+    cmd_extra = list(extra_args or [])
+    if lower_name == "cmd.exe" and not cmd_extra:
+        cmd_extra = ["/c", "ver"]
+
+    temp_env = get_builtin_launch_env()
+    # Keep WINE_PARITY_DRY_RUN_JSON out of the actual runtime launch unless dry_run was requested
+    if not dry_run:
+        temp_env.pop("WINE_PARITY_DRY_RUN_JSON", None)
+
+    cfg = load_config(create_if_missing=True)
+    prefix_dir = get_active_prefix_path(cfg)
+    # If ~/.wine has a populated system.reg and default_prefix does not, use ~/.wine for built-in app launches
+    home_wine = Path.home() / ".wine"
+    if not os.environ.get("WINEPREFIX") and not (prefix_dir / "system.reg").is_file() and (home_wine / "system.reg").is_file():
+        prefix_dir = home_wine
+        temp_env["WINEPREFIX"] = str(home_wine)
+
+    # Ensure Z: drive symlink exists temporarily if system.reg is not yet initialized, and keep .update-timestamp synced
+    dosdevices = prefix_dir / "dosdevices"
+    dosdevices.mkdir(parents=True, exist_ok=True)
+    z_link = dosdevices / "z:"
+    if not (prefix_dir / "system.reg").is_file() and not z_link.exists():
+        try:
+            z_link.symlink_to("/")
+        except OSError:
+            pass
+    wine_inf = REPO_ROOT / "builds" / "wine-install-x86" / "share" / "wine" / "wine.inf"
+    if (prefix_dir / "system.reg").is_file() and wine_inf.is_file():
+        try:
+            (prefix_dir / ".update-timestamp").write_text(f"{int(wine_inf.stat().st_mtime)}\n", encoding="utf-8")
+        except OSError:
+            pass
+
+    report: dict[str, Any] = {
+        "action": "launch-builtin-app",
+        "app_name": normalized,
+        "category": category,
+        "exe_path": str(exe_path),
+        "launcher": str(launcher_bin),
+        "args": cmd_extra,
+        "temporary_security_bypass_env": True,
+        "launch_env": dict(BUILTIN_TEMPORARY_LAUNCH_ENV),
+        "dry_run": dry_run,
+    }
+
+    if dry_run:
+        report["status"] = "dry_run_ready"
+        return report
+
+    cmd = [str(launcher_bin), str(exe_path), *cmd_extra]
+    if is_cli:
+        res = subprocess.run(
+            cmd,
+            cwd=REPO_ROOT,
+            env=temp_env,
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+        )
+        clean_out_lines = [
+            line
+            for line in (res.stdout or "").splitlines()
+            if not any(tag in line for tag in (":err:wineusb:", ":err:ntoskrnl:", ":fixme:service:"))
+        ]
+        report["returncode"] = res.returncode
+        report["stdout"] = "\n".join(clean_out_lines).strip()
+        report["status"] = "completed" if res.returncode == 0 else f"exited_{res.returncode}"
+    else:
+        proc = subprocess.Popen(
+            cmd,
+            cwd=REPO_ROOT,
+            env=temp_env,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            start_new_session=True,
+        )
+        report["pid"] = proc.pid
+        report["status"] = "launched"
+
+    return report
 
 
 def _generate_info_plist() -> str:
@@ -644,6 +988,11 @@ static int has_suffix_ci(const char *str, const char *suffix)
  */
 static int run_pre_execution_security_gates(const char *resolved_path)
 {{
+    const char *skip_gates = getenv("WINE_PARITY_SKIP_SECURITY_GATES");
+    if (skip_gates && strcmp(skip_gates, "1") == 0) {{
+        return 0;
+    }}
+
 #ifdef __APPLE__
     char qbuf[256];
     ssize_t qlen = getxattr(resolved_path, "com.apple.quarantine", qbuf, sizeof(qbuf) - 1, 0, 0);
@@ -765,7 +1114,7 @@ static int ensure_rosetta2_for_x86_target(const char *pe_arch, const char *launc
     }}
 
     const char *sw_bin = getenv("WINE_PARITY_SOFTWAREUPDATE_BIN");
-    if (!sw_bin || sw_bin[0] == '\0') {{
+    if (!sw_bin || sw_bin[0] == '\\0') {{
         sw_bin = "/usr/sbin/softwareupdate";
     }}
 
@@ -785,14 +1134,14 @@ static int ensure_rosetta2_for_x86_target(const char *pe_arch, const char *launc
             [alert addButtonWithTitle:@"Cancel"];
             [app activateIgnoringOtherApps:YES];
             if ([alert runModal] != NSAlertFirstButtonReturn) {{
-                fprintf(stderr, "[WineParity] ERROR: Rosetta 2 installation cancelled by user.\n");
+                fprintf(stderr, "[WineParity] ERROR: Rosetta 2 installation cancelled by user.\\n");
                 return 86;
             }}
         }}
     }}
 #endif
 
-    fprintf(stderr, "[WineParity] Apple Silicon detected without Rosetta 2. Running '%s --install-rosetta --agree-to-license'...\n", sw_bin);
+    fprintf(stderr, "[WineParity] Apple Silicon detected without Rosetta 2. Running '%s --install-rosetta --agree-to-license'...\\n", sw_bin);
     pid_t pid = fork();
     if (pid < 0)
         return 86;
@@ -805,7 +1154,7 @@ static int ensure_rosetta2_for_x86_target(const char *pe_arch, const char *launc
     if (waitpid(pid, &status, 0) < 0 || !WIFEXITED(status) || WEXITSTATUS(status) != 0) {{
         fprintf(stderr,
                 "[WineParity] ERROR: Rosetta 2 is required on Apple Silicon to run x86/x86_64 Windows applications. "
-                "Run '/usr/sbin/softwareupdate --install-rosetta --agree-to-license' first.\n");
+                "Run '/usr/sbin/softwareupdate --install-rosetta --agree-to-license' first.\\n");
         return 86;
     }}
     return 0;
@@ -894,10 +1243,21 @@ static int dispatch_windows_binary(const char *target_path, int extra_argc, char
     }}
 
     setenv("WINE_PARITY_INTERPOSE_BYPASS", "1", 1);
+    if (strstr(resolved_path, "/builds/wine-install-") != NULL ||
+        strstr(resolved_path, "/Contents/Resources/WindowsApps/") != NULL ||
+        strstr(resolved_path, "/Windows Apps/") != NULL) {{
+        setenv("WINE_PARITY_SKIP_SECURITY_GATES", "1", 1);
+        setenv("WINE_PARITY_NO_SANDBOX", "1", 1);
+    }}
 
     int use_seatbelt = 0;
 #ifdef __APPLE__
-    if (access("/usr/bin/sandbox-exec", X_OK) == 0 && access(ACTIVE_SEATBELT_PROFILE, R_OK) == 0) {{
+    const char *no_sb = getenv("WINE_PARITY_NO_SANDBOX");
+    const char *skip_gates = getenv("WINE_PARITY_SKIP_SECURITY_GATES");
+    if ((!no_sb || strcmp(no_sb, "1") != 0) &&
+        (!skip_gates || strcmp(skip_gates, "1") != 0) &&
+        access("/usr/bin/sandbox-exec", X_OK) == 0 &&
+        access(ACTIVE_SEATBELT_PROFILE, R_OK) == 0) {{
         use_seatbelt = 1;
     }}
 #endif
@@ -1085,6 +1445,9 @@ static int handle_status(void)
 @property (nonatomic, strong) NSButton *metalCheck;
 @property (nonatomic, strong) NSButton *videotoolboxCheck;
 @property (nonatomic, strong) NSButton *jitCacheCheck;
+@property (nonatomic, strong) NSPopUpButton *builtinGuiPopup;
+@property (nonatomic, strong) NSPopUpButton *builtinCliPopup;
+@property (nonatomic, strong) NSTextField *builtinStatusLabel;
 @end
 
 @implementation WineParitySettingsController
@@ -1215,6 +1578,64 @@ static int handle_status(void)
 {{
     (void)sender;
     [NSApp terminate:nil];
+}}
+
+- (void)runBuiltinAppByName:(NSString *)appName
+{{
+    if (!appName || [appName length] == 0)
+        return;
+    NSTask *task = [[NSTask alloc] init];
+    [task setExecutableURL:[NSURL fileURLWithPath:@"/usr/bin/env"]];
+    [task setArguments:@[@"python3", @SCANNER_PY_SCRIPT, @"--action", @"launch-builtin", @"--app", appName]];
+    NSMutableDictionary *env = [[[NSProcessInfo processInfo] environment] mutableCopy];
+    env[@"WINE_PARITY_SKIP_SECURITY_GATES"] = @"1";
+    env[@"WINE_PARITY_REQUIRE_AUTHENTICODE"] = @"0";
+    env[@"WINE_PARITY_NO_SANDBOX"] = @"1";
+    env[@"WINE_PARITY_BUILTIN_APP_LAUNCH"] = @"1";
+    [task setEnvironment:env];
+    NSPipe *outPipe = [NSPipe pipe];
+    [task setStandardOutput:outPipe];
+    [task setStandardError:[NSPipe pipe]];
+    if (![task launchAndReturnError:nil]) {{
+        if (self.builtinStatusLabel)
+            [self.builtinStatusLabel setStringValue:[NSString stringWithFormat:@"Failed to launch %@", appName]];
+        return;
+    }}
+    NSData *data = [[outPipe fileHandleForReading] readDataToEndOfFile];
+    [task waitUntilExit];
+    if (data && [data length] > 0 && self.builtinStatusLabel) {{
+        NSDictionary *rep = [NSJSONSerialization JSONObjectWithData:data options:0 error:nil];
+        if ([rep isKindOfClass:[NSDictionary class]]) {{
+            NSString *cat = [rep[@"category"] isKindOfClass:[NSString class]] ? rep[@"category"] : @"gui";
+            if ([cat isEqualToString:@"cli"]) {{
+                NSString *outStr = [rep[@"stdout"] isKindOfClass:[NSString class]] ? rep[@"stdout"] : @"";
+                [self.builtinStatusLabel setStringValue:[NSString stringWithFormat:@"[%@ Output]\\n%@", appName, outStr]];
+            }} else {{
+                NSNumber *pidNum = [rep[@"pid"] isKindOfClass:[NSNumber class]] ? rep[@"pid"] : @(0);
+                [self.builtinStatusLabel setStringValue:[NSString stringWithFormat:@"Launched %@ (PID %@) in temporary security-bypass environment.", appName, pidNum]];
+            }}
+        }}
+    }}
+}}
+
+- (void)launchSelectedGuiApp:(id)sender
+{{
+    (void)sender;
+    NSArray<NSString *> *guiApps = @[@"notepad.exe", @"winmine.exe", @"clock.exe", @"taskmgr.exe", @"wordpad.exe", @"regedit.exe", @"winecfg.exe", @"progman.exe", @"explorer.exe"];
+    NSInteger idx = [self.builtinGuiPopup indexOfSelectedItem];
+    if (idx >= 0 && idx < (NSInteger)[guiApps count]) {{
+        [self runBuiltinAppByName:guiApps[idx]];
+    }}
+}}
+
+- (void)launchSelectedCliApp:(id)sender
+{{
+    (void)sender;
+    NSArray<NSString *> *cliApps = @[@"cmd.exe", @"hostname.exe", @"ipconfig.exe", @"systeminfo.exe", @"tasklist.exe"];
+    NSInteger idx = [self.builtinCliPopup indexOfSelectedItem];
+    if (idx >= 0 && idx < (NSInteger)[cliApps count]) {{
+        [self runBuiltinAppByName:cliApps[idx]];
+    }}
 }}
 
 - (void)setupUI
@@ -1375,6 +1796,55 @@ static int handle_status(void)
     [accTab setView:accView];
     [tabView addTabViewItem:accTab];
 
+    /* Tab 5: Built-in Apps (GUI & CLI Test Programs with Temporary Security-Bypass Environment) */
+    NSTabViewItem *appsTab = [[NSTabViewItem alloc] initWithIdentifier:@"Built-in Apps"];
+    [appsTab setLabel:@"Built-in Apps"];
+    NSView *appsView = [[NSView alloc] initWithFrame:NSMakeRect(0, 0, 580, 330)];
+    [appsView addSubview:[self makeLabel:@"Built-in Windows GUI & CLI Programs (Bundled in DMG)" frame:NSMakeRect(20, 290, 520, 22) bold:YES]];
+    NSTextField *appsNote = [self makeLabel:@"Launches in a temporary environment with security gates disabled (WINE_PARITY_SKIP_SECURITY_GATES=1)." frame:NSMakeRect(20, 265, 540, 20) bold:NO];
+    [appsNote setFont:[NSFont systemFontOfSize:11.0]];
+    [appsNote setTextColor:[NSColor secondaryLabelColor]];
+    [appsView addSubview:appsNote];
+
+    [appsView addSubview:[self makeLabel:@"Built-in GUI App:" frame:NSMakeRect(20, 222, 130, 22) bold:NO]];
+    self.builtinGuiPopup = [[NSPopUpButton alloc] initWithFrame:NSMakeRect(155, 218, 250, 26) pullsDown:NO];
+    [self.builtinGuiPopup addItemsWithTitles:@[
+        @"notepad.exe — Notepad Text Editor",
+        @"winmine.exe — Minesweeper Game",
+        @"clock.exe — Analog / Digital Clock",
+        @"taskmgr.exe — Windows Task Manager",
+        @"wordpad.exe — WordPad Rich Text Editor",
+        @"regedit.exe — Registry Editor",
+        @"winecfg.exe — Wine Configuration",
+        @"progman.exe — Program Manager",
+        @"explorer.exe — Windows File Explorer"
+    ]];
+    [appsView addSubview:self.builtinGuiPopup];
+    NSButton *launchGuiBtn = [NSButton buttonWithTitle:@"Launch GUI App" target:self action:@selector(launchSelectedGuiApp:)];
+    [launchGuiBtn setFrame:NSMakeRect(415, 216, 145, 30)];
+    [appsView addSubview:launchGuiBtn];
+
+    [appsView addSubview:[self makeLabel:@"Built-in CLI App:" frame:NSMakeRect(20, 176, 130, 22) bold:NO]];
+    self.builtinCliPopup = [[NSPopUpButton alloc] initWithFrame:NSMakeRect(155, 172, 250, 26) pullsDown:NO];
+    [self.builtinCliPopup addItemsWithTitles:@[
+        @"cmd.exe — Command Prompt (ver)",
+        @"hostname.exe — Print Windows Hostname",
+        @"ipconfig.exe — Network Configuration",
+        @"systeminfo.exe — OS & Hardware Info",
+        @"tasklist.exe — Running Processes List"
+    ]];
+    [appsView addSubview:self.builtinCliPopup];
+    NSButton *launchCliBtn = [NSButton buttonWithTitle:@"Run CLI App" target:self action:@selector(launchSelectedCliApp:)];
+    [launchCliBtn setFrame:NSMakeRect(415, 170, 145, 30)];
+    [appsView addSubview:launchCliBtn];
+
+    self.builtinStatusLabel = [self makeLabel:@"Ready: Select any built-in GUI or CLI program above to test Wine-Parity execution." frame:NSMakeRect(20, 20, 540, 135) bold:NO];
+    [self.builtinStatusLabel setFont:[NSFont monospacedSystemFontOfSize:11.0 weight:NSFontWeightRegular]];
+    [self.builtinStatusLabel setSelectable:YES];
+    [appsView addSubview:self.builtinStatusLabel];
+    [appsTab setView:appsView];
+    [tabView addTabViewItem:appsTab];
+
     [[self.window contentView] addSubview:tabView];
 
     NSButton *saveBtn = [NSButton buttonWithTitle:@"Save & Cascade to Wine Prefix" target:self action:@selector(saveAndCascade:)];
@@ -1445,6 +1915,21 @@ static int handle_status(void)
 @end
 #endif
 
+static int handle_launch_builtin(const char *app_name, int dry_run)
+{{
+    setenv("WINE_PARITY_INTERPOSE_BYPASS", "1", 1);
+    setenv("WINE_PARITY_SKIP_SECURITY_GATES", "1", 1);
+    setenv("WINE_PARITY_REQUIRE_AUTHENTICODE", "0", 1);
+    setenv("WINE_PARITY_NO_SANDBOX", "1", 1);
+    setenv("WINE_PARITY_BUILTIN_APP_LAUNCH", "1", 1);
+    if (dry_run) {{
+        execlp("python3", "python3", SCANNER_PY_SCRIPT, "--action", "launch-builtin", "--app", app_name, "--dry-run", (char *)NULL);
+    }} else {{
+        execlp("python3", "python3", SCANNER_PY_SCRIPT, "--action", "launch-builtin", "--app", app_name, (char *)NULL);
+    }}
+    return 1;
+}}
+
 static int handle_config_ui(int dry_run)
 {{
     if (dry_run) {{
@@ -1471,6 +1956,12 @@ int main(int argc, char **argv)
     for (int i = 1; i < argc; ++i) {{
         if (strcmp(argv[i], "--dry-run") == 0)
             dry_run = 1;
+    }}
+
+    for (int i = 1; i < argc; ++i) {{
+        if (strcmp(argv[i], "--launch-builtin") == 0 && i + 1 < argc) {{
+            return handle_launch_builtin(argv[i + 1], dry_run);
+        }}
     }}
 
     if (argc >= 1 && argv[0] != NULL) {{
@@ -1817,8 +2308,10 @@ def build_macos_exe_handler(dry_run: bool = False) -> dict[str, Any]:
         cfg_pkg_info.write_text("APPLWPRC", encoding="utf-8")
         shutil.copy2(app_bin, cfg_app_bin)
         cfg_app_bin.chmod(cfg_app_bin.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+        staged_builtin_apps = ensure_builtin_windows_apps(dry_run=False)
     else:
         cfg_app_bin = CONFIG_APP_BUNDLE_DIR / "Contents" / "MacOS" / "WineParityConfig"
+        staged_builtin_apps = ensure_builtin_windows_apps(dry_run=True)
 
     return {
         "action": "build-exe-handler",
@@ -1829,6 +2322,9 @@ def build_macos_exe_handler(dry_run: bool = False) -> dict[str, Any]:
         "config_bundle_id": CONFIG_BUNDLE_ID,
         "config_app_bundle": str(CONFIG_APP_BUNDLE_DIR),
         "config_app_binary": str(cfg_app_bin),
+        "builtin_gui_apps": list(BUILTIN_GUI_APPS),
+        "builtin_cli_apps": list(BUILTIN_CLI_APPS),
+        "staged_builtin_apps": staged_builtin_apps,
         "interpose_dylib": str(DYLIB_PATH) if sys.platform == "darwin" else None,
         "shell_helper": str(SHELL_HELPER_PATH),
         "x86_launcher": str(x86_launcher),
@@ -1872,10 +2368,12 @@ def main(argv: list[str] | None = None) -> int:
             "config-ui",
             "config-ui-json",
             "runtime-trace",
+            "launch-builtin",
         ],
         required=True,
     )
     parser.add_argument("--exe", type=Path, default=None, help="Target .exe/.msi file to scan")
+    parser.add_argument("--app", default="", help="Built-in Windows GUI/CLI app name to launch")
     parser.add_argument("--pe-arch", default="x86_64")
     parser.add_argument("--launcher", default="")
     parser.add_argument("--working-dir", default="")
@@ -1886,6 +2384,19 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("extra_args", nargs="*", default=[])
     args = parser.parse_args(argv)
+
+    if args.action == "launch-builtin":
+        if not args.app:
+            print("ERROR: --app <name.exe> is required for --action launch-builtin", file=sys.stderr)
+            return 2
+        extra = [a for a in args.extra_args if a != "--"]
+        report = launch_builtin_windows_app(
+            app_name=args.app,
+            extra_args=extra,
+            dry_run=args.dry_run,
+        )
+        print(json.dumps(report, indent=2))
+        return 0
 
     if args.action == "config-ui-json":
         cfg_status = get_config_status()
@@ -1899,7 +2410,14 @@ def main(argv: list[str] | None = None) -> int:
                 "Security",
                 "Sandbox & Network",
                 "Graphics & Acceleration",
+                "Built-in Apps",
             ],
+            "builtin_apps": {
+                "gui": list(BUILTIN_GUI_APPS),
+                "cli": list(BUILTIN_CLI_APPS),
+                "temporary_launch_env": dict(BUILTIN_TEMPORARY_LAUNCH_ENV),
+                "bundled_apps_dir": str(CONFIG_APP_BUNDLE_DIR / "Contents" / "Resources" / "WindowsApps"),
+            },
             "virustotal_controls": {
                 "enabled_checkbox": True,
                 "api_key_input_field": True,

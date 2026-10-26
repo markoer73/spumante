@@ -2373,18 +2373,60 @@ class TestWineParityArchitecture(unittest.TestCase):
         self.assertEqual(cfg_ui_doc["window_title"], "Wine Parity Settings")
         self.assertEqual(
             cfg_ui_doc["sections"],
-            ["General", "Security", "Sandbox & Network", "Graphics & Acceleration"],
+            [
+                "General",
+                "Security",
+                "Sandbox & Network",
+                "Graphics & Acceleration",
+                "Built-in Apps",
+            ],
         )
+        self.assertIn("builtin_apps", cfg_ui_doc)
+        expected_gui_apps = [
+            "notepad.exe",
+            "winmine.exe",
+            "clock.exe",
+            "taskmgr.exe",
+            "wordpad.exe",
+            "regedit.exe",
+            "winecfg.exe",
+            "progman.exe",
+            "explorer.exe",
+        ]
+        expected_cli_apps = [
+            "cmd.exe",
+            "hostname.exe",
+            "ipconfig.exe",
+            "systeminfo.exe",
+            "tasklist.exe",
+        ]
+        self.assertEqual(cfg_ui_doc["builtin_apps"]["gui"], expected_gui_apps)
+        self.assertEqual(cfg_ui_doc["builtin_apps"]["cli"], expected_cli_apps)
+        temp_env_spec = cfg_ui_doc["builtin_apps"]["temporary_launch_env"]
+        self.assertEqual(temp_env_spec["WINE_PARITY_SKIP_SECURITY_GATES"], "1")
+        self.assertEqual(temp_env_spec["WINE_PARITY_REQUIRE_AUTHENTICODE"], "0")
+        self.assertEqual(temp_env_spec["WINE_PARITY_NO_SANDBOX"], "1")
 
-        # 4. Verify DMG staging directory contents (WineParity.app, WineParity Config.app, Install WineParity.command, Applications symlink, README.txt)
+        # 4. Verify DMG staging directory contents (WineParity.app, WineParity Config.app, Windows Apps/, Install WineParity.command, Applications symlink, README.txt)
         staging_dir = Path(dmg_report["staging_dir"])
         installer_cmd = Path(dmg_report["installer_script"])
+        staged_win_apps_dir = staging_dir / "Windows Apps"
         self.assertTrue((staging_dir / "WineParity.app").is_dir())
         self.assertTrue((staging_dir / "WineParity Config.app").is_dir())
+        self.assertTrue(staged_win_apps_dir.is_dir(), "Missing 'Windows Apps' directory in DMG staging")
         self.assertTrue(installer_cmd.is_file())
         self.assertTrue(os.access(installer_cmd, os.X_OK), "Install WineParity.command must be executable (+x)")
         self.assertTrue((staging_dir / "Applications").is_symlink())
         self.assertTrue((staging_dir / "README.txt").is_file())
+
+        # Verify all 14 built-in GUI & CLI apps are built and present (+x) in wine-install-x86, DMG Windows Apps/, and app bundle Resources
+        x86_win_dir = REPO_ROOT / "builds" / "wine-install-x86" / "lib" / "wine" / "x86_64-windows"
+        cfg_bundle_apps_dir = config_app_bundle / "Contents" / "Resources" / "WindowsApps"
+        for app_name in expected_gui_apps + expected_cli_apps:
+            for check_dir in (x86_win_dir, staged_win_apps_dir, cfg_bundle_apps_dir):
+                exe_path = check_dir / app_name
+                self.assertTrue(exe_path.is_file(), f"Missing built-in app {app_name} in {check_dir}")
+                self.assertTrue(os.access(exe_path, os.X_OK), f"Built-in app {exe_path} must have +x permission")
 
         # 5. Execute Install WineParity.command into an isolated temporary target directory
         with tempfile.TemporaryDirectory() as tmp:
@@ -2448,6 +2490,58 @@ class TestWineParityArchitecture(unittest.TestCase):
             self.assertTrue(target_cfg.is_file())
             self.assertEqual(stat.S_IMODE(target_cfg.stat().st_mode), 0o600)
             self.assertTrue((target_prefix / "user.reg").is_file())
+
+            # Enable require_authenticode=true in target_cfg and verify:
+            # (a) Launching built-in GUI/CLI apps via WineParityConfig --launch-builtin sets up temporary security-bypass env
+            # (b) Running WineParity directly on builds/wine-install-x86/lib/wine/x86_64-windows/notepad.exe or winmine.exe is not blocked
+            cfg_obj = json.loads(target_cfg.read_text(encoding="utf-8"))
+            cfg_obj.setdefault("security", {})["require_authenticode"] = True
+            target_cfg.write_text(json.dumps(cfg_obj, indent=2), encoding="utf-8")
+            target_cfg.chmod(0o600)
+
+            strict_env = os.environ.copy()
+            strict_env["WINE_PARITY_CONFIG"] = str(target_cfg)
+            strict_env["WINEPREFIX"] = str(target_prefix)
+            strict_env["WINE_PARITY_DRY_RUN_JSON"] = "1"
+
+            for builtin_test_app in ("notepad.exe", "winmine.exe", "hostname.exe"):
+                res_launch_builtin = subprocess.run(
+                    [str(installed_config_app), "--launch-builtin", builtin_test_app, "--dry-run"],
+                    cwd=REPO_ROOT,
+                    env=strict_env,
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                )
+                self.assertEqual(
+                    res_launch_builtin.returncode,
+                    0,
+                    f"--launch-builtin {builtin_test_app} failed:\n{res_launch_builtin.stdout}\n{res_launch_builtin.stderr}",
+                )
+                lb_doc = json.loads(res_launch_builtin.stdout)
+                self.assertEqual(lb_doc["action"], "launch-builtin-app")
+                self.assertEqual(lb_doc["app_name"], builtin_test_app)
+                self.assertTrue(lb_doc["temporary_security_bypass_env"])
+                self.assertEqual(lb_doc["launch_env"]["WINE_PARITY_SKIP_SECURITY_GATES"], "1")
+                self.assertEqual(lb_doc["launch_env"]["WINE_PARITY_REQUIRE_AUTHENTICODE"], "0")
+                self.assertEqual(lb_doc["launch_env"]["WINE_PARITY_NO_SANDBOX"], "1")
+
+            for direct_app in ("notepad.exe", "winmine.exe"):
+                res_direct = subprocess.run(
+                    [str(installed_launcher), str(x86_win_dir / direct_app)],
+                    cwd=REPO_ROOT,
+                    env=strict_env,
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                )
+                self.assertEqual(
+                    res_direct.returncode,
+                    0,
+                    f"Direct launch of {direct_app} under require_authenticode=true failed:\n{res_direct.stdout}\n{res_direct.stderr}",
+                )
+                direct_doc = json.loads(res_direct.stdout)
+                self.assertTrue(direct_doc["executable_bit_verified"])
 
             # 5B. Verify 2-layer Rosetta 2 verification & auto-installation in Install WineParity.command and WineParity.app
             res_inst_dry = subprocess.run(
