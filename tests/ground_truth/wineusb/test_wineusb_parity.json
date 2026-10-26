@@ -135,6 +135,17 @@
       "out_length": 0,
       "buffer_hex": "00000000010000000100000000000000",
       "handle_valid": true
+    },
+    {
+      "id": "wineusb_unix_call_funcs_and_installed_so",
+      "case": "WineUsb_UnixCallFuncs_AndInstalledSo",
+      "api": "__wine_unix_call_funcs",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 6,
+      "buffer_hex": "00000000010000000100000001000000",
+      "handle_valid": true
     }
   ]
 }

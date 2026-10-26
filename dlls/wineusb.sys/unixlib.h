@@ -46,9 +46,6 @@ struct usb_add_device_event {
     uint8_t  portnum;
     bool     is_interface;
     int16_t  interface_index;
-    char     product_name[64];
-    char     manufacturer_name[64];
-    char     serial_number[64];
 };
 
 struct usb_event {
@@ -101,6 +98,7 @@ typedef int32_t NTSTATUS;
 typedef NTSTATUS (*unixlib_entry_t)(void *args);
 
 extern const unixlib_entry_t __wine_unix_call_funcs[];
+extern const unixlib_entry_t __wine_unix_call_wow64_funcs[];
 
 NTSTATUS WINAPI __wine_init_unix_call(void);
 NTSTATUS WINAPI wine_unix_call(enum unix_funcs func, void *args);

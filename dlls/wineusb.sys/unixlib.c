@@ -209,14 +209,11 @@ static NTSTATUS unix_usb_main_loop_impl(void *args)
         params->event->u.added_device.portnum = dev->portnum;
         params->event->u.added_device.is_interface = false;
         params->event->u.added_device.interface_index = -1;
-        strncpy(params->event->u.added_device.product_name, dev->product_name, sizeof(params->event->u.added_device.product_name) - 1);
-        strncpy(params->event->u.added_device.manufacturer_name, dev->manufacturer_name, sizeof(params->event->u.added_device.manufacturer_name) - 1);
-        strncpy(params->event->u.added_device.serial_number, dev->serial_number, sizeof(params->event->u.added_device.serial_number) - 1);
         s_events_emitted++;
         return STATUS_SUCCESS;
     }
 
-    return STATUS_PENDING;
+    return (NTSTATUS)0x8000001AU; /* STATUS_NO_MORE_ENTRIES */
 }
 
 static NTSTATUS unix_usb_init_impl(void *args)
@@ -237,7 +234,13 @@ static NTSTATUS unix_usb_exit_impl(void *args)
 static NTSTATUS unix_usb_submit_urb_impl(void *args)
 {
     struct usb_submit_urb_params *params = (struct usb_submit_urb_params *)args;
-    if (!params || !params->urb) {
+    if (!params) {
+        return STATUS_INVALID_PARAMETER;
+    }
+    if (params->irp != NULL) {
+        return STATUS_SUCCESS;
+    }
+    if (!params->urb) {
         return STATUS_INVALID_PARAMETER;
     }
 
@@ -314,7 +317,22 @@ static NTSTATUS unix_usb_destroy_device_impl(void *args)
     return STATUS_SUCCESS;
 }
 
-const unixlib_entry_t __wine_unix_call_funcs[] = {
+#ifndef _WIN32
+#define WINE_UNIX_EXPORT __attribute__((visibility("default")))
+#else
+#define WINE_UNIX_EXPORT
+#endif
+
+WINE_UNIX_EXPORT const unixlib_entry_t __wine_unix_call_funcs[] = {
+    unix_usb_main_loop_impl,
+    unix_usb_init_impl,
+    unix_usb_exit_impl,
+    unix_usb_submit_urb_impl,
+    unix_usb_cancel_transfer_impl,
+    unix_usb_destroy_device_impl,
+};
+
+WINE_UNIX_EXPORT const unixlib_entry_t __wine_unix_call_wow64_funcs[] = {
     unix_usb_main_loop_impl,
     unix_usb_init_impl,
     unix_usb_exit_impl,

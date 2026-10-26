@@ -19,7 +19,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from scripts.lib.runner import is_artifact_up_to_date, select_compilers
+from scripts.lib.runner import build_and_install_unix_so, is_artifact_up_to_date, select_compilers
 from scripts.lib.wine_borrow import load_manifest
 
 TEST_FUNC_RE = re.compile(r"^static\s+void\s+(test_[A-Za-z0-9_]+)\s*\(", re.MULTILINE)
@@ -135,6 +135,10 @@ def build_winetest(dll: str, arch: str = "x86_64") -> dict[str, Any]:
     )
 
     built_artifacts: list[str] = []
+    if dll == "wineusb.sys":
+        built_artifacts.extend(
+            build_and_install_unix_so(dll, c_sources, dep_paths, host_cc, darwin_frameworks)
+        )
 
     # 1. Standard optimized host binary
     winetest_bin = build_dir / f"winetest_{dll}.bin"

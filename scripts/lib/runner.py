@@ -45,6 +45,69 @@ def is_artifact_up_to_date(target: Path, inputs: list[Path]) -> bool:
     return True
 
 
+def build_and_install_unix_so(
+    dll: str,
+    c_sources: list[str],
+    dep_paths: list[Path],
+    host_cc: str,
+    darwin_frameworks: list[str],
+) -> list[str]:
+    """Compile and install macOS Mach-O Unix .so libraries (e.g. wineusb.so) for x86_64-unix and aarch64-unix."""
+    built: list[str] = []
+    if sys.platform != "darwin" or dll != "wineusb.sys":
+        return built
+
+    so_name = "wineusb.so"
+    unix_targets = [
+        ("x86_64", "x86_64-unix", "wine-install-x86", "wine-full-x86"),
+        ("arm64", "aarch64-unix", "wine-install-arm64", "wine-full-arm64"),
+    ]
+    for target_arch, unix_subdir, install_dir_name, full_dir_name in unix_targets:
+        arch_build_dir = REPO_ROOT / "builds" / target_arch / dll
+        unix_build_dir = arch_build_dir / unix_subdir
+        unix_build_dir.mkdir(parents=True, exist_ok=True)
+        so_out = unix_build_dir / so_name
+        if not is_artifact_up_to_date(so_out, dep_paths):
+            cmd_so = [
+                host_cc,
+                "-arch",
+                target_arch,
+                "-std=c11",
+                "-Wall",
+                "-Wextra",
+                "-Werror",
+                "-O2",
+                "-fPIC",
+                "-shared",
+                *c_sources,
+                "-framework",
+                "IOKit",
+                "-framework",
+                "CoreFoundation",
+                "-pthread",
+                "-o",
+                str(so_out),
+            ]
+            subprocess.run(cmd_so, check=True)
+        shutil.copy2(so_out, arch_build_dir / so_name)
+        built.append(str(so_out.relative_to(REPO_ROOT)))
+
+        install_unix_dir = REPO_ROOT / "builds" / install_dir_name / "lib" / "wine" / unix_subdir
+        install_unix_dir.mkdir(parents=True, exist_ok=True)
+        installed_so = install_unix_dir / so_name
+        shutil.copy2(so_out, installed_so)
+        built.append(str(installed_so.relative_to(REPO_ROOT)))
+
+        full_dll_dir = REPO_ROOT / "builds" / full_dir_name / "dlls" / dll
+        if full_dll_dir.is_dir():
+            full_unix_dir = full_dll_dir / unix_subdir
+            full_unix_dir.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(so_out, full_unix_dir / so_name)
+            shutil.copy2(so_out, full_dll_dir / so_name)
+
+    return built
+
+
 def surgical_build(
     dll: str,
     test_name: str | None = None,
@@ -175,6 +238,11 @@ def surgical_build(
                     if install_root.parent.is_dir():
                         install_root.mkdir(parents=True, exist_ok=True)
                         shutil.copy2(pe_dll_out, install_root / f"{dll}.dll")
+
+        if dll == "wineusb.sys":
+            built_artifacts.extend(
+                build_and_install_unix_so(dll, c_sources, dep_paths, host_cc, darwin_frameworks)
+            )
 
     # 2. Surgically compile ONLY the requested single conformance test binary
     if test_name:

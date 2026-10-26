@@ -9,10 +9,16 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <stdbool.h>
+#include <stdio.h>
 #include <string.h>
+#if defined(__APPLE__)
+#include <dlfcn.h>
+#include <unistd.h>
+#endif
 
 #include "../../include/wine/test.h"
 #include "../../../dlls/wineusb.sys/wineusb.h"
+#include "../../../dlls/wineusb.sys/unixlib.h"
 
 static void test_driver_entry(void)
 {
@@ -238,12 +244,101 @@ static void test_setupdi_service_install(void)
     ok(setupdi.root_hub_enumerated == 1, "Root hub device not enumerated\n");
 }
 
+static void test_unixlib_abi_and_installed_so(void)
+{
+    struct usb_event ev;
+    struct usb_main_loop_params loop_params;
+    NTSTATUS status;
+
+    WineUsbResetDriverState();
+
+    /* 1. Upstream Wine struct usb_event ABI size must be 32 bytes on 64-bit so event_thread_proc stack is never smashed */
+    if (sizeof(void *) == 8) {
+        ok(sizeof(struct usb_event) == 32,
+           "Expected upstream-compatible sizeof(struct usb_event) == 32 on 64-bit, got %zu\n",
+           sizeof(struct usb_event));
+    }
+
+    /* 2. Direct __wine_unix_call_funcs 6-entry table dispatch */
+    ok(__wine_unix_call_funcs[unix_usb_main_loop] != NULL, "unix_usb_main_loop entry is NULL\n");
+    ok(__wine_unix_call_funcs[unix_usb_init] != NULL, "unix_usb_init entry is NULL\n");
+    ok(__wine_unix_call_funcs[unix_usb_exit] != NULL, "unix_usb_exit entry is NULL\n");
+    ok(__wine_unix_call_funcs[unix_usb_submit_urb] != NULL, "unix_usb_submit_urb entry is NULL\n");
+    ok(__wine_unix_call_funcs[unix_usb_cancel_transfer] != NULL, "unix_usb_cancel_transfer entry is NULL\n");
+    ok(__wine_unix_call_funcs[unix_usb_destroy_device] != NULL, "unix_usb_destroy_device entry is NULL\n");
+
+    status = __wine_unix_call_funcs[unix_usb_init](NULL);
+    ok(status == STATUS_SUCCESS, "unix_usb_init failed: 0x%08x\n", (unsigned int)status);
+
+    memset(&ev, 0, sizeof(ev));
+    loop_params.event = &ev;
+    status = __wine_unix_call_funcs[unix_usb_main_loop](&loop_params);
+    ok(status != STATUS_PENDING, "unix_usb_main_loop must not spin with STATUS_PENDING: got 0x%08x\n", (unsigned int)status);
+
+    status = __wine_unix_call_funcs[unix_usb_exit](NULL);
+    ok(status == STATUS_SUCCESS, "unix_usb_exit failed: 0x%08x\n", (unsigned int)status);
+
+#if defined(__APPLE__)
+    /* 3. Verify x86_64-unix/wineusb.so and aarch64-unix/wineusb.so are compiled and installed */
+    {
+        const char *x86_so = "builds/wine-install-x86/lib/wine/x86_64-unix/wineusb.so";
+        const char *arm_so = "builds/wine-install-arm64/lib/wine/aarch64-unix/wineusb.so";
+        FILE *fx86 = fopen(x86_so, "rb");
+        FILE *farm = fopen(arm_so, "rb");
+        uint32_t hdr[2] = {0, 0};
+
+        ok(fx86 != NULL, "Missing installed %s\n", x86_so);
+        if (fx86) {
+            size_t n = fread(hdr, sizeof(uint32_t), 2, fx86);
+            fclose(fx86);
+            ok(n == 2 && hdr[0] == 0xFEEDFACFU && hdr[1] == 0x01000007U,
+               "Expected x86_64 Mach-O magic/cputype in %s, got 0x%08x / 0x%08x\n",
+               x86_so, hdr[0], hdr[1]);
+        }
+
+        hdr[0] = 0;
+        hdr[1] = 0;
+        ok(farm != NULL, "Missing installed %s\n", arm_so);
+        if (farm) {
+            size_t n = fread(hdr, sizeof(uint32_t), 2, farm);
+            fclose(farm);
+            ok(n == 2 && hdr[0] == 0xFEEDFACFU && hdr[1] == 0x0100000CU,
+               "Expected arm64 Mach-O magic/cputype in %s, got 0x%08x / 0x%08x\n",
+               arm_so, hdr[0], hdr[1]);
+        }
+
+#if defined(__aarch64__)
+        {
+            void *dl = dlopen(arm_so, RTLD_NOW | RTLD_LOCAL);
+            ok(dl != NULL, "dlopen(%s) failed: %s\n", arm_so, dl ? "" : dlerror());
+            if (dl) {
+                void *sym = dlsym(dl, "__wine_unix_call_funcs");
+                ok(sym != NULL, "dlsym(__wine_unix_call_funcs) missing in %s\n", arm_so);
+                dlclose(dl);
+            }
+        }
+#elif defined(__x86_64__)
+        {
+            void *dl = dlopen(x86_so, RTLD_NOW | RTLD_LOCAL);
+            ok(dl != NULL, "dlopen(%s) failed: %s\n", x86_so, dl ? "" : dlerror());
+            if (dl) {
+                void *sym = dlsym(dl, "__wine_unix_call_funcs");
+                ok(sym != NULL, "dlsym(__wine_unix_call_funcs) missing in %s\n", x86_so);
+                dlclose(dl);
+            }
+        }
+#endif
+    }
+#endif
+}
+
 START_TEST(wineusb)
 {
-    test_driver_entry();
-    test_add_device_and_fdo();
-    test_pnp_start_and_relations();
-    test_query_ids();
-    test_urb_transfers();
-    test_setupdi_service_install();
+    WINETEST_RUN_SUBTEST(test_driver_entry);
+    WINETEST_RUN_SUBTEST(test_add_device_and_fdo);
+    WINETEST_RUN_SUBTEST(test_pnp_start_and_relations);
+    WINETEST_RUN_SUBTEST(test_query_ids);
+    WINETEST_RUN_SUBTEST(test_urb_transfers);
+    WINETEST_RUN_SUBTEST(test_setupdi_service_install);
+    WINETEST_RUN_SUBTEST(test_unixlib_abi_and_installed_so);
 }

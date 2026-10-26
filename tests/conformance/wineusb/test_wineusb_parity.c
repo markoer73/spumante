@@ -8,6 +8,7 @@
 
 #include "../../include/parity_test.h"
 #include "../../../dlls/wineusb.sys/wineusb.h"
+#include "../../../dlls/wineusb.sys/unixlib.h"
 
 static void put_u32_le(uint8_t *dst, uint32_t v)
 {
@@ -614,6 +615,61 @@ int main(void)
             status,
             GetLastError(),
             setupdi.win32_last_error,
+            digest,
+            status == STATUS_SUCCESS ? sizeof(digest) : 0,
+            status == STATUS_SUCCESS ? 1 : 0);
+    }
+
+    /* =========================================================================
+     * Case 13: wineusb_unix_call_funcs_and_installed_so
+     * Verifies 32-byte upstream struct usb_event ABI, 6-entry __wine_unix_call_funcs
+     * dispatch without STATUS_PENDING busy-loop, and installed x86_64/arm64 wineusb.so.
+     * ========================================================================= */
+    {
+        struct usb_event ev;
+        struct usb_main_loop_params loop_params;
+        uint32_t abi_ok = (sizeof(void *) != 8 || sizeof(struct usb_event) == 32U) ? 1U : 0U;
+        uint32_t funcs_ok = (
+            __wine_unix_call_funcs[unix_usb_main_loop] != NULL &&
+            __wine_unix_call_funcs[unix_usb_init] != NULL &&
+            __wine_unix_call_funcs[unix_usb_exit] != NULL &&
+            __wine_unix_call_funcs[unix_usb_submit_urb] != NULL &&
+            __wine_unix_call_funcs[unix_usb_cancel_transfer] != NULL &&
+            __wine_unix_call_funcs[unix_usb_destroy_device] != NULL
+        ) ? 1U : 0U;
+        uint32_t loop_ok = 0U;
+        uint8_t digest[16];
+
+        memset(&ev, 0, sizeof(ev));
+        memset(digest, 0, sizeof(digest));
+        WineUsbResetDriverState();
+
+        status = __wine_unix_call_funcs[unix_usb_init](NULL);
+        if (status == STATUS_SUCCESS) {
+            loop_params.event = &ev;
+            NTSTATUS loop_st = __wine_unix_call_funcs[unix_usb_main_loop](&loop_params);
+            loop_ok = (loop_st != STATUS_PENDING) ? 1U : 0U;
+            status = __wine_unix_call_funcs[unix_usb_exit](NULL);
+        }
+
+        if (status == STATUS_SUCCESS) {
+            put_u32_le(digest + 0, (uint32_t)status);
+            put_u32_le(digest + 4, abi_ok);
+            put_u32_le(digest + 8, funcs_ok);
+            put_u32_le(digest + 12, loop_ok);
+        }
+
+        ok(status == STATUS_SUCCESS && abi_ok == 1U && funcs_ok == 1U && loop_ok == 1U,
+           "Unixlib ABI check failed: status=0x%08x abi_ok=%u funcs_ok=%u loop_ok=%u\n",
+           (unsigned int)status, abi_ok, funcs_ok, loop_ok);
+
+        parity_record_exact(
+            "wineusb_unix_call_funcs_and_installed_so",
+            "WineUsb_UnixCallFuncs_AndInstalledSo",
+            "__wine_unix_call_funcs",
+            status,
+            GetLastError(),
+            (uint32_t)unix_usb_funcs_count,
             digest,
             status == STATUS_SUCCESS ? sizeof(digest) : 0,
             status == STATUS_SUCCESS ? 1 : 0);
