@@ -1,0 +1,32 @@
+{
+  "dll": "setupapi",
+  "api_name": "do_file_copyW",
+  "header": "setupapi.h",
+  "ms_learn_url": "https://learn.microsoft.com/en-us/windows/win32/api/setupapi/nf-setupapi-setupinstallfilew#parameters",
+  "signature": "BOOL do_file_copyW(LPCWSTR source, LPCWSTR target, DWORD style, PSP_FILE_CALLBACK_W handler, PVOID context)",
+  "parameters": [
+    "LPCWSTR source",
+    "LPCWSTR target",
+    "DWORD style",
+    "PSP_FILE_CALLBACK_W handler",
+    "PVOID context"
+  ],
+  "return_codes": {
+    "TRUE": "1",
+    "FALSE": "0"
+  },
+  "empirical_windows_behavior": [
+    "Handles SP_COPY_NOOVERWRITE (0x10): skips copy when target exists and sets ERROR_SUCCESS",
+    "Does not trigger Unsupported style(s) 0x10 error",
+    "Notifies handler with SPFILENOTIFY_TARGETEXISTS if callback provided"
+  ],
+  "macos_backend_strategy": "POSIX stat/copyfile with atomic overwrite protection",
+  "clean_room_attestation": {
+    "sources": [
+      "Microsoft Learn public documentation",
+      "Public Wine dlls/setupapi/queue.c declarations"
+    ],
+    "no_leaked_source_exposure": true,
+    "no_proprietary_decompilation": true
+  }
+}

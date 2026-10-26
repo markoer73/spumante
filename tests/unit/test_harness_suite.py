@@ -2562,6 +2562,180 @@ class TestWineParityArchitecture(unittest.TestCase):
         doc_sec = json.loads(res_sec.stdout)
         self.assertTrue(doc_sec["passed"])
 
+    def test_29_ntdll_actctx_winsxs_parity(self) -> None:
+        """Verify ntdll WinSxS activation context manifest resolution and comctl32 v6 window class redirection."""
+        build_sh = REPO_ROOT / "scripts" / "build.sh"
+        test_sh = REPO_ROOT / "scripts" / "test.sh"
+
+        # 1. Build test and DLL
+        res_build = subprocess.run(
+            [str(build_sh), "--dll", "ntdll", "--test", "test_actctx_winsxs_parity"],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(res_build.returncode, 0, res_build.stdout + res_build.stderr)
+
+        # 2. Run differential conformance test (12 assertions)
+        res_test = subprocess.run(
+            [str(test_sh), "--dll", "ntdll", "--test", "test_actctx_winsxs_parity"],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(res_test.returncode, 0, res_test.stdout + res_test.stderr)
+        self.assertIn("MATCHED (0 discrepancies) [12 assertions]", res_test.stdout)
+
+        # 3. Verify upstream winetest subtest
+        res_wt = subprocess.run(
+            [str(test_sh), "--winetest", "--dll", "ntdll", "--filter", "test_actctx_winsxs_manifest_resolution_and_packaging"],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(res_wt.returncode, 0, res_wt.stdout + res_wt.stderr)
+        doc_wt = json.loads(res_wt.stdout)
+        self.assertTrue(doc_wt["passed"])
+        self.assertEqual(doc_wt["failures"], 0)
+        self.assertEqual(doc_wt["regressions_vs_upstream"], 0)
+        self.assertTrue(doc_wt["ab_comparison"]["asan_ubsan_passed"])
+
+        # 4. Verify 4-gate security audit
+        res_sec = subprocess.run(
+            [str(test_sh), "--security", "--dll", "ntdll", "--test", "test_actctx_winsxs_parity"],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(res_sec.returncode, 0, res_sec.stdout + res_sec.stderr)
+        self.assertTrue(json.loads(res_sec.stdout)["passed"])
+
+    def test_30_setupapi_nooverwrite_copy_parity(self) -> None:
+        """Verify setupapi do_file_copyW handling of SP_COPY_NOOVERWRITE (0x10) and callback dispatch."""
+        build_sh = REPO_ROOT / "scripts" / "build.sh"
+        test_sh = REPO_ROOT / "scripts" / "test.sh"
+
+        # 1. Build test and DLL
+        res_build = subprocess.run(
+            [str(build_sh), "--dll", "setupapi", "--test", "test_setupapi_copy_parity"],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(res_build.returncode, 0, res_build.stdout + res_build.stderr)
+
+        # 2. Run differential conformance test (12 assertions)
+        res_test = subprocess.run(
+            [str(test_sh), "--dll", "setupapi", "--test", "test_setupapi_copy_parity"],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(res_test.returncode, 0, res_test.stdout + res_test.stderr)
+        self.assertIn("MATCHED (0 discrepancies) [12 assertions]", res_test.stdout)
+
+        # 3. Build & verify winetest suite
+        res_wt_build = subprocess.run(
+            [str(build_sh), "--dll", "setupapi", "--winetest"],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(res_wt_build.returncode, 0, res_wt_build.stdout + res_wt_build.stderr)
+
+        res_wt = subprocess.run(
+            [str(test_sh), "--winetest", "--dll", "setupapi"],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(res_wt.returncode, 0, res_wt.stdout + res_wt.stderr)
+        doc_wt = json.loads(res_wt.stdout)
+        self.assertTrue(doc_wt["passed"])
+        self.assertEqual(doc_wt["failures"], 0)
+        self.assertEqual(doc_wt["regressions_vs_upstream"], 0)
+        self.assertTrue(doc_wt["ab_comparison"]["asan_ubsan_passed"])
+
+        # 4. Verify 4-gate security audit
+        res_sec = subprocess.run(
+            [str(test_sh), "--security", "--dll", "setupapi", "--test", "test_setupapi_copy_parity"],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(res_sec.returncode, 0, res_sec.stdout + res_sec.stderr)
+        self.assertTrue(json.loads(res_sec.stdout)["passed"])
+
+    def test_31_win32u_msg_icon_parity(self) -> None:
+        """Verify win32u WM_ERASEBKGND HDC message packing and NtUserDrawIconEx frame 0 fallback."""
+        build_sh = REPO_ROOT / "scripts" / "build.sh"
+        test_sh = REPO_ROOT / "scripts" / "test.sh"
+
+        # 1. Build test and DLL
+        res_build = subprocess.run(
+            [str(build_sh), "--dll", "win32u", "--test", "test_win32u_msg_icon_parity"],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(res_build.returncode, 0, res_build.stdout + res_build.stderr)
+
+        # 2. Run differential conformance test (12 assertions)
+        res_test = subprocess.run(
+            [str(test_sh), "--dll", "win32u", "--test", "test_win32u_msg_icon_parity"],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(res_test.returncode, 0, res_test.stdout + res_test.stderr)
+        self.assertIn("MATCHED (0 discrepancies) [12 assertions]", res_test.stdout)
+
+        # 3. Build & verify winetest suite
+        res_wt_build = subprocess.run(
+            [str(build_sh), "--dll", "win32u", "--winetest"],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(res_wt_build.returncode, 0, res_wt_build.stdout + res_wt_build.stderr)
+
+        res_wt = subprocess.run(
+            [str(test_sh), "--winetest", "--dll", "win32u"],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(res_wt.returncode, 0, res_wt.stdout + res_wt.stderr)
+        doc_wt = json.loads(res_wt.stdout)
+        self.assertTrue(doc_wt["passed"])
+        self.assertEqual(doc_wt["failures"], 0)
+        self.assertEqual(doc_wt["regressions_vs_upstream"], 0)
+        self.assertTrue(doc_wt["ab_comparison"]["asan_ubsan_passed"])
+
+        # 4. Verify 4-gate security audit
+        res_sec = subprocess.run(
+            [str(test_sh), "--security", "--dll", "win32u", "--test", "test_win32u_msg_icon_parity"],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(res_sec.returncode, 0, res_sec.stdout + res_sec.stderr)
+        self.assertTrue(json.loads(res_sec.stdout)["passed"])
+
 
 if __name__ == "__main__":
     unittest.main()

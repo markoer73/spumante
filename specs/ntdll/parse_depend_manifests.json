@@ -1,0 +1,28 @@
+{
+  "dll": "ntdll",
+  "api_name": "parse_depend_manifests",
+  "header": "ntdll.h",
+  "ms_learn_url": "https://learn.microsoft.com/en-us/windows/win32/sbscs/assembly-searching-sequence",
+  "signature": "NTSTATUS parse_depend_manifests(struct actctx_loader *acl)",
+  "parameters": [
+    "struct actctx_loader *acl"
+  ],
+  "return_codes": {
+    "STATUS_SUCCESS": "0x00000000",
+    "STATUS_SXS_CANT_GEN_ACTCTX": "0xc0150004"
+  },
+  "empirical_windows_behavior": [
+    "Iterates through assembly dependencies in actctx_loader",
+    "Locates WinSxS manifest file on disk or resolves built-in v6 Common-Controls assembly",
+    "Populates activation context window classes and assembly identity records"
+  ],
+  "macos_backend_strategy": "Darwin fast file lookup with clean-room built-in comctl32 v6 window class table",
+  "clean_room_attestation": {
+    "sources": [
+      "Microsoft Learn public documentation",
+      "Public Wine dlls/ntdll/actctx.c declarations"
+    ],
+    "no_leaked_source_exposure": true,
+    "no_proprietary_decompilation": true
+  }
+}

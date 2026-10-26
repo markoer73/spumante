@@ -1,0 +1,140 @@
+{
+  "dll": "ntdll",
+  "test_name": "test_actctx_winsxs_parity",
+  "architecture": "x86_64",
+  "environment": "windows_vm",
+  "assertions": [
+    {
+      "id": "actctx_create_invalid_args",
+      "case": "ActCtx_Create_InvalidArgs",
+      "api": "RtlCreateActivationContext",
+      "comparison_mode": "exact",
+      "status": "0xc000000d",
+      "last_error": 0,
+      "out_length": 0,
+      "buffer_hex": "0000000000000000",
+      "handle_valid": false
+    },
+    {
+      "id": "actctx_create_comctl32_v6_manifest",
+      "case": "ActCtx_Create_ComCtl32V6_Manifest",
+      "api": "RtlCreateActivationContext",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 1,
+      "buffer_hex": "0000000001000000",
+      "handle_valid": true
+    },
+    {
+      "id": "actctx_activate_push_frame",
+      "case": "ActCtx_Activate_PushFrame",
+      "api": "RtlActivateActivationContext",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 1,
+      "buffer_hex": "0100000000000000",
+      "handle_valid": true
+    },
+    {
+      "id": "actctx_query_basic_info",
+      "case": "ActCtx_Query_BasicInfo",
+      "api": "RtlQueryInformationActivationContext",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 16,
+      "buffer_hex": "01000000000000000100000000000000",
+      "handle_valid": true
+    },
+    {
+      "id": "actctx_find_window_class_button",
+      "case": "ActCtx_Find_WindowClass_Button",
+      "api": "RtlFindActivationContextSectionString",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 1,
+      "buffer_hex": "0100000000000000",
+      "handle_valid": true
+    },
+    {
+      "id": "actctx_find_window_class_syslistview32",
+      "case": "ActCtx_Find_WindowClass_SysListView32",
+      "api": "RtlFindActivationContextSectionString",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 1,
+      "buffer_hex": "0100000000000000",
+      "handle_valid": true
+    },
+    {
+      "id": "actctx_find_window_class_progress32",
+      "case": "ActCtx_Find_WindowClass_Progress32",
+      "api": "RtlFindActivationContextSectionString",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 1,
+      "buffer_hex": "0100000000000000",
+      "handle_valid": true
+    },
+    {
+      "id": "actctx_deactivate_pop_frame",
+      "case": "ActCtx_Deactivate_PopFrame",
+      "api": "RtlDeactivateActivationContext",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 0,
+      "buffer_hex": "0000000000000000",
+      "handle_valid": true
+    },
+    {
+      "id": "actctx_release_context",
+      "case": "ActCtx_Release_Context",
+      "api": "RtlReleaseActivationContext",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 0,
+      "buffer_hex": "0000000000000000",
+      "handle_valid": false
+    },
+    {
+      "id": "actctx_winsxs_packaging_amd64",
+      "case": "ActCtx_WinSxS_Packaging_Amd64",
+      "api": "wine_install_manifests",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 1,
+      "buffer_hex": "0100000000000000",
+      "handle_valid": true
+    },
+    {
+      "id": "actctx_winsxs_packaging_x86",
+      "case": "ActCtx_WinSxS_Packaging_X86",
+      "api": "wine_install_manifests",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 1,
+      "buffer_hex": "0100000000000000",
+      "handle_valid": true
+    },
+    {
+      "id": "actctx_winsxs_packaging_arm64",
+      "case": "ActCtx_WinSxS_Packaging_Arm64",
+      "api": "wine_install_manifests",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 1,
+      "buffer_hex": "0100000000000000",
+      "handle_valid": true
+    }
+  ]
+}

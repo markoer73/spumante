@@ -1,0 +1,5 @@
+@ stdcall NtUserDrawIconEx(ptr long long ptr long long long ptr long)
+@ stdcall NtUserGetIconInfo(ptr ptr ptr ptr ptr long)
+@ stdcall NtUserCreateIcon(long long long long long)
+@ stdcall pack_message(ptr long ptr ptr ptr)
+@ stdcall unpack_message(ptr long ptr ptr ptr long ptr)

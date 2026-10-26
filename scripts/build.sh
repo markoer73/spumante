@@ -212,6 +212,10 @@ if [[ "$BUILD_ALL" -eq 1 && -z "$DLL" ]]; then
     python3 "$REPO_ROOT/scripts/lib/winetest_runner.py" --mode build --dll winebth.sys --arch "$ARCH"
     python3 "$REPO_ROOT/scripts/lib/runner.py" --mode build --dll ole32 --test test_ole32_services_parity --arch "$ARCH"
     python3 "$REPO_ROOT/scripts/lib/winetest_runner.py" --mode build --dll ole32 --arch "$ARCH"
+    python3 "$REPO_ROOT/scripts/lib/runner.py" --mode build --dll setupapi --test test_setupapi_copy_parity --arch "$ARCH"
+    python3 "$REPO_ROOT/scripts/lib/winetest_runner.py" --mode build --dll setupapi --arch "$ARCH"
+    python3 "$REPO_ROOT/scripts/lib/runner.py" --mode build --dll win32u --test test_win32u_msg_icon_parity --arch "$ARCH"
+    python3 "$REPO_ROOT/scripts/lib/winetest_runner.py" --mode build --dll win32u --arch "$ARCH"
     if [[ -n "$FULL_WINE_TARGET" ]]; then
         FULL_ARGS=(--action full-build --target "$FULL_WINE_TARGET")
         if [[ "$SKIP_MONOLITHIC_COMPILE" -eq 1 ]]; then

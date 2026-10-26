@@ -1,0 +1,140 @@
+{
+  "dll": "win32u",
+  "test_name": "test_win32u_msg_icon_parity",
+  "architecture": "x86_64",
+  "environment": "windows_vm",
+  "assertions": [
+    {
+      "id": "win32u_pack_wm_erasebkgnd_scalar",
+      "case": "Win32u_Pack_WM_ERASEBKGND_Scalar",
+      "api": "pack_message",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 0,
+      "buffer_hex": "0000000000000000",
+      "handle_valid": true
+    },
+    {
+      "id": "win32u_unpack_wm_erasebkgnd_hdc",
+      "case": "Win32u_Unpack_WM_ERASEBKGND_Hdc",
+      "api": "unpack_message",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 1,
+      "buffer_hex": "0100000000000000",
+      "handle_valid": true
+    },
+    {
+      "id": "win32u_pack_wm_iconerasebkgnd_scalar",
+      "case": "Win32u_Pack_WM_ICONERASEBKGND_Scalar",
+      "api": "pack_message",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 0,
+      "buffer_hex": "0000000000000000",
+      "handle_valid": true
+    },
+    {
+      "id": "win32u_pack_wm_ctlcolor_scalar",
+      "case": "Win32u_Pack_WM_CTLCOLOR_Scalar",
+      "api": "pack_message",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 0,
+      "buffer_hex": "0000000000000000",
+      "handle_valid": true
+    },
+    {
+      "id": "win32u_unpack_wm_ctlcolor_scalar",
+      "case": "Win32u_Unpack_WM_CTLCOLOR_Scalar",
+      "api": "unpack_message",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 1,
+      "buffer_hex": "0100000000000000",
+      "handle_valid": true
+    },
+    {
+      "id": "win32u_drawiconex_null_handle",
+      "case": "Win32u_DrawIconEx_NullHandle",
+      "api": "NtUserDrawIconEx",
+      "comparison_mode": "exact",
+      "status": "0x0000057a",
+      "last_error": 1402,
+      "out_length": 0,
+      "buffer_hex": "0000000000000000",
+      "handle_valid": false
+    },
+    {
+      "id": "win32u_drawiconex_invalid_handle",
+      "case": "Win32u_DrawIconEx_InvalidHandle",
+      "api": "NtUserDrawIconEx",
+      "comparison_mode": "exact",
+      "status": "0x0000057a",
+      "last_error": 1402,
+      "out_length": 0,
+      "buffer_hex": "0000000000000000",
+      "handle_valid": false
+    },
+    {
+      "id": "win32u_drawiconex_static_icon_step0",
+      "case": "Win32u_DrawIconEx_StaticIcon_Step0",
+      "api": "NtUserDrawIconEx",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 1,
+      "buffer_hex": "0100000000000000",
+      "handle_valid": true
+    },
+    {
+      "id": "win32u_drawiconex_static_icon_step1_fallback0",
+      "case": "Win32u_DrawIconEx_StaticIcon_Step1_Fallback0",
+      "api": "NtUserDrawIconEx",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 1,
+      "buffer_hex": "0100000000000000",
+      "handle_valid": true
+    },
+    {
+      "id": "win32u_drawiconex_animated_cursor_step0",
+      "case": "Win32u_DrawIconEx_AnimatedCursor_Step0",
+      "api": "NtUserDrawIconEx",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 1,
+      "buffer_hex": "0100000000000000",
+      "handle_valid": true
+    },
+    {
+      "id": "win32u_drawiconex_animated_cursor_step_oob_fallback0",
+      "case": "Win32u_DrawIconEx_AnimatedCursor_StepOob_Fallback0",
+      "api": "NtUserDrawIconEx",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 1,
+      "buffer_hex": "0100000000000000",
+      "handle_valid": true
+    },
+    {
+      "id": "win32u_geticoninfo_frame0",
+      "case": "Win32u_GetIconInfo_Frame0",
+      "api": "NtUserGetIconInfo",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 1,
+      "buffer_hex": "0100000020000000",
+      "handle_valid": true
+    }
+  ]
+}

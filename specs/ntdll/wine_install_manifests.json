@@ -1,0 +1,28 @@
+{
+  "dll": "ntdll",
+  "api_name": "wine_install_manifests",
+  "header": "ntdll.h",
+  "ms_learn_url": "https://learn.microsoft.com/en-us/windows/win32/sbscs/about-side-by-side-assemblies-",
+  "signature": "BOOL wine_install_manifests(const WCHAR *windows_dir)",
+  "parameters": [
+    "const WCHAR *windows_dir"
+  ],
+  "return_codes": {
+    "TRUE": "1",
+    "FALSE": "0"
+  },
+  "empirical_windows_behavior": [
+    "Deploys WinSxS manifest directory windows/winsxs/manifests",
+    "Writes architecture-qualified Microsoft.Windows.Common-Controls 6.0.2600.2982 manifests",
+    "Ensures early prefix bootstrapping finds valid WinSxS files"
+  ],
+  "macos_backend_strategy": "POSIX mkdir and atomic manifest file staging",
+  "clean_room_attestation": {
+    "sources": [
+      "Microsoft Learn public documentation",
+      "Public Wine dlls/setupapi/fakedll.c manifest generator"
+    ],
+    "no_leaked_source_exposure": true,
+    "no_proprietary_decompilation": true
+  }
+}

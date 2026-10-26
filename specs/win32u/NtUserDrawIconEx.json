@@ -1,0 +1,36 @@
+{
+  "dll": "win32u",
+  "api_name": "NtUserDrawIconEx",
+  "header": "win32u.h",
+  "ms_learn_url": "https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-drawiconex",
+  "signature": "BOOL WINAPI NtUserDrawIconEx(HDC hdc, INT x0, INT y0, HICON icon, INT width, INT height, UINT step, HBRUSH brush, UINT flags)",
+  "parameters": [
+    "HDC hdc",
+    "INT x0",
+    "INT y0",
+    "HICON icon",
+    "INT width",
+    "INT height",
+    "UINT step",
+    "HBRUSH brush",
+    "UINT flags"
+  ],
+  "return_codes": {
+    "TRUE": "1",
+    "FALSE": "0"
+  },
+  "empirical_windows_behavior": [
+    "Draws specified frame of icon or animated cursor",
+    "Falls back to frame 0 when step is out of range or uninitialized",
+    "Returns FALSE with ERROR_INVALID_CURSOR_HANDLE without emitting fixme when icon is invalid"
+  ],
+  "macos_backend_strategy": "CoreGraphics / Quartz drawing fallback with frame 0 resolution",
+  "clean_room_attestation": {
+    "sources": [
+      "Microsoft Learn public documentation",
+      "Public Wine dlls/win32u/cursoricon.c declarations"
+    ],
+    "no_leaked_source_exposure": true,
+    "no_proprietary_decompilation": true
+  }
+}

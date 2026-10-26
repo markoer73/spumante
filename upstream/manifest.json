@@ -74,6 +74,7 @@
       "tracked_files": [
         "dlls/ntdll/ntdll.h",
         "dlls/ntdll/ntdll.spec",
+        "dlls/ntdll/actctx.c",
         "dlls/ntdll/arm64x_loader.c",
         "dlls/ntdll/signal_x86_64.c",
         "dlls/ntdll/signal_arm64.c",
@@ -83,7 +84,8 @@
       "required_conformance_tests": [
         "test_apple_silicon_parity",
         "test_ntsync_macos_parity",
-        "test_arm64x_loader_parity"
+        "test_arm64x_loader_parity",
+        "test_actctx_winsxs_parity"
       ]
     },
     "winemac.drv": {
@@ -203,6 +205,37 @@
       ],
       "required_conformance_tests": [
         "test_ole32_services_parity"
+      ]
+    },
+    "setupapi": {
+      "upstream_path": "dlls/setupapi",
+      "upstream_tests_path": "dlls/setupapi/tests",
+      "base_upstream_commit": "wine-10.0-base",
+      "merge_strategy": "3-way-backport-preserving-macos-blocks",
+      "macos_acceleration": "Darwin POSIX atomic file staging and non-destructive overwrite protection",
+      "tracked_files": [
+        "dlls/setupapi/setupapi.h",
+        "dlls/setupapi/setupapi.spec",
+        "dlls/setupapi/queue.c"
+      ],
+      "required_conformance_tests": [
+        "test_setupapi_copy_parity"
+      ]
+    },
+    "win32u": {
+      "upstream_path": "dlls/win32u",
+      "upstream_tests_path": "dlls/win32u/tests",
+      "base_upstream_commit": "wine-10.0-base",
+      "merge_strategy": "3-way-backport-preserving-macos-blocks",
+      "macos_acceleration": "CoreGraphics / Quartz drawing fallback with frame 0 resolution",
+      "tracked_files": [
+        "dlls/win32u/win32u.h",
+        "dlls/win32u/win32u.spec",
+        "dlls/win32u/message.c",
+        "dlls/win32u/cursoricon.c"
+      ],
+      "required_conformance_tests": [
+        "test_win32u_msg_icon_parity"
       ]
     }
   }

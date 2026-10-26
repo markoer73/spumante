@@ -92,4 +92,12 @@
 @ stdcall RtlTryEnterCriticalSection(ptr)
 @ stdcall RtlInitUnicodeString(ptr wstr)
 @ stdcall RtlNtStatusToDosError(long)
+@ stdcall RtlCreateActivationContext(ptr ptr)
+@ stdcall RtlActivateActivationContext(long ptr ptr)
+@ stdcall RtlDeactivateActivationContext(long ptr)
+@ stdcall RtlAddRefActivationContext(ptr)
+@ stdcall RtlReleaseActivationContext(ptr)
+@ stdcall RtlQueryInformationActivationContext(long ptr ptr long ptr long ptr)
+@ stdcall RtlFindActivationContextSectionString(long ptr long ptr ptr)
+@ stdcall wine_install_manifests(ptr)
 @ stub RtlWow64LogMessageInEventLogger

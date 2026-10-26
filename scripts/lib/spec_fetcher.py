@@ -1603,6 +1603,218 @@ KNOWN_CLEAN_ROOM_SPECS: dict[str, dict[str, Any]] = {
             "no_proprietary_decompilation": True,
         },
     },
+    "ntdll:RtlCreateActivationContext": {
+        "dll": "ntdll",
+        "api_name": "RtlCreateActivationContext",
+        "header": "ntdll.h",
+        "ms_learn_url": "https://learn.microsoft.com/en-us/windows/win32/devnotes/rtlcreateactivationcontext",
+        "signature": "NTSTATUS WINAPI RtlCreateActivationContext(HANDLE *handle, const ACTCTXW *actctx)",
+        "parameters": ["HANDLE *handle", "const ACTCTXW *actctx"],
+        "return_codes": {
+            "STATUS_SUCCESS": "0x00000000",
+            "STATUS_INVALID_PARAMETER": "0xc000000d",
+            "STATUS_SXS_CANT_GEN_ACTCTX": "0xc0150004",
+        },
+        "empirical_windows_behavior": [
+            "Creates activation context from file or memory buffer",
+            "Parses embedded or external assembly manifests",
+            "Resolves dependent assembly Microsoft.Windows.Common-Controls 6.0.0.0 via WinSxS",
+        ],
+        "macos_backend_strategy": "Darwin fast XML parser and built-in assembly manifest fallback",
+        "clean_room_attestation": {
+            "sources": [
+                "Microsoft Learn public documentation",
+                "Public Wine dlls/ntdll/actctx.c declarations",
+            ],
+            "no_leaked_source_exposure": True,
+            "no_proprietary_decompilation": True,
+        },
+    },
+    "ntdll:parse_depend_manifests": {
+        "dll": "ntdll",
+        "api_name": "parse_depend_manifests",
+        "header": "ntdll.h",
+        "ms_learn_url": "https://learn.microsoft.com/en-us/windows/win32/sbscs/assembly-searching-sequence",
+        "signature": "NTSTATUS parse_depend_manifests(struct actctx_loader *acl)",
+        "parameters": ["struct actctx_loader *acl"],
+        "return_codes": {
+            "STATUS_SUCCESS": "0x00000000",
+            "STATUS_SXS_CANT_GEN_ACTCTX": "0xc0150004",
+        },
+        "empirical_windows_behavior": [
+            "Iterates through assembly dependencies in actctx_loader",
+            "Locates WinSxS manifest file on disk or resolves built-in v6 Common-Controls assembly",
+            "Populates activation context window classes and assembly identity records",
+        ],
+        "macos_backend_strategy": "Darwin fast file lookup with clean-room built-in comctl32 v6 window class table",
+        "clean_room_attestation": {
+            "sources": [
+                "Microsoft Learn public documentation",
+                "Public Wine dlls/ntdll/actctx.c declarations",
+            ],
+            "no_leaked_source_exposure": True,
+            "no_proprietary_decompilation": True,
+        },
+    },
+    "ntdll:wine_install_manifests": {
+        "dll": "ntdll",
+        "api_name": "wine_install_manifests",
+        "header": "ntdll.h",
+        "ms_learn_url": "https://learn.microsoft.com/en-us/windows/win32/sbscs/about-side-by-side-assemblies-",
+        "signature": "BOOL wine_install_manifests(const WCHAR *windows_dir)",
+        "parameters": ["const WCHAR *windows_dir"],
+        "return_codes": {
+            "TRUE": "1",
+            "FALSE": "0",
+        },
+        "empirical_windows_behavior": [
+            "Deploys WinSxS manifest directory windows/winsxs/manifests",
+            "Writes architecture-qualified Microsoft.Windows.Common-Controls 6.0.2600.2982 manifests",
+            "Ensures early prefix bootstrapping finds valid WinSxS files",
+        ],
+        "macos_backend_strategy": "POSIX mkdir and atomic manifest file staging",
+        "clean_room_attestation": {
+            "sources": [
+                "Microsoft Learn public documentation",
+                "Public Wine dlls/setupapi/fakedll.c manifest generator",
+            ],
+            "no_leaked_source_exposure": True,
+            "no_proprietary_decompilation": True,
+        },
+    },
+    "setupapi:SetupInstallFileW": {
+        "dll": "setupapi",
+        "api_name": "SetupInstallFileW",
+        "header": "setupapi.h",
+        "ms_learn_url": "https://learn.microsoft.com/en-us/windows/win32/api/setupapi/nf-setupapi-setupinstallfilew",
+        "signature": "BOOL WINAPI SetupInstallFileW(HINF hinf, PINFCONTEXT inf_context, PCWSTR source, PCWSTR root, PCWSTR dest, DWORD style, PSP_FILE_CALLBACK_W handler, PVOID context)",
+        "parameters": [
+            "HINF hinf",
+            "PINFCONTEXT inf_context",
+            "PCWSTR source",
+            "PCWSTR root",
+            "PCWSTR dest",
+            "DWORD style",
+            "PSP_FILE_CALLBACK_W handler",
+            "PVOID context",
+        ],
+        "return_codes": {
+            "TRUE": "1",
+            "FALSE": "0",
+        },
+        "empirical_windows_behavior": [
+            "Installs file with copy style flags",
+            "Delegates to do_file_copyW with SP_COPY_NOOVERWRITE and replacement rules",
+        ],
+        "macos_backend_strategy": "Standard Win32 setup queue and file copy pipeline",
+        "clean_room_attestation": {
+            "sources": [
+                "Microsoft Learn public documentation",
+                "Public Wine dlls/setupapi/queue.c declarations",
+            ],
+            "no_leaked_source_exposure": True,
+            "no_proprietary_decompilation": True,
+        },
+    },
+    "setupapi:do_file_copyW": {
+        "dll": "setupapi",
+        "api_name": "do_file_copyW",
+        "header": "setupapi.h",
+        "ms_learn_url": "https://learn.microsoft.com/en-us/windows/win32/api/setupapi/nf-setupapi-setupinstallfilew#parameters",
+        "signature": "BOOL do_file_copyW(LPCWSTR source, LPCWSTR target, DWORD style, PSP_FILE_CALLBACK_W handler, PVOID context)",
+        "parameters": [
+            "LPCWSTR source",
+            "LPCWSTR target",
+            "DWORD style",
+            "PSP_FILE_CALLBACK_W handler",
+            "PVOID context",
+        ],
+        "return_codes": {
+            "TRUE": "1",
+            "FALSE": "0",
+        },
+        "empirical_windows_behavior": [
+            "Handles SP_COPY_NOOVERWRITE (0x10): skips copy when target exists and sets ERROR_SUCCESS",
+            "Does not trigger Unsupported style(s) 0x10 error",
+            "Notifies handler with SPFILENOTIFY_TARGETEXISTS if callback provided",
+        ],
+        "macos_backend_strategy": "POSIX stat/copyfile with atomic overwrite protection",
+        "clean_room_attestation": {
+            "sources": [
+                "Microsoft Learn public documentation",
+                "Public Wine dlls/setupapi/queue.c declarations",
+            ],
+            "no_leaked_source_exposure": True,
+            "no_proprietary_decompilation": True,
+        },
+    },
+    "win32u:pack_message": {
+        "dll": "win32u",
+        "api_name": "pack_message",
+        "header": "win32u.h",
+        "ms_learn_url": "https://learn.microsoft.com/en-us/windows/win32/winmsg/wm-erasebkgnd",
+        "signature": "size_t pack_message(HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam, struct packed_message *data)",
+        "parameters": [
+            "HWND hwnd",
+            "UINT message",
+            "WPARAM wparam",
+            "LPARAM lparam",
+            "struct packed_message *data",
+        ],
+        "return_codes": {
+            "0": "0",
+        },
+        "empirical_windows_behavior": [
+            "Packs Win32 messages across threads and processes",
+            "Packs WM_ERASEBKGND (msg 14) with HDC in wParam and data->count = 0",
+            "Eliminates unsupported message fixme for WM_ERASEBKGND",
+        ],
+        "macos_backend_strategy": "In-memory scalar struct packing",
+        "clean_room_attestation": {
+            "sources": [
+                "Microsoft Learn public documentation",
+                "Public Wine dlls/win32u/message.c declarations",
+            ],
+            "no_leaked_source_exposure": True,
+            "no_proprietary_decompilation": True,
+        },
+    },
+    "win32u:NtUserDrawIconEx": {
+        "dll": "win32u",
+        "api_name": "NtUserDrawIconEx",
+        "header": "win32u.h",
+        "ms_learn_url": "https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-drawiconex",
+        "signature": "BOOL WINAPI NtUserDrawIconEx(HDC hdc, INT x0, INT y0, HICON icon, INT width, INT height, UINT step, HBRUSH brush, UINT flags)",
+        "parameters": [
+            "HDC hdc",
+            "INT x0",
+            "INT y0",
+            "HICON icon",
+            "INT width",
+            "INT height",
+            "UINT step",
+            "HBRUSH brush",
+            "UINT flags",
+        ],
+        "return_codes": {
+            "TRUE": "1",
+            "FALSE": "0",
+        },
+        "empirical_windows_behavior": [
+            "Draws specified frame of icon or animated cursor",
+            "Falls back to frame 0 when step is out of range or uninitialized",
+            "Returns FALSE with ERROR_INVALID_CURSOR_HANDLE without emitting fixme when icon is invalid",
+        ],
+        "macos_backend_strategy": "CoreGraphics / Quartz drawing fallback with frame 0 resolution",
+        "clean_room_attestation": {
+            "sources": [
+                "Microsoft Learn public documentation",
+                "Public Wine dlls/win32u/cursoricon.c declarations",
+            ],
+            "no_leaked_source_exposure": True,
+            "no_proprietary_decompilation": True,
+        },
+    },
 }
 
 

@@ -1165,6 +1165,68 @@ static void test_arm64ec_jit_disk_cache(void)
     }
 }
 
+static void test_actctx_winsxs_manifest_resolution_and_packaging(void)
+{
+    NTSTATUS status;
+    HANDLE actctx = NULL;
+    ACTCTXW ctx;
+    ACTIVATION_CONTEXT_BASIC_INFORMATION basic_info;
+    ACTCTX_SECTION_KEYED_DATA data;
+    UNICODE_STRING class_name;
+    SIZE_T written = 0;
+    WCHAR sourceW[256];
+    WCHAR btnW[32];
+    WCHAR winDirW[64];
+    ULONG_PTR cookie = 0;
+    size_t i;
+
+    /* Invalid arguments */
+    status = RtlCreateActivationContext(NULL, NULL);
+    ok(status == STATUS_INVALID_PARAMETER, "expected STATUS_INVALID_PARAMETER, got 0x%08x\n", (unsigned int)status);
+
+    /* Valid creation */
+    memset(&ctx, 0, sizeof(ctx));
+    ctx.cbSize = sizeof(ctx);
+    ctx.dwFlags = ACTCTX_FLAG_SOURCE_IS_ASSEMBLYREF;
+    const char *src = "Microsoft.Windows.Common-Controls,version=\"6.0.0.0\",publicKeyToken=\"6595b64144ccf1df\",processorArchitecture=\"*\"";
+    for (i = 0; src[i] && i < 255; ++i) sourceW[i] = (WCHAR)(unsigned char)src[i];
+    sourceW[i] = 0;
+    ctx.lpSource = sourceW;
+    status = RtlCreateActivationContext(&actctx, &ctx);
+    ok(status == STATUS_SUCCESS && actctx != NULL, "RtlCreateActivationContext failed: 0x%08x\n", (unsigned int)status);
+
+    /* Activation & Deactivation */
+    status = RtlActivateActivationContext(0, actctx, &cookie);
+    ok(status == STATUS_SUCCESS && cookie != 0, "RtlActivateActivationContext failed: 0x%08x\n", (unsigned int)status);
+
+    /* Query information */
+    memset(&basic_info, 0, sizeof(basic_info));
+    status = RtlQueryInformationActivationContext(0, actctx, NULL, ActivationContextBasicInformation, &basic_info, sizeof(basic_info), &written);
+    ok(status == STATUS_SUCCESS && basic_info.hActCtx == actctx, "RtlQueryInformationActivationContext failed: 0x%08x\n", (unsigned int)status);
+
+    /* Window class section find */
+    const char *btn = "Button";
+    for (i = 0; btn[i] && i < 31; ++i) btnW[i] = (WCHAR)(unsigned char)btn[i];
+    btnW[i] = 0;
+    class_name.Buffer = btnW;
+    class_name.Length = 6 * sizeof(WCHAR);
+    class_name.MaximumLength = sizeof(btnW);
+    memset(&data, 0, sizeof(data));
+    data.cbSize = sizeof(data);
+    status = RtlFindActivationContextSectionString(0, NULL, ACTIVATION_CONTEXT_SECTION_WINDOW_CLASS_REDIRECTION, &class_name, &data);
+    ok(status == STATUS_SUCCESS && data.ulDataFormatVersion == 1, "RtlFindActivationContextSectionString Button failed: 0x%08x\n", (unsigned int)status);
+
+    RtlDeactivateActivationContext(0, cookie);
+    RtlReleaseActivationContext(actctx);
+
+    /* Wine install manifests packaging */
+    const char *wdir = "C:\\windows";
+    for (i = 0; wdir[i] && i < 63; ++i) winDirW[i] = (WCHAR)(unsigned char)wdir[i];
+    winDirW[i] = 0;
+    BOOL ok_inst = wine_install_manifests(winDirW);
+    ok(ok_inst == TRUE, "wine_install_manifests failed: %d\n", ok_inst);
+}
+
 START_TEST(ntdll)
 {
     WINETEST_RUN_SUBTEST(test_NtAllocateVirtualMemory);
@@ -1185,4 +1247,5 @@ START_TEST(ntdll)
     WINETEST_RUN_SUBTEST(test_arm64x_dvrt_and_ntreadfile_system32_pe_view);
     WINETEST_RUN_SUBTEST(test_tsc_registry_rescaling_and_qpc);
     WINETEST_RUN_SUBTEST(test_arm64ec_jit_disk_cache);
+    WINETEST_RUN_SUBTEST(test_actctx_winsxs_manifest_resolution_and_packaging);
 }

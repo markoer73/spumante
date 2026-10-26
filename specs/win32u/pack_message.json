@@ -1,0 +1,31 @@
+{
+  "dll": "win32u",
+  "api_name": "pack_message",
+  "header": "win32u.h",
+  "ms_learn_url": "https://learn.microsoft.com/en-us/windows/win32/winmsg/wm-erasebkgnd",
+  "signature": "size_t pack_message(HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam, struct packed_message *data)",
+  "parameters": [
+    "HWND hwnd",
+    "UINT message",
+    "WPARAM wparam",
+    "LPARAM lparam",
+    "struct packed_message *data"
+  ],
+  "return_codes": {
+    "0": "0"
+  },
+  "empirical_windows_behavior": [
+    "Packs Win32 messages across threads and processes",
+    "Packs WM_ERASEBKGND (msg 14) with HDC in wParam and data->count = 0",
+    "Eliminates unsupported message fixme for WM_ERASEBKGND"
+  ],
+  "macos_backend_strategy": "In-memory scalar struct packing",
+  "clean_room_attestation": {
+    "sources": [
+      "Microsoft Learn public documentation",
+      "Public Wine dlls/win32u/message.c declarations"
+    ],
+    "no_leaked_source_exposure": true,
+    "no_proprietary_decompilation": true
+  }
+}

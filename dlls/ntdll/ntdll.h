@@ -1247,6 +1247,81 @@ NTSTATUS WINAPI NtdllJitCacheInvalidateModule(
 NTSTATUS WINAPI NtdllJitCacheQueryStats(NTDLL_JIT_CACHE_STATS *OutStats);
 
 #ifndef _WIN32
+#ifndef VOID
+#define VOID void
+#endif
+
+typedef USHORT LANGID;
+typedef void *HMODULE;
+
+#ifndef _GUID_DEFINED
+#define _GUID_DEFINED
+typedef struct _GUID {
+    unsigned long  Data1;
+    unsigned short Data2;
+    unsigned short Data3;
+    unsigned char  Data4[8];
+} GUID;
+#endif
+
+#ifndef _ACTCTXW_DEFINED
+#define _ACTCTXW_DEFINED
+typedef struct tagACTCTXW {
+    ULONG   cbSize;
+    DWORD   dwFlags;
+    LPCWSTR lpSource;
+    USHORT  wProcessorArchitecture;
+    LANGID  wLangId;
+    LPCWSTR lpAssemblyDirectory;
+    LPCWSTR lpResourceName;
+    LPCWSTR lpApplicationName;
+    HMODULE hModule;
+} ACTCTXW, *PACTCTXW;
+#endif
+
+#define ACTCTX_FLAG_PROCESSOR_ARCHITECTURE_VALID 0x00000001
+#define ACTCTX_FLAG_LANGID_VALID                 0x00000002
+#define ACTCTX_FLAG_ASSEMBLY_DIRECTORY_VALID     0x00000004
+#define ACTCTX_FLAG_RESOURCE_NAME_VALID          0x00000008
+#define ACTCTX_FLAG_SET_PROCESS_DEFAULT          0x00000010
+#define ACTCTX_FLAG_APPLICATION_NAME_VALID       0x00000020
+#define ACTCTX_FLAG_SOURCE_IS_ASSEMBLYREF        0x00000040
+#define ACTCTX_FLAG_HMODULE_VALID                0x00000080
+
+#define ACTIVATION_CONTEXT_SECTION_WINDOW_CLASS_REDIRECTION 3
+
+typedef struct tagACTIVATION_CONTEXT_BASIC_INFORMATION {
+    HANDLE  hActCtx;
+    DWORD   dwFlags;
+} ACTIVATION_CONTEXT_BASIC_INFORMATION, *PACTIVATION_CONTEXT_BASIC_INFORMATION;
+
+#define ActivationContextBasicInformation 1
+
+typedef struct tagACTCTX_SECTION_KEYED_DATA {
+    ULONG   cbSize;
+    ULONG   ulDataFormatVersion;
+    PVOID   lpData;
+    ULONG   ulLength;
+    PVOID   lpSectionGlobalData;
+    ULONG   ulSectionGlobalDataLength;
+    HANDLE  hActCtx;
+    ULONG   ulAssemblyRosterIndex;
+} ACTCTX_SECTION_KEYED_DATA, *PACTCTX_SECTION_KEYED_DATA;
+#endif
+
+#define STATUS_SXS_ASSEMBLY_NOT_FOUND   ((NTSTATUS)0xc0150002)
+#define STATUS_SXS_CANT_GEN_ACTCTX      ((NTSTATUS)0xc0150004)
+
+NTSTATUS WINAPI RtlCreateActivationContext(HANDLE *handle, const ACTCTXW *actctx);
+NTSTATUS WINAPI RtlActivateActivationContext(DWORD flags, HANDLE handle, ULONG_PTR *cookie);
+NTSTATUS WINAPI RtlDeactivateActivationContext(DWORD flags, ULONG_PTR cookie);
+VOID WINAPI RtlAddRefActivationContext(HANDLE handle);
+VOID WINAPI RtlReleaseActivationContext(HANDLE handle);
+NTSTATUS WINAPI RtlQueryInformationActivationContext(DWORD flags, HANDLE handle, PVOID subinst, ULONG class, PVOID buffer, SIZE_T size, SIZE_T *written);
+NTSTATUS WINAPI RtlFindActivationContextSectionString(DWORD flags, const GUID *ext_guid, ULONG section_kind, const UNICODE_STRING *section_name, PACTCTX_SECTION_KEYED_DATA data);
+BOOL WINAPI wine_install_manifests(const WCHAR *windows_dir);
+
+#ifndef _WIN32
 static inline DWORD GetCurrentThreadId(void)
 {
     return NtdllGetCurrentThreadId();

@@ -14,7 +14,7 @@ Rather than attempting an impossible real-time "AI-powered runtime" (which would
 
 ## 2. The Core Architecture: Closed-Loop Ground-Truth Harness
 
-```
+```text
  ┌───────────────────────────────────────────────────────────────┐
  │ 1. TARGET DISCOVERY (./scripts/test.sh --discover-stubs)      │
  │    • Layer 1: .spec '@ stub' declarations                     │
@@ -123,6 +123,14 @@ All host/VM orchestration, compilation, differential testing, stub discovery, an
 ./scripts/test.sh --dll ole32 --test test_ole32_services_parity
 ./scripts/test.sh --winetest --dll ole32
 
+# 12. Build & verify prefix boot initialization parity (ntdll WinSxS, setupapi copy styles, win32u message/icon)
+./scripts/build.sh --dll ntdll --test test_actctx_winsxs_parity
+./scripts/test.sh --dll ntdll --test test_actctx_winsxs_parity
+./scripts/build.sh --dll setupapi --test test_setupapi_copy_parity
+./scripts/test.sh --dll setupapi --test test_setupapi_copy_parity
+./scripts/build.sh --dll win32u --test test_win32u_msg_icon_parity
+./scripts/test.sh --dll win32u --test test_win32u_msg_icon_parity
+
 # 5. Discover & rank unimplemented stubs across Wine DLLs
 ./scripts/test.sh --discover-stubs --dll bcrypt
 
@@ -166,6 +174,7 @@ On macOS, `wine-parity` provides a zero-dependency native LaunchServices bundle 
 ### Mandatory `+x` Executable Permission & 3-Gate Pre-Execution Security Guard
 
 All launch entrypoints (`bin/wine-parity`, `WineParity.app`, `libwine_parity_exec.dylib`, and `wine-parity-shell.sh`) enforce both the POSIX executable bit (`chmod +x`) and a **3-Gate Pre-Execution PE Security Scanner** (`./scripts/test.sh --scan-exe <file.exe>`) before allowing any `.exe`, `.msi`, `.com`, or `.scr` binary to run:
+
 1. **`+x` Permission Check**: Refuses to launch any file lacking the `+x` executable bit with POSIX exit code **`126`** (`EACCES`).
 2. **Gate 1 — macOS Quarantine & Provenance (`com.apple.quarantine`)**: Checks `com.apple.quarantine`, `com.apple.metadata:kMDItemWhereFroms`, and `Zone.Identifier` (`ZoneId=3`). Closes the macOS Gatekeeper Wine blind spot by refusing to launch quarantined `.exe`/`.msi` downloads until inspected and unquarantined.
 3. **Gate 2 — PE Authenticode Signature & Digest Verification**: Computes the true PE Authenticode SHA-256 digest (excluding `OptionalHeader.CheckSum` and `DataDirectory[4]`) and verifies embedded `WIN_CERTIFICATE` PKCS#7 `SignedData` signatures, immediately blocking tampered binaries (and unsigned binaries when `--require-signature` or `WINE_PARITY_REQUIRE_AUTHENTICODE=1` is set).
@@ -235,6 +244,7 @@ DYLD_INSERT_LIBRARIES="$PWD/builds/libwine_parity_exec.dylib" /path/to/spawner_t
 ### Precedence Chain
 
 Every launch and security scan resolves settings in strict priority order:
+
 1. **Explicit CLI Flags** (e.g., `--require-signature`, `--vt-api-key <key>`, `--set-config <dot.key=value>`)
 2. **Environment Variables** (`WINE_PARITY_CONFIG`, `VT_API_KEY` / `VIRUSTOTAL_API_KEY`, `WINE_PARITY_REQUIRE_AUTHENTICODE`, `WINE_PARITY_NO_SANDBOX`, `WINEPREFIX`)
 3. **Per-Executable Profile Overrides** (`app_profiles["<exe_basename_lower>"]` in `config.json`)
@@ -243,6 +253,7 @@ Every launch and security scan resolves settings in strict priority order:
 ### Turnkey macOS `.dmg` Installer & Standalone Configuration Program (`WineParity Config.app`)
 
 To make installation and configuration effortless on macOS, `./scripts/build.sh --dmg` builds a turnkey compressed disk image (`builds/WineParity-Installer.dmg`, staged from `builds/dmg_staging/` via `scripts/lib/dmg_packager.py`) containing:
+
 - **`WineParity.app`** (`org.wine-parity.launcher`): The automatic `.exe` / `.msi` LaunchServices dispatcher and 3-gate PE security scanner. Opening `WineParity.app` directly from Finder without a target `.exe`/`.msi` file also launches the native **Wine Parity Settings** window.
 - **`WineParity Config.app`** (`builds/WineParityConfig.app`, `org.wine-parity.config`): A dedicated, standalone native macOS AppKit Settings application that users can run anytime from `/Applications`, Dock, or Spotlight to configure `wine-parity`.
 - **`Install WineParity.command`**: A double-clickable macOS installer script (also supporting CLI flags `--target-dir <dir>`, `--bin-dir <dir>`, `--config-file <path>`, `--wineprefix <dir>`, `--user`, `--no-open-config`, `--dry-run`) that:
@@ -276,6 +287,7 @@ Instead of requiring users to navigate the legacy Windows-style `winecfg` tool f
 ### Non-Destructive Wine Registry Cascade & Coexistence with `winecfg`
 
 Whenever settings are saved in the macOS Configuration UI, updated via `./scripts/launch.sh --set-config`, or applied prior to `.exe` launch, `scripts/lib/config_manager.py` performs a surgical merge into `$WINEPREFIX/user.reg`:
+
 - Updates **only** the managed keys inside `[Software\\Wine]`, `[Software\\Wine\\Mac Driver]`, `[Software\\Wine\\Direct3D]`, `[Software\\Wine\\DllOverrides]`, and `[Software\\Wine\\AppDefaults\\<app.exe>]`.
 - Preserves all unmanaged keys, custom registry entries, and manual edits made through upstream `winecfg` or `regedit`.
 - Automatically manages `$WINEPREFIX/dosdevices/z:` based on `sandbox.strip_z_drive`.
@@ -329,8 +341,8 @@ See [docs/skills/USER_CONFIG_AND_CONTAINMENT.md](docs/skills/USER_CONFIG_AND_CON
 
 ## 6. Key Engineering Boundaries
 
-* **Clean-Room Reverse Engineering:** AI prompts and implementations strictly use black-box inputs (Microsoft Learn documentation, public Wine headers, and differential test failure logs) with zero exposure to leaked Microsoft source code or proprietary disassemblies.
-* **macOS-First Hardware & Framework Exploitation:** Prioritizes Apple Silicon (`hvf` virtualization, `CommonCrypto` / `Security.framework`, `CoreFoundation`, `VideoToolbox` / `CoreMedia`, Darwin/Mach APIs) before Linux (`kvm`, POSIX/GnuTLS).
-* **Wineserver Statefulness:** Stateless utility APIs live in client DLLs (`dlls/*`); APIs managing cross-process handles, security tokens, or synchronization primitives require `wineserver` protocol IPC.
+- **Clean-Room Reverse Engineering:** AI prompts and implementations strictly use black-box inputs (Microsoft Learn documentation, public Wine headers, and differential test failure logs) with zero exposure to leaked Microsoft source code or proprietary disassemblies.
+- **macOS-First Hardware & Framework Exploitation:** Prioritizes Apple Silicon (`hvf` virtualization, `CommonCrypto` / `Security.framework`, `CoreFoundation`, `VideoToolbox` / `CoreMedia`, Darwin/Mach APIs) before Linux (`kvm`, POSIX/GnuTLS).
+- **Wineserver Statefulness:** Stateless utility APIs live in client DLLs (`dlls/*`); APIs managing cross-process handles, security tokens, or synchronization primitives require `wineserver` protocol IPC.
 
 See [PROJECT_BLUEPRINT.md](PROJECT_BLUEPRINT.md) and [docs/skills/ARCHITECTURE.md](docs/skills/ARCHITECTURE.md) for detailed technical specifications.

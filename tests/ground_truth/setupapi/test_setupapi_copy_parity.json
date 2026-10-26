@@ -1,0 +1,140 @@
+{
+  "dll": "setupapi",
+  "test_name": "test_setupapi_copy_parity",
+  "architecture": "x86_64",
+  "environment": "windows_vm",
+  "assertions": [
+    {
+      "id": "setupapi_copy_invalid_source",
+      "case": "SetupApi_Copy_InvalidSource",
+      "api": "do_file_copyW",
+      "comparison_mode": "exact",
+      "status": "0x00000002",
+      "last_error": 2,
+      "out_length": 0,
+      "buffer_hex": "0000000000000000",
+      "handle_valid": false
+    },
+    {
+      "id": "setupapi_copy_new_target",
+      "case": "SetupApi_Copy_NewTarget",
+      "api": "do_file_copyW",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 1,
+      "buffer_hex": "0100000000000000",
+      "handle_valid": true
+    },
+    {
+      "id": "setupapi_copy_nooverwrite_exists_skip",
+      "case": "SetupApi_Copy_NoOverwrite_ExistsSkip",
+      "api": "do_file_copyW",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 1,
+      "buffer_hex": "0100000000000000",
+      "handle_valid": true
+    },
+    {
+      "id": "setupapi_copy_nooverwrite_no_unsupported_error",
+      "case": "SetupApi_Copy_NoOverwrite_NoUnsupportedError",
+      "api": "do_file_copyW",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 0,
+      "buffer_hex": "0000000000000000",
+      "handle_valid": true
+    },
+    {
+      "id": "setupapi_copy_force_nooverwrite",
+      "case": "SetupApi_Copy_ForceNoOverwrite",
+      "api": "do_file_copyW",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 1,
+      "buffer_hex": "0100000000000000",
+      "handle_valid": true
+    },
+    {
+      "id": "setupapi_copy_replaceonly_missing_skip",
+      "case": "SetupApi_Copy_ReplaceOnly_MissingSkip",
+      "api": "do_file_copyW",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 0,
+      "buffer_hex": "0000000000000000",
+      "handle_valid": false
+    },
+    {
+      "id": "setupapi_copy_replaceonly_exists_overwrite",
+      "case": "SetupApi_Copy_ReplaceOnly_ExistsOverwrite",
+      "api": "do_file_copyW",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 1,
+      "buffer_hex": "0100000000000000",
+      "handle_valid": true
+    },
+    {
+      "id": "setupapi_copy_newer_or_same",
+      "case": "SetupApi_Copy_NewerOrSame",
+      "api": "do_file_copyW",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 1,
+      "buffer_hex": "0100000000000000",
+      "handle_valid": true
+    },
+    {
+      "id": "setupapi_copy_callback_target_exists",
+      "case": "SetupApi_Copy_CallbackTargetExists",
+      "api": "do_file_copyW",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 1,
+      "buffer_hex": "0100000000000000",
+      "handle_valid": true
+    },
+    {
+      "id": "setupapi_install_file_nooverwrite",
+      "case": "SetupApi_InstallFile_NoOverwrite",
+      "api": "SetupInstallFileW",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 1,
+      "buffer_hex": "0100000000000000",
+      "handle_valid": true
+    },
+    {
+      "id": "setupapi_install_file_ex_nooverwrite",
+      "case": "SetupApi_InstallFileEx_NoOverwrite",
+      "api": "SetupInstallFileExW",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 1,
+      "buffer_hex": "0100000000000000",
+      "handle_valid": true
+    },
+    {
+      "id": "setupapi_queue_commit_nooverwrite",
+      "case": "SetupApi_QueueCommit_NoOverwrite",
+      "api": "SetupCommitFileQueueW",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 1,
+      "buffer_hex": "0100000000000000",
+      "handle_valid": true
+    }
+  ]
+}

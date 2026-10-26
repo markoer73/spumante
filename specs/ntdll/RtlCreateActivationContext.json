@@ -1,0 +1,30 @@
+{
+  "dll": "ntdll",
+  "api_name": "RtlCreateActivationContext",
+  "header": "ntdll.h",
+  "ms_learn_url": "https://learn.microsoft.com/en-us/windows/win32/devnotes/rtlcreateactivationcontext",
+  "signature": "NTSTATUS WINAPI RtlCreateActivationContext(HANDLE *handle, const ACTCTXW *actctx)",
+  "parameters": [
+    "HANDLE *handle",
+    "const ACTCTXW *actctx"
+  ],
+  "return_codes": {
+    "STATUS_SUCCESS": "0x00000000",
+    "STATUS_INVALID_PARAMETER": "0xc000000d",
+    "STATUS_SXS_CANT_GEN_ACTCTX": "0xc0150004"
+  },
+  "empirical_windows_behavior": [
+    "Creates activation context from file or memory buffer",
+    "Parses embedded or external assembly manifests",
+    "Resolves dependent assembly Microsoft.Windows.Common-Controls 6.0.0.0 via WinSxS"
+  ],
+  "macos_backend_strategy": "Darwin fast XML parser and built-in assembly manifest fallback",
+  "clean_room_attestation": {
+    "sources": [
+      "Microsoft Learn public documentation",
+      "Public Wine dlls/ntdll/actctx.c declarations"
+    ],
+    "no_leaked_source_exposure": true,
+    "no_proprietary_decompilation": true
+  }
+}

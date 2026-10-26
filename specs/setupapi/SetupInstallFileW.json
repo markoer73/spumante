@@ -1,0 +1,34 @@
+{
+  "dll": "setupapi",
+  "api_name": "SetupInstallFileW",
+  "header": "setupapi.h",
+  "ms_learn_url": "https://learn.microsoft.com/en-us/windows/win32/api/setupapi/nf-setupapi-setupinstallfilew",
+  "signature": "BOOL WINAPI SetupInstallFileW(HINF hinf, PINFCONTEXT inf_context, PCWSTR source, PCWSTR root, PCWSTR dest, DWORD style, PSP_FILE_CALLBACK_W handler, PVOID context)",
+  "parameters": [
+    "HINF hinf",
+    "PINFCONTEXT inf_context",
+    "PCWSTR source",
+    "PCWSTR root",
+    "PCWSTR dest",
+    "DWORD style",
+    "PSP_FILE_CALLBACK_W handler",
+    "PVOID context"
+  ],
+  "return_codes": {
+    "TRUE": "1",
+    "FALSE": "0"
+  },
+  "empirical_windows_behavior": [
+    "Installs file with copy style flags",
+    "Delegates to do_file_copyW with SP_COPY_NOOVERWRITE and replacement rules"
+  ],
+  "macos_backend_strategy": "Standard Win32 setup queue and file copy pipeline",
+  "clean_room_attestation": {
+    "sources": [
+      "Microsoft Learn public documentation",
+      "Public Wine dlls/setupapi/queue.c declarations"
+    ],
+    "no_leaked_source_exposure": true,
+    "no_proprietary_decompilation": true
+  }
+}

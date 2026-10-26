@@ -9,6 +9,7 @@ Detailed technical architecture and implementation roadmap for an automated AI c
 Attempting to cover the entire Win32/NT surface simultaneously is impractical. Development proceeds in distinct phases:
 
 ### Phase 1: Ground-Truth Differential Harness (Infrastructure — macOS First, Linux Second)
+
 * **Objective:** Build the automated test execution loop between a genuine Windows environment and Wine, prioritizing Apple Silicon / Intel macOS natively before Linux.
 * **Canonical Script Interface (`scripts/`):**
   * All operations are centralized into 4 parametrized shell entrypoints (`scripts/build.sh`, `scripts/launch.sh`, `scripts/stop.sh`, `scripts/test.sh`) backed by modular libraries in `scripts/lib/` with surgical single-target execution by default.
@@ -19,6 +20,7 @@ Attempting to cover the entire Win32/NT surface simultaneously is impractical. D
   * JSON-based differential comparator (`tests/schema/result.json`) supporting `exact`, `handle_state`, `masked`, and `roundtrip` field comparison modes.
 
 ### Phase 2: Target Selection & Upstream WineHQ Missing-Feature Alignment
+
 * **Subsystem Focus:** Borrow and backport from read-only upstream Wine (`.wine-upstream/` at `wine-11.19+` via `wine-borrow`) while prioritizing native macOS frameworks under `#ifdef __APPLE__` (`CommonCrypto`/`Security.framework`, `CoreFoundation`, `VideoToolbox`/`CoreMedia`, `AVFoundation`, `Metal`, and Darwin/Mach APIs) with `#ifdef __linux__` fallbacks:
   1. **`bcrypt.dll`, `ncrypt.dll`, and `crypt32.dll` (Cryptography Next Generation):**
      * **Upstream Gap (WineConf 2025 / `.wine-upstream/dlls/bcrypt`):** 23 `.spec` stubs, 90 `FIXME`s, 8 `todo_wine` tests. Upstream relies on GnuTLS across the Unix call boundary (incurring syscall overhead on symmetric ciphers, lacking `BCRYPT_PAD_NONE` asymmetric padding, Brainpool/custom ECC curve parameters, and MD5 OAEP padding).
@@ -41,6 +43,7 @@ Attempting to cover the entire Win32/NT surface simultaneously is impractical. D
   * Scores stubs by `wineserver` independence and macOS native framework readiness.
 
 ### Phase 3: The Agentic Coding Loop
+
 * **Surgical CLI Capabilities (`scripts/` + `scripts/lib/`):**
   * `./scripts/test.sh --fetch-spec <dll>:<api_name>`: Fetches official Microsoft Learn specs, extracts public Wine header declarations, and persists an auditable Clean-Room Spec Packet (`specs/<dll>/<api_name>.json`).
   * `./scripts/build.sh --borrow <dll> [--dry-run]`: Surgically borrows or 3-way backports a single DLL from read-only `.wine-upstream/` while preserving `#ifdef __APPLE__` acceleration blocks.
@@ -49,6 +52,7 @@ Attempting to cover the entire Win32/NT surface simultaneously is impractical. D
   * `./scripts/build.sh --dll <dll> --export-patch`: Exports a conformant `git format-patch` patch with clean-room provenance metadata.
 
 ### Phase 4: Patch Formatting, Security Audit & Regression Guard
+
 * **Conformance (`./scripts/test.sh --lint`):** Enforces WineHQ and repository coding conventions:
   * 4-space indentation, no tabs, pure C99/C11, classic `#ifndef` include guards (no `#pragma once`).
   * Wine debug logging (`TRACE`, `WARN`, `FIXME`, `ERR`; zero raw `printf`/`fprintf` in `dlls/`).
@@ -61,6 +65,7 @@ Attempting to cover the entire Win32/NT surface simultaneously is impractical. D
 ## 2. Clean-Room Legal Safeguards
 
 To ensure that contributions are clean and avoid copyright concerns (aligned with WineHQ's `Clean-Room-Guidelines.md`):
+
 1. **No Proprietary Decompilations:** The agent must never be fed disassemblies of proprietary Microsoft DLLs, Microsoft PDB debug symbols, `+relay` traces of native Microsoft components, or decompiled code from tools like IDA Pro or Ghidra.
 2. **No Leaked or Tainted Code in Context:** Prompts must explicitly disallow reference to leaked Windows source archives (e.g. WRK, Windows 2000/XP leaked code) or ReactOS source/headers.
 3. **Pure Specification-Driven Development:** The agent's knowledge input must consist solely of:
