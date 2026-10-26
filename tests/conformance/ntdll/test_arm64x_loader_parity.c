@@ -6,7 +6,7 @@
  *   3. TSC registry frequency rescaling (~MHz & NtQueryPerformanceCounter 128-bit tick scaling)
  *   4. On-disk JIT code caching (WJTC integrity-checked ARM64 translation cache & invalidation)
  *
- * Copyright 2026 Wine Parity Contributors
+ * Copyright 2026 Spumante Contributors
  * SPDX-License-Identifier: LGPL-2.1-or-later
  */
 
@@ -534,7 +534,7 @@ int main(void)
         put_u32_le(arm64_block + 8, 0xD503201FU);
         put_u32_le(arm64_block + 12, 0xD65F03C0U);
 
-        status = NtdllJitCacheInit("/tmp/wine_parity_ntdll_jit_cache_test");
+        status = NtdllJitCacheInit("/tmp/spumante_ntdll_jit_cache_test");
         if (status == STATUS_SUCCESS) {
             status = NtdllJitCacheStoreBlock(&mod_a, 0x1040U, arm64_block, sizeof(arm64_block));
         }

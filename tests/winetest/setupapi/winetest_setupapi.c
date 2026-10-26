@@ -5,7 +5,7 @@
  *
  * Adapted from upstream Wine dlls/setupapi/tests/install.c and queue.c
  * Copyright 2005-2024 Alexandre Julliard
- * Copyright 2026 Wine Parity Contributors
+ * Copyright 2026 Spumante Contributors
  * SPDX-License-Identifier: LGPL-2.1-or-later
  */
 

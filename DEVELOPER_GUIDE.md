@@ -1,4 +1,4 @@
-# Wine Parity Developer & Architecture Guide (`wine-parity`)
+# Spumante Developer & Architecture Guide (`spumante`)
 
 >Looking for user installation and quick-start instructions? See [README.md](README.md).
 
@@ -146,7 +146,7 @@ All host/VM orchestration, compilation, differential testing, stub discovery, an
 # 16. Run WineHQ C99/C11, Markdown & KaTeX badge, and script boundary linter
 ./scripts/test.sh --lint
 
-# 17. Complete Turnkey Build (All wine-parity DLLs/tests + Upstream Wine Installation)
+# 17. Complete Turnkey Build (All spumante DLLs/tests + Upstream Wine Installation)
 #     --full-x86 / --x86      : Builds --all (x86_64) + upstream Wine (--enable-archs=i386,x86_64)
 #                               to run 32-bit & 64-bit x86 Windows binaries on macOS (Rosetta 2 / Intel)
 #     --full-arm64 / --arm64  : Builds --all (arm64) + upstream Wine (--enable-archs=arm64ec,i386)
@@ -154,14 +154,14 @@ All host/VM orchestration, compilation, differential testing, stub discovery, an
 ./scripts/build.sh --full-x86
 ./scripts/build.sh --full-arm64
 
-# 18. Build & Register macOS .exe/.msi Automatic LaunchServices Handler (WineParity.app + POSIX interposer)
+# 18. Build & Register macOS .exe/.msi Automatic LaunchServices Handler (Spumante.app + POSIX interposer)
 #     Enforces mandatory +x executable permission (chmod +x) before launching any .exe or .msi
 ./scripts/build.sh --exe-handler
 ./scripts/launch.sh --register-exe-handler
 ./scripts/launch.sh --exe-handler-status
 ./scripts/stop.sh --unregister-exe-handler
 
-# 19. Build Turnkey macOS DMG Installer Package (WineParity-Installer.dmg + standalone WineParity Config.app)
+# 19. Build Turnkey macOS DMG Installer Package (Spumante-Installer.dmg + standalone Spumante Config.app)
 #     Pass -nz (or --notarize) to code-sign with Hardened Runtime, submit to Apple Notary Service (notarytool), and staple the ticket
 ./scripts/build.sh --dmg
 ./scripts/build.sh --dmg -nz
@@ -173,17 +173,17 @@ All host/VM orchestration, compilation, differential testing, stub discovery, an
 
 ---
 
-## 4. Seamless macOS `.exe` & `.msi` Execution (`WineParity.app` & POSIX Interposer)
+## 4. Seamless macOS `.exe` & `.msi` Execution (`Spumante.app` & POSIX Interposer)
 
-On macOS, `wine-parity` provides a zero-dependency native LaunchServices bundle (`builds/WineParity.app`), a Mach-O `execve`/`posix_spawn` interposer (`builds/libwine_parity_exec.dylib`), and a shell integration script (`builds/wine-parity-shell.sh`) so users can launch Windows `.exe` and `.msi` files directly by **double-clicking in Finder**, running **`open app.exe`**, or executing **`./app.exe`** in Terminal.
+On macOS, `spumante` provides a zero-dependency native LaunchServices bundle (`builds/Spumante.app`), a Mach-O `execve`/`posix_spawn` interposer (`builds/libspumante_exec.dylib`), and a shell integration script (`builds/spumante-shell.sh`) so users can launch Windows `.exe` and `.msi` files directly by **double-clicking in Finder**, running **`open app.exe`**, or executing **`./app.exe`** in Terminal.
 
 ### Mandatory `+x` Executable Permission & 3-Gate Pre-Execution Security Guard
 
-All launch entrypoints (`bin/wine-parity`, `WineParity.app`, `libwine_parity_exec.dylib`, and `wine-parity-shell.sh`) enforce both the POSIX executable bit (`chmod +x`) and a **3-Gate Pre-Execution PE Security Scanner** (`./scripts/test.sh --scan-exe <file.exe>`) before allowing any `.exe`, `.msi`, `.com`, or `.scr` binary to run:
+All launch entrypoints (`bin/spumante`, `Spumante.app`, `libspumante_exec.dylib`, and `spumante-shell.sh`) enforce both the POSIX executable bit (`chmod +x`) and a **3-Gate Pre-Execution PE Security Scanner** (`./scripts/test.sh --scan-exe <file.exe>`) before allowing any `.exe`, `.msi`, `.com`, or `.scr` binary to run:
 
 1. **`+x` Permission Check**: Refuses to launch any file lacking the `+x` executable bit with POSIX exit code **`126`** (`EACCES`).
 2. **Gate 1 — macOS Quarantine & Provenance (`com.apple.quarantine`)**: Checks `com.apple.quarantine`, `com.apple.metadata:kMDItemWhereFroms`, and `Zone.Identifier` (`ZoneId=3`). Closes the macOS Gatekeeper Wine blind spot by refusing to launch quarantined `.exe`/`.msi` downloads until inspected and unquarantined.
-3. **Gate 2 — PE Authenticode Signature & Digest Verification**: Computes the true PE Authenticode SHA-256 digest (excluding `OptionalHeader.CheckSum` and `DataDirectory[4]`) and verifies embedded `WIN_CERTIFICATE` PKCS#7 `SignedData` signatures, immediately blocking tampered binaries (and unsigned binaries when `--require-signature` or `WINE_PARITY_REQUIRE_AUTHENTICODE=1` is set).
+3. **Gate 2 — PE Authenticode Signature & Digest Verification**: Computes the true PE Authenticode SHA-256 digest (excluding `OptionalHeader.CheckSum` and `DataDirectory[4]`) and verifies embedded `WIN_CERTIFICATE` PKCS#7 `SignedData` signatures, immediately blocking tampered binaries (and unsigned binaries when `--require-signature` or `SPUMANTE_REQUIRE_AUTHENTICODE=1` is set).
 4. **Gate 3 — Static PE Hardening, Entropy, IAT Threat Scan & VirusTotal v3 API**:
    - Blocks PE sections violating W^X (`IMAGE_SCN_MEM_WRITE | IMAGE_SCN_MEM_EXECUTE`).
    - Computes per-section Shannon byte entropy ($[0.0, 8.0]\text{ bits/byte}$) to identify packed/encrypted payloads and audits `DllCharacteristics` (`DYNAMIC_BASE` ASLR, `HIGH_ENTROPY_VA`, `NX_COMPAT` DEP, `GUARD_CF`).
@@ -192,26 +192,26 @@ All launch entrypoints (`bin/wine-parity`, `WineParity.app`, `libwine_parity_exe
 
 ### Architecture & Dispatch Behavior
 
-1. **Finder Double-Click & `open app.exe` (`builds/WineParity.app`)**:
-   - Registers Uniform Type Identifiers `com.microsoft.windows-executable` (`.exe`, `.com`, `.scr`) and `com.microsoft.msi-installer` (`.msi`) under bundle identifier `org.wine-parity.launcher`.
+1. **Finder Double-Click & `open app.exe` (`builds/Spumante.app`)**:
+   - Registers Uniform Type Identifiers `com.microsoft.windows-executable` (`.exe`, `.com`, `.scr`) and `com.microsoft.msi-installer` (`.msi`) under bundle identifier `org.spumante.launcher`.
    - Receives `kAEOpenDocuments` AppleEvents via AppKit's `application:openURLs:` / `application:openFile:` as well as direct CLI arguments.
    - **PE Header (`MZ`/`COFF`) Auto-Dispatcher**: Reads `e_lfanew` → `PE\0\0` → `COFF Machine` from the binary header and automatically selects:
-     - `builds/wine-install-arm64/bin/wine-parity` for `ARM64` (`0xAA64`) and `ARM64EC` (`0xA641`) binaries.
-     - `builds/wine-install-x86/bin/wine-parity` for `AMD64` (`0x8664`) and `I386` (`0x014C`) binaries.
+     - `builds/wine-install-arm64/bin/spumante` for `ARM64` (`0xAA64`) and `ARM64EC` (`0xA641`) binaries.
+     - `builds/wine-install-x86/bin/spumante` for `AMD64` (`0x8664`) and `I386` (`0x014C`) binaries.
      - `msiexec /i <package.msi>` for `.msi` installer packages (detected by extension or OLE Compound Document magic `D0 CF 11 E0`).
-   - **Working Directory Preservation**: Automatically switches the working directory (`chdir`) to the parent directory of the target `.exe`/`.msi` (`dirname(resolved_path)`) so relative DLL and asset loads work identically to Windows Explorer double-clicks (set `WINE_PARITY_PRESERVE_CWD=1` to keep the caller's working directory).
+   - **Working Directory Preservation**: Automatically switches the working directory (`chdir`) to the parent directory of the target `.exe`/`.msi` (`dirname(resolved_path)`) so relative DLL and asset loads work identically to Windows Explorer double-clicks (set `SPUMANTE_PRESERVE_CWD=1` to keep the caller's working directory).
 2. **Direct Terminal Execution (`./app.exe`)**:
-   - **Interactive `zsh` Shell (`builds/wine-parity-shell.sh`)**: Registers `+x`-checked suffix aliases (`alias -s exe=...`, `alias -s msi=...`) via `_wine_parity_run_checked`.
-   - **Child Processes & Build Scripts (`builds/libwine_parity_exec.dylib`)**: Uses Mach-O `__DATA,__interpose` to intercept `posix_spawn`, `execve`, and `execv`. Verifies `+x` permission (`EACCES` if missing) and transparently routes `+x` PE binaries through `WineParity`.
+   - **Interactive `zsh` Shell (`builds/spumante-shell.sh`)**: Registers `+x`-checked suffix aliases (`alias -s exe=...`, `alias -s msi=...`) via `_spumante_run_checked`.
+   - **Child Processes & Build Scripts (`builds/libspumante_exec.dylib`)**: Uses Mach-O `__DATA,__interpose` to intercept `posix_spawn`, `execve`, and `execv`. Verifies `+x` permission (`EACCES` if missing) and transparently routes `+x` PE binaries through `Spumante`.
 
 ### Step-by-Step Usage Instructions
 
 ```sh
-# 1. Build WineParity.app, libwine_parity_exec.dylib, wine-parity-shell.sh, and x86/arm64 launchers
+# 1. Build Spumante.app, libspumante_exec.dylib, spumante-shell.sh, and x86/arm64 launchers
 #    (Also built automatically during ./scripts/build.sh --full-x86 or ./scripts/build.sh --full-arm64)
 ./scripts/build.sh --exe-handler
 
-# 2. Register WineParity.app as the default macOS LaunchServices handler for .exe and .msi
+# 2. Register Spumante.app as the default macOS LaunchServices handler for .exe and .msi
 ./scripts/launch.sh --register-exe-handler
 
 # 3. Verify current LaunchServices registration and +x policy status
@@ -231,11 +231,11 @@ open /path/to/app.exe --args --windowed
 open /path/to/installer.msi
 
 # 6B. Launch directly in zsh (`./app.exe`) by sourcing the shell helper
-source builds/wine-parity-shell.sh
+source builds/spumante-shell.sh
 /path/to/app.exe --windowed
 
 # 6C. Launch from child processes / scripts calling execve() or posix_spawn() directly
-DYLD_INSERT_LIBRARIES="$PWD/builds/libwine_parity_exec.dylib" /path/to/spawner_tool /path/to/app.exe
+DYLD_INSERT_LIBRARIES="$PWD/builds/libspumante_exec.dylib" /path/to/spawner_tool /path/to/app.exe
 
 # 7. Unregister the macOS LaunchServices .exe/.msi handler when no longer needed
 ./scripts/stop.sh --unregister-exe-handler
@@ -245,35 +245,35 @@ DYLD_INSERT_LIBRARIES="$PWD/builds/libwine_parity_exec.dylib" /path/to/spawner_t
 
 ## 5. User-Level Configuration, Native macOS Settings UI, Registry Cascade & Zero-Trust Containment
 
-`wine-parity` separates **host-side security, sandboxing, and launcher policies** from **guest Windows compatibility settings**, storing user preferences in `~/.config/wine-parity/config.json` (created automatically with `0600` permissions, or overridden via `WINE_PARITY_CONFIG=/path/to/config.json`) and non-destructively cascading Windows environment keys into Wine's native registry hives (`$WINEPREFIX/user.reg` and `$WINEPREFIX/dosdevices/`).
+`spumante` separates **host-side security, sandboxing, and launcher policies** from **guest Windows compatibility settings**, storing user preferences in `~/.config/spumante/config.json` (created automatically with `0600` permissions, or overridden via `SPUMANTE_CONFIG=/path/to/config.json`) and non-destructively cascading Windows environment keys into Wine's native registry hives (`$WINEPREFIX/user.reg` and `$WINEPREFIX/dosdevices/`).
 
 ### Precedence Chain
 
 Every launch and security scan resolves settings in strict priority order:
 
 1. **Explicit CLI Flags** (e.g., `--require-signature`, `--vt-api-key <key>`, `--set-config <dot.key=value>`)
-2. **Environment Variables** (`WINE_PARITY_CONFIG`, `VT_API_KEY` / `VIRUSTOTAL_API_KEY`, `WINE_PARITY_REQUIRE_AUTHENTICODE`, `WINE_PARITY_NO_SANDBOX`, `WINEPREFIX`)
+2. **Environment Variables** (`SPUMANTE_CONFIG`, `VT_API_KEY` / `VIRUSTOTAL_API_KEY`, `SPUMANTE_REQUIRE_AUTHENTICODE`, `SPUMANTE_NO_SANDBOX`, `WINEPREFIX`)
 3. **Per-Executable Profile Overrides** (`app_profiles["<exe_basename_lower>"]` in `config.json`)
-4. **Global User Configuration** (`~/.config/wine-parity/config.json`)
+4. **Global User Configuration** (`~/.config/spumante/config.json`)
 
-### Turnkey macOS `.dmg` Installer & Standalone Configuration Program (`WineParity Config.app`)
+### Turnkey macOS `.dmg` Installer & Standalone Configuration Program (`Spumante Config.app`)
 
-To make installation and configuration effortless on macOS, `./scripts/build.sh --dmg` builds a turnkey compressed disk image (`builds/WineParity-Installer.dmg`, staged from `builds/dmg_staging/` via `scripts/lib/dmg_packager.py`) containing:
+To make installation and configuration effortless on macOS, `./scripts/build.sh --dmg` builds a turnkey compressed disk image (`builds/Spumante-Installer.dmg`, staged from `builds/dmg_staging/` via `scripts/lib/dmg_packager.py`) containing:
 
-- **`WineParity.app`** (`org.wine-parity.launcher`): The automatic `.exe` / `.msi` LaunchServices dispatcher and 3-gate PE security scanner. Opening `WineParity.app` directly from Finder without a target `.exe`/`.msi` file also launches the native **Wine Parity Settings** window.
-- **`WineParity Config.app`** (`builds/WineParityConfig.app`, `org.wine-parity.config`): A dedicated, standalone native macOS AppKit Settings application that users can run anytime from `/Applications`, Dock, or Spotlight to configure `wine-parity`.
-- **`Install WineParity.command`**: A double-clickable macOS installer script (also supporting CLI flags `--target-dir <dir>`, `--bin-dir <dir>`, `--config-file <path>`, `--wineprefix <dir>`, `--user`, `--no-open-config`, `--dry-run`) that:
-  1. Installs `WineParity.app` and `WineParity Config.app` into `/Applications` (or `~/Applications`).
-  2. Installs the `wine-parity` and `wine-parity-config` CLI commands into `/usr/local/bin` (or `~/.local/bin`).
+- **`Spumante.app`** (`org.spumante.launcher`): The automatic `.exe` / `.msi` LaunchServices dispatcher and 3-gate PE security scanner. Opening `Spumante.app` directly from Finder without a target `.exe`/`.msi` file also launches the native **Spumante Settings** window.
+- **`Spumante Config.app`** (`builds/SpumanteConfig.app`, `org.spumante.config`): A dedicated, standalone native macOS AppKit Settings application that users can run anytime from `/Applications`, Dock, or Spotlight to configure `spumante`.
+- **`Install Spumante.command`**: A double-clickable macOS installer script (also supporting CLI flags `--target-dir <dir>`, `--bin-dir <dir>`, `--config-file <path>`, `--wineprefix <dir>`, `--user`, `--no-open-config`, `--dry-run`) that:
+  1. Installs `Spumante.app` and `Spumante Config.app` into `/Applications` (or `~/Applications`).
+  2. Installs the `spumante` and `spumante-config` CLI commands into `/usr/local/bin` (or `~/.local/bin`).
   3. Registers `.exe` and `.msi` LaunchServices associations.
-  4. Initializes `~/.config/wine-parity/config.json` (`0600`) and cascades settings to `~/.wine/user.reg`.
-  5. Automatically opens **`WineParity Config.app`** so the user can immediately review or customize their setup.
+  4. Initializes `~/.config/spumante/config.json` (`0600`) and cascades settings to `~/.wine/user.reg`.
+  5. Automatically opens **`Spumante Config.app`** so the user can immediately review or customize their setup.
 - **`Applications` Symlink & `README.txt`**: Enables standard macOS drag-and-drop installation alongside the one-click installer script.
-- **Apple Notarization & Hardened Runtime Signing (`-nz` / `--notarize`)**: Passing `-nz` (e.g. `./scripts/build.sh --dmg -nz` or `./scripts/build.sh -nz`) signs `WineParity.app`, `WineParity Config.app`, `Install WineParity.command`, and `builds/WineParity-Installer.dmg` with Hardened Runtime (`codesign --force --options runtime --timestamp`), submits the disk image to Apple Notary Service via `xcrun notarytool submit ... --wait` (using `--notary-profile <profile>` / `WINE_PARITY_NOTARY_PROFILE` or `WINE_PARITY_APPLE_ID` + `WINE_PARITY_TEAM_ID` + `WINE_PARITY_APP_PASSWORD`), and staples the offline Gatekeeper ticket via `xcrun stapler staple`.
+- **Apple Notarization & Hardened Runtime Signing (`-nz` / `--notarize`)**: Passing `-nz` (e.g. `./scripts/build.sh --dmg -nz` or `./scripts/build.sh -nz`) signs `Spumante.app`, `Spumante Config.app`, `Install Spumante.command`, and `builds/Spumante-Installer.dmg` with Hardened Runtime (`codesign --force --options runtime --timestamp`), submits the disk image to Apple Notary Service via `xcrun notarytool submit ... --wait` (using `--notary-profile <profile>` / `SPUMANTE_NOTARY_PROFILE` or `SPUMANTE_APPLE_ID` + `SPUMANTE_TEAM_ID` + `SPUMANTE_APP_PASSWORD`), and staples the offline Gatekeeper ticket via `xcrun stapler staple`.
 
-### Native macOS AppKit Configuration Dialog (`WineParity Config.app` & `--config-ui`)
+### Native macOS AppKit Configuration Dialog (`Spumante Config.app` & `--config-ui`)
 
-Instead of requiring users to navigate the legacy Windows-style `winecfg` tool for common workflows, `WineParity Config.app` (`builds/WineParityConfig.app`), `wine-parity-config`, and `./scripts/launch.sh --config-ui` open the native macOS AppKit Settings window (`WineParitySettingsController`) organized into five streamlined tabs:
+Instead of requiring users to navigate the legacy Windows-style `winecfg` tool for common workflows, `Spumante Config.app` (`builds/SpumanteConfig.app`), `spumante-config`, and `./scripts/launch.sh --config-ui` open the native macOS AppKit Settings window (`SpumanteSettingsController`) organized into five streamlined tabs:
 
 1. **General**:
    - **Windows Version**: Selects reported Windows version (`win11`, `win10`, `win81`, `win7`) and cascades `Version` to `[Software\\Wine]` in `user.reg`.
@@ -282,7 +282,7 @@ Instead of requiring users to navigate the legacy Windows-style `winecfg` tool f
    - **Open Classic `winecfg`…**: Launches upstream `winecfg` directly when advanced per-DLL or audio tab adjustments are desired.
 2. **Security (3-Gate Scanner & VirusTotal v3 Configuration)**:
    - Toggles Gate 1 quarantine enforcement (`block_quarantined`), Gate 2 Authenticode signature enforcement (`require_authenticode`), and Gate 3 W^X / IAT process-injection blocking (`block_wx_sections` & `block_suspicious_iat`).
-   - **VirusTotal v3 Cloud Hash Reputation**: Provides an enable/disable checkbox (`security.virustotal_enabled`), a masked API key input field (`NSSecureTextField` for `security.virustotal_api_key`), and a **"Show Key"** visibility toggle so users can enter, inspect, or update their VirusTotal v3 API key directly in the GUI (saved locally with `0600` permissions in `~/.config/wine-parity/config.json`).
+   - **VirusTotal v3 Cloud Hash Reputation**: Provides an enable/disable checkbox (`security.virustotal_enabled`), a masked API key input field (`NSSecureTextField` for `security.virustotal_api_key`), and a **"Show Key"** visibility toggle so users can enter, inspect, or update their VirusTotal v3 API key directly in the GUI (saved locally with `0600` permissions in `~/.config/spumante/config.json`).
 3. **Sandbox & Network (Zero-Trust Containment)**:
    - **macOS `sandbox-exec` Containment**: Enabled by default (`sandbox.enabled = true`). Blocks access to sensitive host credential stores (`~/.ssh`, `~/.aws`, `~/.gnupg`, `~/Library/Keychains`), blocks host file writes outside `$WINEPREFIX` and the target `.exe` directory (`sandbox.allow_exe_dir_rw = true`), and removes the `$WINEPREFIX/dosdevices/z:` root `/` symlink (`sandbox.strip_z_drive = true`).
    - **Incoming Network Firewall (`network.incoming`)**: Defaults to **`deny`** (all inbound TCP/UDP ` network-inbound ` sockets blocked at the Darwin kernel layer via Seatbelt; configurable to `allow` or `custom_ports`).
@@ -290,8 +290,8 @@ Instead of requiring users to navigate the legacy Windows-style `winecfg` tool f
 4. **Graphics & Acceleration**:
    - Configures Retina High-DPI mode (`RetinaMode`), window decorations (`Decorated`), screen DPI (`LogPixels`), Direct3D renderer backend (` metal ` / `gl` / `vulkan`), and shader backend (`msl` / `glsl`), cascading directly into `[Software\\Wine\\Mac Driver]` and `[Software\\Wine\\Direct3D]`.
 5. **Built-in Apps (Bundled GUI & CLI `.exe` Programs)**:
-   - Bundles all 14 built-in Windows GUI and CLI `.exe` programs (`notepad.exe`, `winmine.exe` aliased from `winemine.exe`, `clock.exe`, `taskmgr.exe`, `wordpad.exe`, `regedit.exe`, `winecfg.exe`, `progman.exe`, `explorer.exe`, `cmd.exe`, `hostname.exe`, `ipconfig.exe`, `systeminfo.exe`, and `tasklist.exe`) into `Windows Apps/` inside `builds/WineParity-Installer.dmg` and `Contents/Resources/WindowsApps/` inside `WineParity.app` / `WineParity Config.app`.
-   - Provides one-click **Launch** buttons for all 9 GUI apps and an interactive output viewer for all 5 CLI diagnostics (`WINE_PARITY_SKIP_SECURITY_GATES=1`, `WINE_PARITY_REQUIRE_AUTHENTICODE=0`, `WINE_PARITY_NO_SANDBOX=1` scoped exclusively to built-in apps built from source).
+   - Bundles all 14 built-in Windows GUI and CLI `.exe` programs (`notepad.exe`, `winmine.exe` aliased from `winemine.exe`, `clock.exe`, `taskmgr.exe`, `wordpad.exe`, `regedit.exe`, `winecfg.exe`, `progman.exe`, `explorer.exe`, `cmd.exe`, `hostname.exe`, `ipconfig.exe`, `systeminfo.exe`, and `tasklist.exe`) into `Windows Apps/` inside `builds/Spumante-Installer.dmg` and `Contents/Resources/WindowsApps/` inside `Spumante.app` / `Spumante Config.app`.
+   - Provides one-click **Launch** buttons for all 9 GUI apps and an interactive output viewer for all 5 CLI diagnostics (`SPUMANTE_SKIP_SECURITY_GATES=1`, `SPUMANTE_REQUIRE_AUTHENTICODE=0`, `SPUMANTE_NO_SANDBOX=1` scoped exclusively to built-in apps built from source).
 
 ### Non-Destructive Wine Registry Cascade & Coexistence with `winecfg`
 
@@ -341,7 +341,7 @@ Whenever settings are saved in the macOS Configuration UI, updated via `./script
                     --set-config security.virustotal_api_key="YOUR_VT_API_KEY"
 
 # 7. Use a custom configuration file path for an isolated session or test run
-WINE_PARITY_CONFIG=/tmp/custom-wine-parity-config.json ./scripts/launch.sh --config-status
+SPUMANTE_CONFIG=/tmp/custom-spumante-config.json ./scripts/launch.sh --config-status
 ```
 
 See [docs/skills/USER_CONFIG_AND_CONTAINMENT.md](docs/skills/USER_CONFIG_AND_CONTAINMENT.md) for the complete `config.json` schema, registry mapping table, and Seatbelt profile specification.

@@ -10,7 +10,7 @@
  *
  * Adapted from upstream Wine dlls/win32u/tests/ & dlls/user32/tests/
  * Copyright 2013-2024 Wine contributors
- * Copyright 2026 Wine Parity Contributors
+ * Copyright 2026 Spumante Contributors
  * SPDX-License-Identifier: LGPL-2.1-or-later
  */
 
@@ -180,7 +180,7 @@ static void test_metal_swapchain_and_iosurface_child(void)
         root_hwnd,
         1001);
 
-    /* 1. Same-process top-level swapchain (supported in both upstream and wine-parity) */
+    /* 1. Same-process top-level swapchain (supported in both upstream and spumante) */
     same_client = macdrv_CreateClientSurface(root_hwnd, 1, FALSE);
     same_surf = impl_from_client_surface(same_client);
     ok_sc = macdrv_client_surface_acquire_metal_swapchain(same_surf);
@@ -316,7 +316,7 @@ static void test_multimon_display_settings_and_detach(void)
        "EnumDisplaySettingsExW DISPLAY1 failed\n");
     ok(dm.dmPelsWidth == 1920 && dm.dmPelsHeight == 1080, "unexpected DISPLAY1 default resolution\n");
 
-    /* Primary display mode change (works in both upstream and wine-parity) */
+    /* Primary display mode change (works in both upstream and spumante) */
     memset(&req, 0, sizeof(req));
     req.dmSize = sizeof(req);
     req.dmFields = DM_PELSWIDTH | DM_PELSHEIGHT | DM_BITSPERPEL | DM_DISPLAYFREQUENCY;
@@ -392,7 +392,7 @@ static void test_multimon_display_settings_and_detach(void)
     memset(&ramp_out1, 0, sizeof(ramp_out1));
     memset(&ramp_out2, 0, sizeof(ramp_out2));
 
-    /* Primary gamma ramp works in both upstream and wine-parity */
+    /* Primary gamma ramp works in both upstream and spumante */
     ok(macdrv_GetDeviceGammaRamp(NULL, &ramp_out1), "primary GetDeviceGammaRamp failed\n");
 
     todo_wine {

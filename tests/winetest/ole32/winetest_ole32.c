@@ -2,7 +2,7 @@
  * Upstream Wine Winetest Anti-Regression Suite for ole32
  * (COM initialization, IServiceProvider marshaling, RpcSs synchronization, SCM service ordering)
  *
- * Copyright 2026 Wine Parity Contributors
+ * Copyright 2026 Spumante Contributors
  * SPDX-License-Identifier: LGPL-2.1-or-later
  */
 
@@ -139,7 +139,7 @@ static void test_stream_on_hglobal(void)
     IStream *pClone = NULL;
     HRESULT hr;
     ULONG written = 0, bytes_read = 0;
-    const char test_data[] = "WineParityCOMStreamTestPayload";
+    const char test_data[] = "SpumanteCOMStreamTestPayload";
     char read_buf[64];
 
     hr = CreateStreamOnHGlobal(NULL, TRUE, NULL);

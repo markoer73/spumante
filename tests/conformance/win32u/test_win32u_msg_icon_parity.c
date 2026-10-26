@@ -2,7 +2,7 @@
  * Differential Conformance Test for Win32u cross-thread/cross-process WM_ERASEBKGND (msg 14)
  * HDC message packing in pack_message and NtUserDrawIconEx frame 0 retrieval.
  *
- * Copyright 2026 Wine Parity Contributors
+ * Copyright 2026 Spumante Contributors
  * SPDX-License-Identifier: LGPL-2.1-or-later
  */
 

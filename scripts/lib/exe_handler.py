@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: LGPL-2.1-or-later
-"""macOS .exe/.msi automatic LaunchServices bundle (WineParity.app), POSIX interposer, and 3-gate PE security scanner."""
+"""macOS .exe/.msi automatic LaunchServices bundle (Spumante.app), POSIX interposer, and 3-gate PE security scanner."""
 
 from __future__ import annotations
 
@@ -28,14 +28,14 @@ from config_manager import (
     load_config,
     write_seatbelt_profile,
 )
-from wine_borrow import REPO_ROOT, build_full_wine_plan, write_wine_parity_launcher
+from wine_borrow import REPO_ROOT, build_full_wine_plan, write_spumante_launcher
 
-BUNDLE_ID = "org.wine-parity.launcher"
-CONFIG_BUNDLE_ID = "org.wine-parity.config"
-APP_BUNDLE_DIR = REPO_ROOT / "builds" / "WineParity.app"
-CONFIG_APP_BUNDLE_DIR = REPO_ROOT / "builds" / "WineParityConfig.app"
-DYLIB_PATH = REPO_ROOT / "builds" / "libwine_parity_exec.dylib"
-SHELL_HELPER_PATH = REPO_ROOT / "builds" / "wine-parity-shell.sh"
+BUNDLE_ID = "org.spumante.launcher"
+CONFIG_BUNDLE_ID = "org.spumante.config"
+APP_BUNDLE_DIR = REPO_ROOT / "builds" / "Spumante.app"
+CONFIG_APP_BUNDLE_DIR = REPO_ROOT / "builds" / "SpumanteConfig.app"
+DYLIB_PATH = REPO_ROOT / "builds" / "libspumante_exec.dylib"
+SHELL_HELPER_PATH = REPO_ROOT / "builds" / "spumante-shell.sh"
 SRC_BUILD_DIR = REPO_ROOT / "builds" / "exe_handler_src"
 
 BUILTIN_GUI_APPS: list[str] = [
@@ -61,10 +61,10 @@ BUILTIN_CLI_APPS: list[str] = [
 ALL_BUILTIN_APPS: list[str] = BUILTIN_GUI_APPS + BUILTIN_CLI_APPS
 
 BUILTIN_TEMPORARY_LAUNCH_ENV: dict[str, str] = {
-    "WINE_PARITY_SKIP_SECURITY_GATES": "1",
-    "WINE_PARITY_REQUIRE_AUTHENTICODE": "0",
-    "WINE_PARITY_NO_SANDBOX": "1",
-    "WINE_PARITY_BUILTIN_APP_LAUNCH": "1",
+    "SPUMANTE_SKIP_SECURITY_GATES": "1",
+    "SPUMANTE_REQUIRE_AUTHENTICODE": "0",
+    "SPUMANTE_NO_SANDBOX": "1",
+    "SPUMANTE_BUILTIN_APP_LAUNCH": "1",
     "WINEDLLOVERRIDES": "mscoree,mshtml=;winemenubuilder.exe=",
 }
 
@@ -88,7 +88,7 @@ def _synthesize_cleanroom_wine_builtin_pe(exe_path: Path, app_name: str, is_gui:
                 "#include <windows.h>\n"
                 "int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrev, LPSTR lpCmd, int nShow) {\n"
                 "    (void)hInst; (void)hPrev; (void)lpCmd; (void)nShow;\n"
-                f'    MessageBoxA(NULL, "{app_name} (Wine-Parity Built-in App)", "{app_name}", MB_OK);\n'
+                f'    MessageBoxA(NULL, "{app_name} (Spumante Built-in App)", "{app_name}", MB_OK);\n'
                 "    return 0;\n"
                 "}\n",
                 encoding="utf-8",
@@ -98,7 +98,7 @@ def _synthesize_cleanroom_wine_builtin_pe(exe_path: Path, app_name: str, is_gui:
             c_src.write_text(
                 "#include <stdio.h>\n"
                 "int main(void) {\n"
-                f'    printf("{app_name}: Wine-Parity Built-in CLI Utility\\n");\n'
+                f'    printf("{app_name}: Spumante Built-in CLI Utility\\n");\n'
                 "    return 0;\n"
                 "}\n",
                 encoding="utf-8",
@@ -147,7 +147,7 @@ def _synthesize_cleanroom_wine_builtin_pe(exe_path: Path, app_name: str, is_gui:
 
 
 def ensure_builtin_windows_apps(dry_run: bool = False) -> dict[str, str]:
-    """Ensure all 14 built-in GUI & CLI .exe programs are built and staged into WineParity.app & WineParityConfig.app."""
+    """Ensure all 14 built-in GUI & CLI .exe programs are built and staged into Spumante.app & SpumanteConfig.app."""
     x86_win_dir = REPO_ROOT / "builds" / "wine-install-x86" / "lib" / "wine" / "x86_64-windows"
     launcher_res_apps = APP_BUNDLE_DIR / "Contents" / "Resources" / "WindowsApps"
     config_res_apps = CONFIG_APP_BUNDLE_DIR / "Contents" / "Resources" / "WindowsApps"
@@ -213,9 +213,9 @@ def ensure_builtin_windows_apps(dry_run: bool = False) -> dict[str, str]:
 
 def _is_trusted_builtin_wine_pe(file_path: Path, data: bytes) -> bool:
     """Return True if the PE binary was built from our local Wine tree or launched with temporary security bypass."""
-    if os.environ.get("WINE_PARITY_SKIP_SECURITY_GATES", "") == "1":
+    if os.environ.get("SPUMANTE_SKIP_SECURITY_GATES", "") == "1":
         return True
-    if os.environ.get("WINE_PARITY_BUILTIN_APP_LAUNCH", "") == "1":
+    if os.environ.get("SPUMANTE_BUILTIN_APP_LAUNCH", "") == "1":
         return True
     if len(data) >= 0x4C and data[0x40:0x4C] == b"Wine builtin":
         return True
@@ -228,7 +228,7 @@ def _is_trusted_builtin_wine_pe(file_path: Path, data: bytes) -> bool:
         "/builds/wine-full-",
         "/Contents/Resources/WindowsApps/",
         "/builds/dmg_staging/Windows Apps/",
-        "/Volumes/WineParity/Windows Apps/",
+        "/Volumes/Spumante/Windows Apps/",
     )
     if any(marker in resolved_str for marker in trusted_dir_markers) and file_path.name.lower() in {
         a.lower() for a in (*ALL_BUILTIN_APPS, "winemine.exe")
@@ -401,7 +401,7 @@ def _query_virustotal_v3(
         headers={
             "x-apikey": resolved_key,
             "Accept": "application/json",
-            "User-Agent": "wine-parity-security-scanner/1.0",
+            "User-Agent": "spumante-security-scanner/1.0",
         },
         method="GET",
     )
@@ -548,7 +548,7 @@ def _check_gate3_static_pe_and_vt(
             f"VirusTotal v3 flagged executable as malicious ({vt_report['malicious']} detections)"
         )
 
-    yara_rules = os.environ.get("WINE_PARITY_YARA_RULES", "").strip()
+    yara_rules = os.environ.get("SPUMANTE_YARA_RULES", "").strip()
     yara_bin = shutil.which("yara")
     if yara_rules and yara_bin and Path(yara_rules).is_file():
         pass
@@ -590,9 +590,9 @@ def scan_pe_executable(
     cfg = load_config(create_if_missing=True)
     sec_cfg = cfg.get("security", {})
     trusted_builtin = _is_trusted_builtin_wine_pe(file_path, data)
-    skip_gates_env = os.environ.get("WINE_PARITY_SKIP_SECURITY_GATES", "") == "1"
+    skip_gates_env = os.environ.get("SPUMANTE_SKIP_SECURITY_GATES", "") == "1"
 
-    env_req_auth = os.environ.get("WINE_PARITY_REQUIRE_AUTHENTICODE", "")
+    env_req_auth = os.environ.get("SPUMANTE_REQUIRE_AUTHENTICODE", "")
     if env_req_auth == "0":
         cfg_req_auth = False
     elif env_req_auth == "1":
@@ -632,10 +632,10 @@ def scan_pe_executable(
 
     cascade_info = cascade_config_to_wine_prefix(cfg)
     sb_path = write_seatbelt_profile(cfg, exe_name=file_path.name)
-    active_sb = DEFAULT_SEATBELT_DIR / "wine_parity_active.sb"
+    active_sb = DEFAULT_SEATBELT_DIR / "spumante_active.sb"
     sandbox_on = (
         bool(cfg.get("sandbox", {}).get("enabled", True))
-        and os.environ.get("WINE_PARITY_NO_SANDBOX", "") != "1"
+        and os.environ.get("SPUMANTE_NO_SANDBOX", "") != "1"
         and not skip_gates_env
     )
     if sandbox_on:
@@ -703,8 +703,8 @@ def launch_builtin_windows_app(
     category = "cli" if is_cli else "gui"
 
     exe_path = resolve_builtin_app_path(normalized)
-    x86_launcher = REPO_ROOT / "builds" / "wine-install-x86" / "bin" / "wine-parity"
-    app_bin = APP_BUNDLE_DIR / "Contents" / "MacOS" / "WineParity"
+    x86_launcher = REPO_ROOT / "builds" / "wine-install-x86" / "bin" / "spumante"
+    app_bin = APP_BUNDLE_DIR / "Contents" / "MacOS" / "Spumante"
     launcher_bin = app_bin if app_bin.is_file() else x86_launcher
 
     cmd_extra = list(extra_args or [])
@@ -712,9 +712,9 @@ def launch_builtin_windows_app(
         cmd_extra = ["/c", "ver"]
 
     temp_env = get_builtin_launch_env()
-    # Keep WINE_PARITY_DRY_RUN_JSON out of the actual runtime launch unless dry_run was requested
+    # Keep SPUMANTE_DRY_RUN_JSON out of the actual runtime launch unless dry_run was requested
     if not dry_run:
-        temp_env.pop("WINE_PARITY_DRY_RUN_JSON", None)
+        temp_env.pop("SPUMANTE_DRY_RUN_JSON", None)
 
     cfg = load_config(create_if_missing=True)
     prefix_dir = get_active_prefix_path(cfg)
@@ -798,15 +798,15 @@ def _generate_info_plist() -> str:
     <key>CFBundleDevelopmentRegion</key>
     <string>en</string>
     <key>CFBundleDisplayName</key>
-    <string>Wine Parity Windows Launcher</string>
+    <string>Spumante Windows Launcher</string>
     <key>CFBundleExecutable</key>
-    <string>WineParity</string>
+    <string>Spumante</string>
     <key>CFBundleIdentifier</key>
     <string>{BUNDLE_ID}</string>
     <key>CFBundleInfoDictionaryVersion</key>
     <string>6.0</string>
     <key>CFBundleName</key>
-    <string>WineParity</string>
+    <string>Spumante</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>
@@ -911,15 +911,15 @@ def _generate_config_app_info_plist() -> str:
     <key>CFBundleDevelopmentRegion</key>
     <string>en</string>
     <key>CFBundleDisplayName</key>
-    <string>WineParity Config</string>
+    <string>Spumante Config</string>
     <key>CFBundleExecutable</key>
-    <string>WineParityConfig</string>
+    <string>SpumanteConfig</string>
     <key>CFBundleIdentifier</key>
     <string>{CONFIG_BUNDLE_ID}</string>
     <key>CFBundleInfoDictionaryVersion</key>
     <string>6.0</string>
     <key>CFBundleName</key>
-    <string>WineParity Config</string>
+    <string>Spumante Config</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>
@@ -939,7 +939,7 @@ def _generate_app_source(x86_launcher: Path, arm64_launcher: Path, app_bundle: P
     scanner_script = REPO_ROOT / "scripts" / "lib" / "exe_handler.py"
     return f"""/*
  * SPDX-License-Identifier: LGPL-2.1-or-later
- * WineParity.app native launcher & LaunchServices handler.
+ * Spumante.app native launcher & LaunchServices handler.
  * Enforces mandatory +x executable permission and 3-gate PE security scan on all .exe/.msi files.
  */
 
@@ -970,7 +970,7 @@ def _generate_app_source(x86_launcher: Path, arm64_launcher: Path, app_bundle: P
 #define DEFAULT_APP_BUNDLE "{app_bundle}"
 #define SCANNER_PY_SCRIPT "{scanner_script}"
 #define CONFIG_PY_SCRIPT "{REPO_ROOT / "scripts" / "lib" / "config_manager.py"}"
-#define ACTIVE_SEATBELT_PROFILE "{DEFAULT_SEATBELT_DIR / "wine_parity_active.sb"}"
+#define ACTIVE_SEATBELT_PROFILE "{DEFAULT_SEATBELT_DIR / "spumante_active.sb"}"
 #define BUNDLE_ID_STR "{BUNDLE_ID}"
 
 static int has_suffix_ci(const char *str, const char *suffix)
@@ -988,7 +988,7 @@ static int has_suffix_ci(const char *str, const char *suffix)
  */
 static int run_pre_execution_security_gates(const char *resolved_path)
 {{
-    const char *skip_gates = getenv("WINE_PARITY_SKIP_SECURITY_GATES");
+    const char *skip_gates = getenv("SPUMANTE_SKIP_SECURITY_GATES");
     if (skip_gates && strcmp(skip_gates, "1") == 0) {{
         return 0;
     }}
@@ -999,7 +999,7 @@ static int run_pre_execution_security_gates(const char *resolved_path)
     if (qlen > 0) {{
         qbuf[qlen] = '\\0';
         fprintf(stderr,
-                "[WineParity] SECURITY GATE 1 BLOCKED '%s': macOS quarantine attribute present "
+                "[Spumante] SECURITY GATE 1 BLOCKED '%s': macOS quarantine attribute present "
                 "(com.apple.quarantine=%s). Run './scripts/test.sh --scan-exe \\"%s\\"' first.\\n",
                 resolved_path, qbuf, resolved_path);
         return 126;
@@ -1010,7 +1010,7 @@ static int run_pre_execution_security_gates(const char *resolved_path)
     if (pid < 0)
         return 126;
     if (pid == 0) {{
-        setenv("WINE_PARITY_INTERPOSE_BYPASS", "1", 1);
+        setenv("SPUMANTE_INTERPOSE_BYPASS", "1", 1);
         execlp("python3", "python3", SCANNER_PY_SCRIPT, "--action", "scan", "--exe", resolved_path, "--quiet-stdout", (char *)NULL);
         _exit(126);
     }}
@@ -1067,7 +1067,7 @@ static const char *detect_pe_arch_and_type(const char *path, int *out_is_msi)
 
 static const char *select_launcher_for_arch(const char *pe_arch)
 {{
-    const char *env_override = getenv("WINE_PARITY_LAUNCHER");
+    const char *env_override = getenv("SPUMANTE_LAUNCHER");
     if (env_override && env_override[0] != '\\0')
         return env_override;
 
@@ -1093,7 +1093,7 @@ static int ensure_rosetta2_for_x86_target(const char *pe_arch, const char *launc
     if (!needs_x86)
         return 0;
 
-    const char *sim_missing = getenv("WINE_PARITY_SIMULATE_MISSING_ROSETTA");
+    const char *sim_missing = getenv("SPUMANTE_SIMULATE_MISSING_ROSETTA");
     int simulated = (sim_missing && strcmp(sim_missing, "1") == 0);
 
     int is_apple_silicon = simulated;
@@ -1113,25 +1113,25 @@ static int ensure_rosetta2_for_x86_target(const char *pe_arch, const char *launc
         return 0;
     }}
 
-    const char *sw_bin = getenv("WINE_PARITY_SOFTWAREUPDATE_BIN");
+    const char *sw_bin = getenv("SPUMANTE_SOFTWAREUPDATE_BIN");
     if (!sw_bin || sw_bin[0] == '\\0') {{
         sw_bin = "/usr/sbin/softwareupdate";
     }}
 
-    const char *consent_env = getenv("WINE_PARITY_ROSETTA_CONSENT");
+    const char *consent_env = getenv("SPUMANTE_ROSETTA_CONSENT");
     if (consent_env && consent_env[0] != '\\0') {{
         if (strcasecmp(consent_env, "y") != 0 &&
             strcasecmp(consent_env, "yes") != 0 &&
             strcasecmp(consent_env, "1") != 0 &&
             strcasecmp(consent_env, "true") != 0 &&
             strcasecmp(consent_env, "agree") != 0) {{
-            fprintf(stderr, "[WineParity] ERROR: Rosetta 2 installation declined by user. Aborting wine-parity execution.\\n");
+            fprintf(stderr, "[Spumante] ERROR: Rosetta 2 installation declined by user. Aborting spumante execution.\\n");
             return 86;
         }}
     }} else {{
 #ifdef __APPLE__
-        const char *non_interactive = getenv("WINE_PARITY_NONINTERACTIVE_ROSETTA");
-        const char *dry_run_json = getenv("WINE_PARITY_DRY_RUN_JSON");
+        const char *non_interactive = getenv("SPUMANTE_NONINTERACTIVE_ROSETTA");
+        const char *dry_run_json = getenv("SPUMANTE_DRY_RUN_JSON");
         if ((!non_interactive || strcmp(non_interactive, "1") != 0) &&
             (!dry_run_json || strcmp(dry_run_json, "1") != 0)) {{
             @autoreleasepool {{
@@ -1140,12 +1140,12 @@ static int ensure_rosetta2_for_x86_target(const char *pe_arch, const char *launc
                 NSAlert *alert = [[NSAlert alloc] init];
                 [alert setAlertStyle:NSAlertStyleWarning];
                 [alert setMessageText:@"Rosetta 2 Required for Intel Windows Applications"];
-                [alert setInformativeText:@"This Windows executable requires Rosetta 2 to run x86/x86_64 code on Apple Silicon. Do you agree to install Rosetta 2 now? If you disagree, WineParity will abort."];
+                [alert setInformativeText:@"This Windows executable requires Rosetta 2 to run x86/x86_64 code on Apple Silicon. Do you agree to install Rosetta 2 now? If you disagree, Spumante will abort."];
                 [alert addButtonWithTitle:@"Agree & Install Rosetta 2"];
                 [alert addButtonWithTitle:@"Disagree & Abort"];
                 [app activateIgnoringOtherApps:YES];
                 if ([alert runModal] != NSAlertFirstButtonReturn) {{
-                    fprintf(stderr, "[WineParity] ERROR: Rosetta 2 installation declined by user. Aborting wine-parity execution.\\n");
+                    fprintf(stderr, "[Spumante] ERROR: Rosetta 2 installation declined by user. Aborting spumante execution.\\n");
                     return 86;
                 }}
             }}
@@ -1153,19 +1153,19 @@ static int ensure_rosetta2_for_x86_target(const char *pe_arch, const char *launc
 #endif
     }}
 
-    fprintf(stderr, "[WineParity] Apple Silicon detected without Rosetta 2. Running '%s --install-rosetta --agree-to-license'...\\n", sw_bin);
+    fprintf(stderr, "[Spumante] Apple Silicon detected without Rosetta 2. Running '%s --install-rosetta --agree-to-license'...\\n", sw_bin);
     pid_t pid = fork();
     if (pid < 0)
         return 86;
     if (pid == 0) {{
-        setenv("WINE_PARITY_INTERPOSE_BYPASS", "1", 1);
+        setenv("SPUMANTE_INTERPOSE_BYPASS", "1", 1);
         execl(sw_bin, sw_bin, "--install-rosetta", "--agree-to-license", (char *)NULL);
         _exit(86);
     }}
     int status = 0;
     if (waitpid(pid, &status, 0) < 0 || !WIFEXITED(status) || WEXITSTATUS(status) != 0) {{
         fprintf(stderr,
-                "[WineParity] ERROR: Rosetta 2 is required on Apple Silicon to run x86/x86_64 Windows applications. "
+                "[Spumante] ERROR: Rosetta 2 is required on Apple Silicon to run x86/x86_64 Windows applications. "
                 "Run '/usr/sbin/softwareupdate --install-rosetta --agree-to-license' first.\\n");
         return 86;
     }}
@@ -1176,7 +1176,7 @@ static int dispatch_windows_binary(const char *target_path, int extra_argc, char
 {{
     struct stat st;
     if (stat(target_path, &st) != 0) {{
-        fprintf(stderr, "[WineParity] ERROR: Target file '%s' does not exist (%s).\\n",
+        fprintf(stderr, "[Spumante] ERROR: Target file '%s' does not exist (%s).\\n",
                 target_path, strerror(errno));
         return 127;
     }}
@@ -1186,7 +1186,7 @@ static int dispatch_windows_binary(const char *target_path, int extra_argc, char
         (st.st_mode & (S_IXUSR | S_IXGRP | S_IXOTH)) == 0 ||
         access(target_path, X_OK) != 0) {{
         fprintf(stderr,
-                "[WineParity] ERROR: Refusing to launch '%s': missing executable permission (+x). "
+                "[Spumante] ERROR: Refusing to launch '%s': missing executable permission (+x). "
                 "Run 'chmod +x \\"%s\\"' first.\\n",
                 target_path, target_path);
         return 126;
@@ -1215,7 +1215,7 @@ static int dispatch_windows_binary(const char *target_path, int extra_argc, char
         return rosetta_rc;
     }}
 
-    const char *dry_run_json = getenv("WINE_PARITY_DRY_RUN_JSON");
+    const char *dry_run_json = getenv("SPUMANTE_DRY_RUN_JSON");
     if (dry_run_json && strcmp(dry_run_json, "1") == 0) {{
         int trace_argc = extra_argc + 14;
         char **trace_argv = (char **)calloc((size_t)trace_argc + 1, sizeof(char *));
@@ -1240,32 +1240,32 @@ static int dispatch_windows_binary(const char *target_path, int extra_argc, char
         for (int i = 0; i < extra_argc; ++i)
             trace_argv[ti++] = extra_argv[i];
         trace_argv[ti] = NULL;
-        setenv("WINE_PARITY_INTERPOSE_BYPASS", "1", 1);
+        setenv("SPUMANTE_INTERPOSE_BYPASS", "1", 1);
         execvp("python3", trace_argv);
         free(trace_argv);
         return 1;
     }}
 
-    const char *preserve_cwd = getenv("WINE_PARITY_PRESERVE_CWD");
+    const char *preserve_cwd = getenv("SPUMANTE_PRESERVE_CWD");
     if (!preserve_cwd || strcmp(preserve_cwd, "1") != 0) {{
         if (chdir(parent_dir) != 0) {{
-            fprintf(stderr, "[WineParity] WARN: Could not chdir to '%s': %s\\n",
+            fprintf(stderr, "[Spumante] WARN: Could not chdir to '%s': %s\\n",
                     parent_dir, strerror(errno));
         }}
     }}
 
-    setenv("WINE_PARITY_INTERPOSE_BYPASS", "1", 1);
+    setenv("SPUMANTE_INTERPOSE_BYPASS", "1", 1);
     if (strstr(resolved_path, "/builds/wine-install-") != NULL ||
         strstr(resolved_path, "/Contents/Resources/WindowsApps/") != NULL ||
         strstr(resolved_path, "/Windows Apps/") != NULL) {{
-        setenv("WINE_PARITY_SKIP_SECURITY_GATES", "1", 1);
-        setenv("WINE_PARITY_NO_SANDBOX", "1", 1);
+        setenv("SPUMANTE_SKIP_SECURITY_GATES", "1", 1);
+        setenv("SPUMANTE_NO_SANDBOX", "1", 1);
     }}
 
     int use_seatbelt = 0;
 #ifdef __APPLE__
-    const char *no_sb = getenv("WINE_PARITY_NO_SANDBOX");
-    const char *skip_gates = getenv("WINE_PARITY_SKIP_SECURITY_GATES");
+    const char *no_sb = getenv("SPUMANTE_NO_SANDBOX");
+    const char *skip_gates = getenv("SPUMANTE_SKIP_SECURITY_GATES");
     if ((!no_sb || strcmp(no_sb, "1") != 0) &&
         (!skip_gates || strcmp(skip_gates, "1") != 0) &&
         access("/usr/bin/sandbox-exec", X_OK) == 0 &&
@@ -1305,7 +1305,7 @@ static int dispatch_windows_binary(const char *target_path, int extra_argc, char
     }}
     if (pid == 0) {{
         execv(exec_target, child_argv);
-        fprintf(stderr, "[WineParity] ERROR: Failed to exec launcher '%s': %s\\n",
+        fprintf(stderr, "[Spumante] ERROR: Failed to exec launcher '%s': %s\\n",
                 exec_target, strerror(errno));
         _exit(127);
     }}
@@ -1318,7 +1318,7 @@ static int dispatch_windows_binary(const char *target_path, int extra_argc, char
     /* Automatically sync +x executable permissions on newly installed .exe/.msi files inside $WINEPREFIX/drive_c/ */
     pid_t sync_pid = fork();
     if (sync_pid == 0) {{
-        setenv("WINE_PARITY_INTERPOSE_BYPASS", "1", 1);
+        setenv("SPUMANTE_INTERPOSE_BYPASS", "1", 1);
         execlp("python3", "python3", SCANNER_PY_SCRIPT, "--action", "sync-drive-c", "--quiet-stdout", (char *)NULL);
         _exit(0);
     }} else if (sync_pid > 0) {{
@@ -1332,12 +1332,12 @@ static int dispatch_windows_binary(const char *target_path, int extra_argc, char
 }}
 
 #ifdef __APPLE__
-@class WineParitySettingsController;
+@class SpumanteSettingsController;
 
-@interface WineParityAppDelegate : NSObject <NSApplicationDelegate>
+@interface SpumanteAppDelegate : NSObject <NSApplicationDelegate>
 @property (nonatomic, assign) BOOL handledOpenEvent;
 @property (nonatomic, assign) int lastExitCode;
-@property (nonatomic, strong) WineParitySettingsController *settingsController;
+@property (nonatomic, strong) SpumanteSettingsController *settingsController;
 @end
 #endif
 
@@ -1449,7 +1449,7 @@ static int handle_status(void)
 }}
 
 #ifdef __APPLE__
-@interface WineParitySettingsController : NSObject
+@interface SpumanteSettingsController : NSObject
 @property (nonatomic, strong) NSWindow *window;
 @property (nonatomic, strong) NSPopUpButton *winVerPopup;
 @property (nonatomic, strong) NSButton *retinaCheck;
@@ -1474,7 +1474,7 @@ static int handle_status(void)
 @property (nonatomic, strong) NSTextField *builtinStatusLabel;
 @end
 
-@implementation WineParitySettingsController
+@implementation SpumanteSettingsController
 
 - (NSButton *)makeCheckbox:(NSString *)title frame:(NSRect)frame state:(NSControlStateValue)state
 {{
@@ -1497,7 +1497,7 @@ static int handle_status(void)
     (void)sender;
     handle_register(0);
     if (self.handlerStatusLabel) {{
-        [self.handlerStatusLabel setStringValue:@"Status: WineParity.app registered as default handler for .exe and .msi files."];
+        [self.handlerStatusLabel setStringValue:@"Status: Spumante.app registered as default handler for .exe and .msi files."];
     }}
 }}
 
@@ -1635,10 +1635,10 @@ static int handle_status(void)
     [task setExecutableURL:[NSURL fileURLWithPath:@"/usr/bin/env"]];
     [task setArguments:@[@"python3", @SCANNER_PY_SCRIPT, @"--action", @"launch-builtin", @"--app", appName]];
     NSMutableDictionary *env = [[[NSProcessInfo processInfo] environment] mutableCopy];
-    env[@"WINE_PARITY_SKIP_SECURITY_GATES"] = @"1";
-    env[@"WINE_PARITY_REQUIRE_AUTHENTICODE"] = @"0";
-    env[@"WINE_PARITY_NO_SANDBOX"] = @"1";
-    env[@"WINE_PARITY_BUILTIN_APP_LAUNCH"] = @"1";
+    env[@"SPUMANTE_SKIP_SECURITY_GATES"] = @"1";
+    env[@"SPUMANTE_REQUIRE_AUTHENTICODE"] = @"0";
+    env[@"SPUMANTE_NO_SANDBOX"] = @"1";
+    env[@"SPUMANTE_BUILTIN_APP_LAUNCH"] = @"1";
     [task setEnvironment:env];
     NSPipe *outPipe = [NSPipe pipe];
     [task setStandardOutput:outPipe];
@@ -1702,7 +1702,7 @@ static int handle_status(void)
                                               styleMask:style
                                                 backing:NSBackingStoreBuffered
                                                   defer:NO];
-    [self.window setTitle:@"Wine Parity Settings"];
+    [self.window setTitle:@"Spumante Settings"];
     [self.window center];
 
     NSTabView *tabView = [[NSTabView alloc] initWithFrame:NSMakeRect(20, 60, 600, 375)];
@@ -1732,7 +1732,7 @@ static int handle_status(void)
     NSButton *syncDriveCBtn = [NSButton buttonWithTitle:@"Sync Installed drive_c Apps (+x)" target:self action:@selector(syncDriveCExecutablesAction:)];
     [syncDriveCBtn setFrame:NSMakeRect(280, 108, 260, 32)];
     [genView addSubview:syncDriveCBtn];
-    self.handlerStatusLabel = [self makeLabel:@"Config Path: ~/.config/wine-parity/config.json (0600)" frame:NSMakeRect(20, 76, 540, 20) bold:NO];
+    self.handlerStatusLabel = [self makeLabel:@"Config Path: ~/.config/spumante/config.json (0600)" frame:NSMakeRect(20, 76, 540, 20) bold:NO];
     [self.handlerStatusLabel setFont:[NSFont systemFontOfSize:11.0]];
     [self.handlerStatusLabel setTextColor:[NSColor secondaryLabelColor]];
     [genView addSubview:self.handlerStatusLabel];
@@ -1851,7 +1851,7 @@ static int handle_status(void)
     [appsTab setLabel:@"Built-in Apps"];
     NSView *appsView = [[NSView alloc] initWithFrame:NSMakeRect(0, 0, 580, 330)];
     [appsView addSubview:[self makeLabel:@"Built-in Windows GUI & CLI Programs (Bundled in DMG)" frame:NSMakeRect(20, 290, 520, 22) bold:YES]];
-    NSTextField *appsNote = [self makeLabel:@"Launches in a temporary environment with security gates disabled (WINE_PARITY_SKIP_SECURITY_GATES=1)." frame:NSMakeRect(20, 265, 540, 20) bold:NO];
+    NSTextField *appsNote = [self makeLabel:@"Launches in a temporary environment with security gates disabled (SPUMANTE_SKIP_SECURITY_GATES=1)." frame:NSMakeRect(20, 265, 540, 20) bold:NO];
     [appsNote setFont:[NSFont systemFontOfSize:11.0]];
     [appsNote setTextColor:[NSColor secondaryLabelColor]];
     [appsView addSubview:appsNote];
@@ -1888,7 +1888,7 @@ static int handle_status(void)
     [launchCliBtn setFrame:NSMakeRect(415, 170, 145, 30)];
     [appsView addSubview:launchCliBtn];
 
-    self.builtinStatusLabel = [self makeLabel:@"Ready: Select any built-in GUI or CLI program above to test Wine-Parity execution." frame:NSMakeRect(20, 20, 540, 135) bold:NO];
+    self.builtinStatusLabel = [self makeLabel:@"Ready: Select any built-in GUI or CLI program above to test Spumante execution." frame:NSMakeRect(20, 20, 540, 135) bold:NO];
     [self.builtinStatusLabel setFont:[NSFont monospacedSystemFontOfSize:11.0 weight:NSFontWeightRegular]];
     [self.builtinStatusLabel setSelectable:YES];
     [appsView addSubview:self.builtinStatusLabel];
@@ -1910,7 +1910,7 @@ static int handle_status(void)
 }}
 @end
 
-@implementation WineParityAppDelegate
+@implementation SpumanteAppDelegate
 
 - (void)application:(NSApplication *)application openURLs:(NSArray<NSURL *> *)urls
 {{
@@ -1949,12 +1949,12 @@ static int handle_status(void)
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(150 * NSEC_PER_MSEC)),
                        dispatch_get_main_queue(), ^{{
             if (!self.handledOpenEvent) {{
-                const char *idle_exit = getenv("WINE_PARITY_EXIT_WHEN_IDLE");
+                const char *idle_exit = getenv("SPUMANTE_EXIT_WHEN_IDLE");
                 if (idle_exit && strcmp(idle_exit, "1") == 0) {{
                     exit(0);
                 }}
                 [NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
-                self.settingsController = [[WineParitySettingsController alloc] init];
+                self.settingsController = [[SpumanteSettingsController alloc] init];
                 [self.settingsController setupUI];
                 [NSApp activateIgnoringOtherApps:YES];
             }}
@@ -1967,11 +1967,11 @@ static int handle_status(void)
 
 static int handle_launch_builtin(const char *app_name, int dry_run)
 {{
-    setenv("WINE_PARITY_INTERPOSE_BYPASS", "1", 1);
-    setenv("WINE_PARITY_SKIP_SECURITY_GATES", "1", 1);
-    setenv("WINE_PARITY_REQUIRE_AUTHENTICODE", "0", 1);
-    setenv("WINE_PARITY_NO_SANDBOX", "1", 1);
-    setenv("WINE_PARITY_BUILTIN_APP_LAUNCH", "1", 1);
+    setenv("SPUMANTE_INTERPOSE_BYPASS", "1", 1);
+    setenv("SPUMANTE_SKIP_SECURITY_GATES", "1", 1);
+    setenv("SPUMANTE_REQUIRE_AUTHENTICODE", "0", 1);
+    setenv("SPUMANTE_NO_SANDBOX", "1", 1);
+    setenv("SPUMANTE_BUILTIN_APP_LAUNCH", "1", 1);
     if (dry_run) {{
         execlp("python3", "python3", SCANNER_PY_SCRIPT, "--action", "launch-builtin", "--app", app_name, "--dry-run", (char *)NULL);
     }} else {{
@@ -1983,7 +1983,7 @@ static int handle_launch_builtin(const char *app_name, int dry_run)
 static int handle_config_ui(int dry_run)
 {{
     if (dry_run) {{
-        setenv("WINE_PARITY_INTERPOSE_BYPASS", "1", 1);
+        setenv("SPUMANTE_INTERPOSE_BYPASS", "1", 1);
         execlp("python3", "python3", SCANNER_PY_SCRIPT, "--action", "config-ui-json", (char *)NULL);
         return 1;
     }}
@@ -1991,7 +1991,7 @@ static int handle_config_ui(int dry_run)
     @autoreleasepool {{
         NSApplication *app = [NSApplication sharedApplication];
         [app setActivationPolicy:NSApplicationActivationPolicyRegular];
-        WineParitySettingsController *ctrl = [[WineParitySettingsController alloc] init];
+        SpumanteSettingsController *ctrl = [[SpumanteSettingsController alloc] init];
         [ctrl setupUI];
         [app activateIgnoringOtherApps:YES];
         [app run];
@@ -2013,15 +2013,15 @@ int main(int argc, char **argv)
             return handle_launch_builtin(argv[i + 1], dry_run);
         }}
         if (strcmp(argv[i], "--sync-drive-c") == 0) {{
-            setenv("WINE_PARITY_INTERPOSE_BYPASS", "1", 1);
+            setenv("SPUMANTE_INTERPOSE_BYPASS", "1", 1);
             execlp("python3", "python3", SCANNER_PY_SCRIPT, "--action", "sync-drive-c", (char *)NULL);
             return 1;
         }}
     }}
 
     if (argc >= 1 && argv[0] != NULL) {{
-        if (has_suffix_ci(argv[0], "WineParityConfig") ||
-            has_suffix_ci(argv[0], "wine-parity-config")) {{
+        if (has_suffix_ci(argv[0], "SpumanteConfig") ||
+            has_suffix_ci(argv[0], "spumante-config")) {{
             return handle_config_ui(dry_run);
         }}
     }}
@@ -2061,7 +2061,7 @@ int main(int argc, char **argv)
 #ifdef __APPLE__
     @autoreleasepool {{
         NSApplication *app = [NSApplication sharedApplication];
-        WineParityAppDelegate *delegate = [[WineParityAppDelegate alloc] init];
+        SpumanteAppDelegate *delegate = [[SpumanteAppDelegate alloc] init];
         [app setDelegate:delegate];
         [app run];
     }}
@@ -2075,7 +2075,7 @@ def _generate_interpose_dylib_source(app_bin: Path) -> str:
     return f"""/*
  * SPDX-License-Identifier: LGPL-2.1-or-later
  * Mach-O __DATA,__interpose library for transparent POSIX execve/posix_spawn of .exe/.msi files.
- * Strictly enforces the +x executable bit before dispatching to WineParity.
+ * Strictly enforces the +x executable bit before dispatching to Spumante.
  */
 
 #include <errno.h>
@@ -2087,7 +2087,7 @@ def _generate_interpose_dylib_source(app_bin: Path) -> str:
 #include <sys/stat.h>
 #include <unistd.h>
 
-#define WINE_PARITY_APP_BIN "{app_bin}"
+#define SPUMANTE_APP_BIN "{app_bin}"
 
 struct interpose_s {{
     void *replacement;
@@ -2114,7 +2114,7 @@ static int is_pe_or_msi_file(const char *path, int *out_has_plus_x)
     if (!path)
         return 0;
 
-    const char *bypass = getenv("WINE_PARITY_INTERPOSE_BYPASS");
+    const char *bypass = getenv("SPUMANTE_INTERPOSE_BYPASS");
     if (bypass && strcmp(bypass, "1") == 0)
         return 0;
 
@@ -2150,7 +2150,7 @@ static char **build_wrapped_argv(const char *path, char *const argv[])
     char **new_argv = (char **)calloc(count + 2, sizeof(char *));
     if (!new_argv)
         return NULL;
-    new_argv[0] = (char *)WINE_PARITY_APP_BIN;
+    new_argv[0] = (char *)SPUMANTE_APP_BIN;
     new_argv[1] = (char *)path;
     for (size_t i = 1; i < count; ++i) {{
         new_argv[i + 1] = argv[i];
@@ -2175,7 +2175,7 @@ static int wp_posix_spawn(
         char **wrapped = build_wrapped_argv(path, argv);
         if (!wrapped)
             return ENOMEM;
-        int rc = posix_spawn(pid, WINE_PARITY_APP_BIN, file_actions, attrp, wrapped, envp);
+        int rc = posix_spawn(pid, SPUMANTE_APP_BIN, file_actions, attrp, wrapped, envp);
         free(wrapped);
         return rc;
     }}
@@ -2195,7 +2195,7 @@ static int wp_execve(const char *path, char *const argv[], char *const envp[])
             errno = ENOMEM;
             return -1;
         }}
-        int rc = execve(WINE_PARITY_APP_BIN, wrapped, envp);
+        int rc = execve(SPUMANTE_APP_BIN, wrapped, envp);
         free(wrapped);
         return rc;
     }}
@@ -2220,40 +2220,40 @@ static struct interpose_s interpose_table[] = {{
 def _generate_shell_helper(app_bin: Path) -> str:
     return f"""#!/usr/bin/env bash
 # SPDX-License-Identifier: LGPL-2.1-or-later
-# Auto-generated shell integration for wine-parity .exe/.msi execution.
+# Auto-generated shell integration for spumante .exe/.msi execution.
 # Enforces mandatory +x executable permission before launching any Windows binary.
 
-export WINE_PARITY_APP_BIN="{app_bin}"
+export SPUMANTE_APP_BIN="{app_bin}"
 
-_wine_parity_run_checked() {{
+_spumante_run_checked() {{
     if [ $# -lt 1 ]; then
-        echo "[wine-parity] Usage: _wine_parity_run_checked <file.exe|file.msi> [args...]" >&2
+        echo "[spumante] Usage: _spumante_run_checked <file.exe|file.msi> [args...]" >&2
         return 2
     fi
     local target="$1"
     shift
     if [ ! -e "$target" ]; then
-        echo "[wine-parity] ERROR: File '$target' does not exist." >&2
+        echo "[spumante] ERROR: File '$target' does not exist." >&2
         return 127
     fi
     if [ ! -f "$target" ] || [ ! -x "$target" ]; then
-        echo "[wine-parity] ERROR: Refusing to launch '$target': missing executable permission (+x). Run 'chmod +x \"$target\"' first." >&2
+        echo "[spumante] ERROR: Refusing to launch '$target': missing executable permission (+x). Run 'chmod +x \"$target\"' first." >&2
         return 126
     fi
-    "$WINE_PARITY_APP_BIN" "$target" "$@"
+    "$SPUMANTE_APP_BIN" "$target" "$@"
 }}
 
 if [ -n "${{ZSH_VERSION:-}}" ]; then
-    alias -s exe='_wine_parity_run_checked'
-    alias -s EXE='_wine_parity_run_checked'
-    alias -s msi='_wine_parity_run_checked'
-    alias -s MSI='_wine_parity_run_checked'
+    alias -s exe='_spumante_run_checked'
+    alias -s EXE='_spumante_run_checked'
+    alias -s msi='_spumante_run_checked'
+    alias -s MSI='_spumante_run_checked'
 fi
 """
 
 
 def build_macos_exe_handler(dry_run: bool = False) -> dict[str, Any]:
-    """Build WineParity.app, libwine_parity_exec.dylib, shell integration, and both x86/arm64 launchers."""
+    """Build Spumante.app, libspumante_exec.dylib, shell integration, and both x86/arm64 launchers."""
     plan_x86 = build_full_wine_plan(target="x86", dry_run=dry_run)
     plan_arm64 = build_full_wine_plan(target="arm64", dry_run=dry_run)
 
@@ -2263,20 +2263,20 @@ def build_macos_exe_handler(dry_run: bool = False) -> dict[str, Any]:
     macos_dir = contents_dir / "MacOS"
     info_plist = contents_dir / "Info.plist"
     pkg_info = contents_dir / "PkgInfo"
-    app_bin = macos_dir / "WineParity"
+    app_bin = macos_dir / "Spumante"
 
     if not dry_run:
-        write_wine_parity_launcher(plan_x86)
-        write_wine_parity_launcher(plan_arm64)
+        write_spumante_launcher(plan_x86)
+        write_spumante_launcher(plan_arm64)
 
         macos_dir.mkdir(parents=True, exist_ok=True)
         SRC_BUILD_DIR.mkdir(parents=True, exist_ok=True)
 
         info_plist.write_text(_generate_info_plist(), encoding="utf-8")
-        pkg_info.write_text("APPLWPRT", encoding="utf-8")
+        pkg_info.write_text("APPLSPMT", encoding="utf-8")
 
         if sys.platform == "darwin":
-            src_file = SRC_BUILD_DIR / "wine_parity_app.m"
+            src_file = SRC_BUILD_DIR / "spumante_app.m"
             src_file.write_text(
                 _generate_app_source(x86_launcher, arm64_launcher, APP_BUNDLE_DIR),
                 encoding="utf-8",
@@ -2305,7 +2305,7 @@ def build_macos_exe_handler(dry_run: bool = False) -> dict[str, Any]:
                 check=True,
             )
 
-            interpose_src = SRC_BUILD_DIR / "wine_parity_interpose.c"
+            interpose_src = SRC_BUILD_DIR / "spumante_interpose.c"
             interpose_src.write_text(_generate_interpose_dylib_source(app_bin), encoding="utf-8")
             subprocess.run(
                 [
@@ -2323,7 +2323,7 @@ def build_macos_exe_handler(dry_run: bool = False) -> dict[str, Any]:
                 check=True,
             )
         else:
-            src_file = SRC_BUILD_DIR / "wine_parity_app.c"
+            src_file = SRC_BUILD_DIR / "spumante_app.c"
             src_file.write_text(
                 _generate_app_source(x86_launcher, arm64_launcher, APP_BUNDLE_DIR),
                 encoding="utf-8",
@@ -2351,21 +2351,21 @@ def build_macos_exe_handler(dry_run: bool = False) -> dict[str, Any]:
             SHELL_HELPER_PATH.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH
         )
 
-        # Also build the standalone configuration program bundle: builds/WineParityConfig.app
+        # Also build the standalone configuration program bundle: builds/SpumanteConfig.app
         cfg_contents_dir = CONFIG_APP_BUNDLE_DIR / "Contents"
         cfg_macos_dir = cfg_contents_dir / "MacOS"
         cfg_info_plist = cfg_contents_dir / "Info.plist"
         cfg_pkg_info = cfg_contents_dir / "PkgInfo"
-        cfg_app_bin = cfg_macos_dir / "WineParityConfig"
+        cfg_app_bin = cfg_macos_dir / "SpumanteConfig"
 
         cfg_macos_dir.mkdir(parents=True, exist_ok=True)
         cfg_info_plist.write_text(_generate_config_app_info_plist(), encoding="utf-8")
-        cfg_pkg_info.write_text("APPLWPRC", encoding="utf-8")
+        cfg_pkg_info.write_text("APPLSPMC", encoding="utf-8")
         shutil.copy2(app_bin, cfg_app_bin)
         cfg_app_bin.chmod(cfg_app_bin.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
         staged_builtin_apps = ensure_builtin_windows_apps(dry_run=False)
     else:
-        cfg_app_bin = CONFIG_APP_BUNDLE_DIR / "Contents" / "MacOS" / "WineParityConfig"
+        cfg_app_bin = CONFIG_APP_BUNDLE_DIR / "Contents" / "MacOS" / "SpumanteConfig"
         staged_builtin_apps = ensure_builtin_windows_apps(dry_run=True)
 
     return {
@@ -2437,8 +2437,8 @@ def sync_drive_c_executables(wineprefix: Path | None = None) -> dict[str, Any]:
 
 
 def manage_exe_handler(action: str, dry_run: bool = False) -> dict[str, Any]:
-    """Build (if needed) and invoke WineParity.app --register / --unregister / --status."""
-    app_bin = APP_BUNDLE_DIR / "Contents" / "MacOS" / "WineParity"
+    """Build (if needed) and invoke Spumante.app --register / --unregister / --status."""
+    app_bin = APP_BUNDLE_DIR / "Contents" / "MacOS" / "Spumante"
     if not app_bin.is_file() or not os.access(app_bin, os.X_OK):
         build_info = build_macos_exe_handler(dry_run=False)
         app_bin = Path(build_info["app_binary"])
@@ -2458,7 +2458,7 @@ def manage_exe_handler(action: str, dry_run: bool = False) -> dict[str, Any]:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Wine-Parity macOS .exe/.msi Automatic Handler & PE Security Scanner")
+    parser = argparse.ArgumentParser(description="Spumante macOS .exe/.msi Automatic Handler & PE Security Scanner")
     parser.add_argument(
         "--action",
         choices=[
@@ -2513,7 +2513,7 @@ def main(argv: list[str] | None = None) -> int:
         ui_report = {
             "action": "config-ui",
             "ui_style": "macos-native-appkit-settings",
-            "window_title": "Wine Parity Settings",
+            "window_title": "Spumante Settings",
             "sections": [
                 "General",
                 "Security",
@@ -2586,7 +2586,7 @@ def main(argv: list[str] | None = None) -> int:
             print(json.dumps(report, indent=2))
         if not report["passed"]:
             for finding in report.get("findings", []):
-                print(f"[WineParity Security Gate] BLOCKED '{args.exe}': {finding}", file=sys.stderr)
+                print(f"[Spumante Security Gate] BLOCKED '{args.exe}': {finding}", file=sys.stderr)
             return 126
         return 0
 

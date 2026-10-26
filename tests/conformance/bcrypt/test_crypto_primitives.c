@@ -3,7 +3,7 @@
  * (AES-CBC / PKCS#7, BCryptGenRandom, SHA-256 / Reusable HMAC-SHA256,
  *  BCryptDeriveKeyPBKDF2, BCRYPT_PAD_NONE RSA/ECC, and Provider/Interface APIs)
  *
- * Copyright 2026 Wine Parity Contributors
+ * Copyright 2026 Spumante Contributors
  * SPDX-License-Identifier: LGPL-2.1-or-later
  */
 

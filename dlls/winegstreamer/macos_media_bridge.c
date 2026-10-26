@@ -8,7 +8,7 @@
  * WMA/AAC/MP3 audio decoding, H.264/IV50/WMV video decoding, and IWMSyncReader2
  * stream reading for wmadmod.dll, wmvcore.dll, and ir50_32.dll on macOS.
  *
- * Copyright 2026 Wine Parity Contributors
+ * Copyright 2026 Spumante Contributors
  * SPDX-License-Identifier: LGPL-2.1-or-later
  */
 
@@ -31,7 +31,7 @@ WINE_DEFAULT_DEBUG_CHANNEL(winegstreamer);
 
 static BOOL wg_bridge_is_sim_stub(void)
 {
-    const char *sim = getenv("WINE_PARITY_SIMULATE_STUB");
+    const char *sim = getenv("SPUMANTE_SIMULATE_STUB");
     return sim != NULL && strcmp(sim, "1") == 0;
 }
 

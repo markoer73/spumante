@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://wine-parity.local/schemas/result.json",
-  "title": "WineParityDifferentialResult",
+  "$id": "https://spumante.local/schemas/result.json",
+  "title": "SpumanteDifferentialResult",
   "description": "Standardized JSON output schema for Wine vs. Windows VM differential conformance test assertions.",
   "type": "object",
   "required": [

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: LGPL-2.1-or-later
-"""Turnkey macOS DMG installer packager for WineParity.app and WineParity Config.app."""
+"""Turnkey macOS DMG installer packager for Spumante.app and Spumante Config.app."""
 
 from __future__ import annotations
 
@@ -28,19 +28,19 @@ from exe_handler import (
 )
 
 DMG_STAGING_DIR = REPO_ROOT / "builds" / "dmg_staging"
-DMG_OUTPUT_PATH = REPO_ROOT / "builds" / "WineParity-Installer.dmg"
-VOLUME_NAME = "WineParity"
+DMG_OUTPUT_PATH = REPO_ROOT / "builds" / "Spumante-Installer.dmg"
+VOLUME_NAME = "Spumante"
 
 
 def _generate_installer_command_script(repo_root: Path) -> str:
-    """Generate the double-clickable 'Install WineParity.command' macOS installer script."""
+    """Generate the double-clickable 'Install Spumante.command' macOS installer script."""
     config_py = repo_root / "scripts" / "lib" / "config_manager.py"
     return f"""#!/usr/bin/env bash
 # SPDX-License-Identifier: LGPL-2.1-or-later
-# Double-clickable macOS installer for WineParity.app and WineParity Config.app.
+# Double-clickable macOS installer for Spumante.app and Spumante Config.app.
 # Installs the launcher and configuration program, sets up CLI wrappers,
 # registers .exe/.msi LaunchServices associations, initializes config.json (0600)
-# and WINEPREFIX registry cascade, and opens the WineParity Config UI.
+# and WINEPREFIX registry cascade, and opens the Spumante Config UI.
 
 set -euo pipefail
 
@@ -50,7 +50,7 @@ CONFIG_PY="{config_py}"
 
 TARGET_APPS_DIR=""
 TARGET_BIN_DIR=""
-CONFIG_FILE="${{WINE_PARITY_CONFIG:-$HOME/.config/wine-parity/config.json}}"
+CONFIG_FILE="${{SPUMANTE_CONFIG:-$HOME/.config/spumante/config.json}}"
 WINEPREFIX_DIR="${{WINEPREFIX:-$HOME/.wine}}"
 USER_INSTALL=0
 OPEN_CONFIG=1
@@ -58,15 +58,15 @@ DRY_RUN=0
 
 usage() {{
     cat <<EOF
-Usage: ./Install\\ WineParity.command [options]
+Usage: ./Install\\ Spumante.command [options]
 
 Options:
   --target-dir <dir>    Target Applications directory (default: /Applications or ~/Applications)
-  --bin-dir <dir>       Directory for CLI wrappers 'wine-parity' and 'wine-parity-config'
-  --config-file <path>  Path to user config.json (default: ~/.config/wine-parity/config.json)
+  --bin-dir <dir>       Directory for CLI wrappers 'spumante' and 'spumante-config'
+  --config-file <path>  Path to user config.json (default: ~/.config/spumante/config.json)
   --wineprefix <dir>    Path to Wine prefix for registry cascade (default: ~/.wine)
   --user                Install into ~/Applications and ~/.local/bin without sudo
-  --no-open-config      Do not automatically launch WineParity Config.app after install
+  --no-open-config      Do not automatically launch Spumante Config.app after install
   --dry-run             Print planned installation steps without modifying the system
   -h, --help            Show this help message
 EOF
@@ -107,7 +107,7 @@ while [[ $# -gt 0 ]]; do
             exit 0
             ;;
         *)
-            echo "[WineParity Installer] Unknown option: $1" >&2
+            echo "[Spumante Installer] Unknown option: $1" >&2
             usage >&2
             exit 2
             ;;
@@ -130,20 +130,20 @@ if [[ -z "$TARGET_BIN_DIR" ]]; then
     fi
 fi
 
-SRC_LAUNCHER_APP="$SCRIPT_DIR/WineParity.app"
-SRC_CONFIG_APP="$SCRIPT_DIR/WineParity Config.app"
+SRC_LAUNCHER_APP="$SCRIPT_DIR/Spumante.app"
+SRC_CONFIG_APP="$SCRIPT_DIR/Spumante Config.app"
 
 if [[ ! -d "$SRC_LAUNCHER_APP" ]]; then
-    SRC_LAUNCHER_APP="$REPO_ROOT/builds/WineParity.app"
+    SRC_LAUNCHER_APP="$REPO_ROOT/builds/Spumante.app"
 fi
 if [[ ! -d "$SRC_CONFIG_APP" ]]; then
-    SRC_CONFIG_APP="$REPO_ROOT/builds/WineParityConfig.app"
+    SRC_CONFIG_APP="$REPO_ROOT/builds/SpumanteConfig.app"
 fi
 
-DEST_LAUNCHER_APP="$TARGET_APPS_DIR/WineParity.app"
-DEST_CONFIG_APP="$TARGET_APPS_DIR/WineParity Config.app"
-DEST_LAUNCHER_BIN="$DEST_LAUNCHER_APP/Contents/MacOS/WineParity"
-DEST_CONFIG_BIN="$DEST_CONFIG_APP/Contents/MacOS/WineParityConfig"
+DEST_LAUNCHER_APP="$TARGET_APPS_DIR/Spumante.app"
+DEST_CONFIG_APP="$TARGET_APPS_DIR/Spumante Config.app"
+DEST_LAUNCHER_BIN="$DEST_LAUNCHER_APP/Contents/MacOS/Spumante"
+DEST_CONFIG_BIN="$DEST_CONFIG_APP/Contents/MacOS/SpumanteConfig"
 
 is_apple_silicon() {{
     if [[ "$(uname -s)" == "Darwin" ]] && ([[ "$(uname -m)" == "arm64" ]] || [[ "$(sysctl -n hw.optional.arm64 2>/dev/null || echo 0)" == "1" ]]); then
@@ -153,7 +153,7 @@ is_apple_silicon() {{
 }}
 
 is_rosetta2_installed() {{
-    if [[ "${{WINE_PARITY_SIMULATE_MISSING_ROSETTA:-0}}" == "1" ]]; then
+    if [[ "${{SPUMANTE_SIMULATE_MISSING_ROSETTA:-0}}" == "1" ]]; then
         return 1
     fi
     if ! is_apple_silicon; then
@@ -169,15 +169,15 @@ ensure_rosetta2_installed() {{
     if is_rosetta2_installed; then
         return 0
     fi
-    local sw_bin="${{WINE_PARITY_SOFTWAREUPDATE_BIN:-/usr/sbin/softwareupdate}}"
-    local consent="${{WINE_PARITY_ROSETTA_CONSENT:-}}"
-    if [[ -z "$consent" ]] && [[ "${{WINE_PARITY_NONINTERACTIVE_ROSETTA:-0}}" == "1" ]]; then
+    local sw_bin="${{SPUMANTE_SOFTWAREUPDATE_BIN:-/usr/sbin/softwareupdate}}"
+    local consent="${{SPUMANTE_ROSETTA_CONSENT:-}}"
+    if [[ -z "$consent" ]] && [[ "${{SPUMANTE_NONINTERACTIVE_ROSETTA:-0}}" == "1" ]]; then
         consent="yes"
     fi
-    echo "[WineParity Installer] Apple Silicon detected without Rosetta 2."
-    echo "[WineParity Installer] Rosetta 2 is required to run 32-bit and 64-bit Intel (x86/x86_64) Windows applications."
+    echo "[Spumante Installer] Apple Silicon detected without Rosetta 2."
+    echo "[Spumante Installer] Rosetta 2 is required to run 32-bit and 64-bit Intel (x86/x86_64) Windows applications."
     if [[ -z "$consent" ]]; then
-        if ! read -r -p "[WineParity Installer] Do you agree to install Rosetta 2 now? [y/N]: " consent; then
+        if ! read -r -p "[Spumante Installer] Do you agree to install Rosetta 2 now? [y/N]: " consent; then
             consent="no"
         fi
     fi
@@ -185,17 +185,17 @@ ensure_rosetta2_installed() {{
         [yY]|[yY][eE][sS]|1|[tT][rR][uU][eE]|[aA][gG][rR][eE][eE])
             ;;
         *)
-            echo "[WineParity Installer] ERROR: Rosetta 2 installation declined by user. Aborting wine-parity installation." >&2
+            echo "[Spumante Installer] ERROR: Rosetta 2 installation declined by user. Aborting spumante installation." >&2
             exit 86
             ;;
     esac
-    echo "[WineParity Installer] Installing Rosetta 2 for x86/x86_64 Windows app support..."
+    echo "[Spumante Installer] Installing Rosetta 2 for x86/x86_64 Windows app support..."
     if "$sw_bin" --install-rosetta --agree-to-license; then
-        echo "[WineParity Installer] Rosetta 2 installation succeeded."
+        echo "[Spumante Installer] Rosetta 2 installation succeeded."
         return 0
     fi
-    echo "[WineParity Installer] ERROR: Rosetta 2 is required on Apple Silicon to run 32/64-bit Intel (x86/x86_64) Windows applications." >&2
-    echo "[WineParity Installer] Run '/usr/sbin/softwareupdate --install-rosetta --agree-to-license' and re-run this installer." >&2
+    echo "[Spumante Installer] ERROR: Rosetta 2 is required on Apple Silicon to run 32/64-bit Intel (x86/x86_64) Windows applications." >&2
+    echo "[Spumante Installer] Run '/usr/sbin/softwareupdate --install-rosetta --agree-to-license' and re-run this installer." >&2
     exit 86
 }}
 
@@ -206,7 +206,7 @@ if [[ "$DRY_RUN" -eq 1 ]]; then
     fi
     cat <<EOF
 {{
-  "action": "install-wine-parity",
+  "action": "install-spumante",
   "dry_run": true,
   "target_applications_dir": "$TARGET_APPS_DIR",
   "installed_launcher_app": "$DEST_LAUNCHER_APP",
@@ -224,7 +224,7 @@ EOF
 fi
 
 echo "=================================================================="
-echo "  Wine-Parity macOS Installer & Configuration Setup"
+echo "  Spumante macOS Installer & Configuration Setup"
 echo "=================================================================="
 echo "  Applications Directory : $TARGET_APPS_DIR"
 echo "  CLI Wrapper Directory  : $TARGET_BIN_DIR"
@@ -242,37 +242,37 @@ cp -R "$SRC_LAUNCHER_APP" "$DEST_LAUNCHER_APP"
 cp -R "$SRC_CONFIG_APP" "$DEST_CONFIG_APP"
 chmod +x "$DEST_LAUNCHER_BIN" "$DEST_CONFIG_BIN"
 
-cat > "$TARGET_BIN_DIR/wine-parity" <<WRAPPER_EOF
+cat > "$TARGET_BIN_DIR/spumante" <<WRAPPER_EOF
 #!/usr/bin/env bash
 # SPDX-License-Identifier: LGPL-2.1-or-later
 exec "$DEST_LAUNCHER_BIN" "\\$@"
 WRAPPER_EOF
-chmod +x "$TARGET_BIN_DIR/wine-parity"
+chmod +x "$TARGET_BIN_DIR/spumante"
 
-cat > "$TARGET_BIN_DIR/wine-parity-config" <<WRAPPER_CFG_EOF
+cat > "$TARGET_BIN_DIR/spumante-config" <<WRAPPER_CFG_EOF
 #!/usr/bin/env bash
 # SPDX-License-Identifier: LGPL-2.1-or-later
 exec "$DEST_CONFIG_BIN" "\\$@"
 WRAPPER_CFG_EOF
-chmod +x "$TARGET_BIN_DIR/wine-parity-config"
+chmod +x "$TARGET_BIN_DIR/spumante-config"
 
 # Register .exe and .msi file associations with macOS LaunchServices
 "$DEST_LAUNCHER_BIN" --register >/dev/null 2>&1 || true
 
 # Initialize user-level configuration (0600) and cascade to WINEPREFIX registry
 if [[ -f "$CONFIG_PY" ]]; then
-    WINE_PARITY_CONFIG="$CONFIG_FILE" WINEPREFIX="$WINEPREFIX_DIR" \\
+    SPUMANTE_CONFIG="$CONFIG_FILE" WINEPREFIX="$WINEPREFIX_DIR" \\
         python3 "$CONFIG_PY" --action status >/dev/null
 fi
 
-echo "[WineParity Installer] Installed:"
+echo "[Spumante Installer] Installed:"
 echo "  1. $DEST_LAUNCHER_APP (Automatic .exe / .msi Launcher & Security Scanner)"
-echo "  2. $DEST_CONFIG_APP (Native macOS Wine-Parity Configuration Program)"
-echo "  3. $TARGET_BIN_DIR/wine-parity"
-echo "  4. $TARGET_BIN_DIR/wine-parity-config"
+echo "  2. $DEST_CONFIG_APP (Native macOS Spumante Configuration Program)"
+echo "  3. $TARGET_BIN_DIR/spumante"
+echo "  4. $TARGET_BIN_DIR/spumante-config"
 
 if [[ "$OPEN_CONFIG" -eq 1 ]]; then
-    echo "[WineParity Installer] Opening WineParity Config.app..."
+    echo "[Spumante Installer] Opening Spumante Config.app..."
     if command -v open >/dev/null 2>&1; then
         open "$DEST_CONFIG_APP" || "$DEST_CONFIG_BIN" &
     else
@@ -280,16 +280,16 @@ if [[ "$OPEN_CONFIG" -eq 1 ]]; then
     fi
 fi
 
-echo "[WineParity Installer] Installation complete!"
+echo "[Spumante Installer] Installation complete!"
 """
 
 
 def _generate_dmg_readme() -> str:
-    return """Wine-Parity for macOS — Turnkey Installer & Configuration Package
+    return """Spumante for macOS — Turnkey Installer & Configuration Package
 ===================================================================
 
 Contents of this Disk Image:
-  1. WineParity.app
+  1. Spumante.app
      - Native macOS .exe / .msi launcher & LaunchServices handler.
      - Automatically routes 32/64-bit x86 PE binaries and ARM64/ARM64EC PE
        binaries, enforces the mandatory +x executable bit and 3-gate PE
@@ -297,8 +297,8 @@ Contents of this Disk Image:
        Static W^X/IAT + VirusTotal v3), and runs inside the macOS Seatbelt
        sandbox.
 
-  2. WineParity Config.app
-     - Standalone native macOS AppKit Settings application ("Wine Parity Settings").
+  2. Spumante Config.app
+     - Standalone native macOS AppKit Settings application ("Spumante Settings").
      - Run this program anytime from /Applications or Spotlight to configure:
        * General: Windows version (Windows 11 / 10 / 8.1 / 7), Retina/HiDPI mode,
          and one-click .exe / .msi file handler registration.
@@ -310,18 +310,18 @@ Contents of this Disk Image:
        * Graphics & Acceleration: IOSurface-backed CAMetalLayer swapchains,
          VideoToolbox hardware H.264/HEVC decode, and ARM64EC WJTC JIT cache.
 
-  3. Install WineParity.command
-     - Double-click to automatically install both WineParity.app and
-       WineParity Config.app into /Applications (or ~/Applications), install
-       the 'wine-parity' and 'wine-parity-config' CLI commands, initialize
-       ~/.config/wine-parity/config.json (0600) + ~/.wine registry cascade,
-       and open WineParity Config.app.
+  3. Install Spumante.command
+     - Double-click to automatically install both Spumante.app and
+       Spumante Config.app into /Applications (or ~/Applications), install
+       the 'spumante' and 'spumante-config' CLI commands, initialize
+       ~/.config/spumante/config.json (0600) + ~/.wine registry cascade,
+       and open Spumante Config.app.
 
 Quick Installation:
-  - Option A (Recommended): Double-click "Install WineParity.command".
-  - Option B (Drag & Drop): Drag "WineParity.app" and "WineParity Config.app"
-    onto the "Applications" folder shortcut, then open "WineParity Config.app"
-    to configure your Wine-Parity environment.
+  - Option A (Recommended): Double-click "Install Spumante.command".
+  - Option B (Drag & Drop): Drag "Spumante.app" and "Spumante Config.app"
+    onto the "Applications" folder shortcut, then open "Spumante Config.app"
+    to configure your Spumante environment.
 """
 
 
@@ -329,7 +329,7 @@ def _detect_codesign_identity(explicit_identity: str | None = None) -> tuple[str
     """Resolve Developer ID Application signing identity (returning (sign_token, display_name))."""
     raw_explicit = (explicit_identity or "").strip()
     if not raw_explicit:
-        for env_key in ("WINE_PARITY_CODESIGN_IDENTITY", "CODESIGN_IDENTITY"):
+        for env_key in ("SPUMANTE_CODESIGN_IDENTITY", "CODESIGN_IDENTITY"):
             val = os.environ.get(env_key, "").strip()
             if val:
                 raw_explicit = val
@@ -393,13 +393,13 @@ def build_dmg_package(
     codesign_identity: str | None = None,
     notary_profile: str | None = None,
 ) -> dict[str, Any]:
-    """Build WineParity.app, WineParityConfig.app, stage the DMG directory, and create (and optionally sign & notarize) WineParity-Installer.dmg."""
+    """Build Spumante.app, SpumanteConfig.app, stage the DMG directory, and create (and optionally sign & notarize) Spumante-Installer.dmg."""
     handler_info = build_macos_exe_handler(dry_run=dry_run)
 
-    staged_launcher_app = DMG_STAGING_DIR / "WineParity.app"
-    staged_config_app = DMG_STAGING_DIR / "WineParity Config.app"
+    staged_launcher_app = DMG_STAGING_DIR / "Spumante.app"
+    staged_config_app = DMG_STAGING_DIR / "Spumante Config.app"
     staged_windows_apps = DMG_STAGING_DIR / "Windows Apps"
-    installer_script = DMG_STAGING_DIR / "Install WineParity.command"
+    installer_script = DMG_STAGING_DIR / "Install Spumante.command"
     apps_symlink = DMG_STAGING_DIR / "Applications"
     readme_file = DMG_STAGING_DIR / "README.txt"
     dmg_format = "UDZO"
@@ -407,22 +407,22 @@ def build_dmg_package(
     sign_token, resolved_identity = _detect_codesign_identity(codesign_identity)
     explicit_profile = (
         (notary_profile or "").strip()
-        or os.environ.get("WINE_PARITY_NOTARY_PROFILE", "").strip()
+        or os.environ.get("SPUMANTE_NOTARY_PROFILE", "").strip()
         or os.environ.get("NOTARYTOOL_PROFILE", "").strip()
     )
-    resolved_profile = explicit_profile or "wine-parity-notary"
+    resolved_profile = explicit_profile or "spumante-notary"
     asc_creds = _resolve_appstoreconnect_api_credentials()
 
     apple_id = (
-        os.environ.get("WINE_PARITY_APPLE_ID", "").strip()
+        os.environ.get("SPUMANTE_APPLE_ID", "").strip()
         or os.environ.get("APPLE_ID", "").strip()
     )
     team_id = (
-        os.environ.get("WINE_PARITY_TEAM_ID", "").strip()
+        os.environ.get("SPUMANTE_TEAM_ID", "").strip()
         or os.environ.get("APPLE_TEAM_ID", "").strip()
     )
     app_password = (
-        os.environ.get("WINE_PARITY_APP_PASSWORD", "").strip()
+        os.environ.get("SPUMANTE_APP_PASSWORD", "").strip()
         or os.environ.get("APPLE_APP_SPECIFIC_PASSWORD", "").strip()
     )
 
@@ -459,7 +459,7 @@ def build_dmg_package(
             "--team-id",
             team_id,
             "--password",
-            "@env:WINE_PARITY_APP_PASSWORD",
+            "@env:SPUMANTE_APP_PASSWORD",
             "--wait",
             "--output-format",
             "json",
@@ -567,7 +567,7 @@ def build_dmg_package(
         if not created_via_hdiutil:
             # Deterministic fallback archive when running in a restricted environment without hdiutil device nodes
             dmg_format = "UDZO-fallback-tar-gz"
-            archive_base = REPO_ROOT / "builds" / "WineParity-Installer-fallback"
+            archive_base = REPO_ROOT / "builds" / "Spumante-Installer-fallback"
             archive_file = shutil.make_archive(
                 str(archive_base),
                 "gztar",
@@ -591,8 +591,8 @@ def build_dmg_package(
 
             if sys.platform == "darwin" and shutil.which("xcrun") and sign_token != "-":
                 exec_notary_cmd = list(notarytool_cmd)
-                if apple_id and team_id and app_password and "@env:WINE_PARITY_APP_PASSWORD" in exec_notary_cmd:
-                    idx = exec_notary_cmd.index("@env:WINE_PARITY_APP_PASSWORD")
+                if apple_id and team_id and app_password and "@env:SPUMANTE_APP_PASSWORD" in exec_notary_cmd:
+                    idx = exec_notary_cmd.index("@env:SPUMANTE_APP_PASSWORD")
                     exec_notary_cmd[idx] = app_password
                 res_notary = subprocess.run(
                     exec_notary_cmd,
@@ -703,7 +703,7 @@ def build_dmg_package(
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Build WineParity macOS DMG Installer & Standalone Config App")
+    parser = argparse.ArgumentParser(description="Build Spumante macOS DMG Installer & Standalone Config App")
     parser.add_argument("--dry-run", action="store_true", help="Emit DMG build plan without writing files")
     parser.add_argument(
         "-nz",
@@ -714,12 +714,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--codesign-identity",
         default=None,
-        help="Developer ID Application signing identity (or set WINE_PARITY_CODESIGN_IDENTITY)",
+        help="Developer ID Application signing identity (or set SPUMANTE_CODESIGN_IDENTITY)",
     )
     parser.add_argument(
         "--notary-profile",
         default=None,
-        help="xcrun notarytool keychain profile name (or set WINE_PARITY_NOTARY_PROFILE)",
+        help="xcrun notarytool keychain profile name (or set SPUMANTE_NOTARY_PROFILE)",
     )
     args = parser.parse_args(argv)
 

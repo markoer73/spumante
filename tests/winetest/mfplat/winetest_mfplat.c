@@ -6,7 +6,7 @@
  *
  * Adapted from upstream Wine dlls/mfplat/tests/mfplat.c
  * Copyright 2015-2024 Wine contributors
- * Copyright 2026 Wine Parity Contributors
+ * Copyright 2026 Spumante Contributors
  * SPDX-License-Identifier: LGPL-2.1-or-later
  */
 

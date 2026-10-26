@@ -8,7 +8,7 @@
  * H.264 and HEVC Annex-B / AVCC / HVCC access units into contiguous NV12 and P010
  * IMFMediaBuffer surfaces.
  *
- * Copyright 2026 Wine Parity Contributors
+ * Copyright 2026 Spumante Contributors
  * SPDX-License-Identifier: LGPL-2.1-or-later
  */
 

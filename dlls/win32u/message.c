@@ -2,7 +2,7 @@
  * Win32u Cross-Process / Cross-Thread Message Packing
  * (WM_ERASEBKGND msg 14 HDC message packing)
  *
- * Copyright 2026 Wine Parity Contributors
+ * Copyright 2026 Spumante Contributors
  * SPDX-License-Identifier: LGPL-2.1-or-later
  */
 

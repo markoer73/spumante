@@ -2,7 +2,7 @@
  * vkd3d-shader Metal Shading Language (MSL) Generator & Apple Metal GPU Compiler
  *
  * Clean-Room Spec: specs/d2d1/vkd3d_shader_compile_msl.json
- * Copyright (C) 2026 Wine Parity Project
+ * Copyright (C) 2026 Spumante Project
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -29,7 +29,7 @@ WINE_DEFAULT_DEBUG_CHANNEL(d2d1);
 
 static int vkd3d_msl_simulate_stub(void)
 {
-    const char *env = getenv("WINE_PARITY_SIMULATE_STUB");
+    const char *env = getenv("SPUMANTE_SIMULATE_STUB");
     return (env && strcmp(env, "1") == 0);
 }
 

@@ -1,7 +1,7 @@
 /*
- * Wine-Parity Dual-Mode Upstream winetest Compatibility Header (wine/test.h)
+ * Spumante Dual-Mode Upstream winetest Compatibility Header (wine/test.h)
  *
- * Copyright 2026 Wine Parity Contributors
+ * Copyright 2026 Spumante Contributors
  * SPDX-License-Identifier: LGPL-2.1-or-later
  */
 

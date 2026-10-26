@@ -4,7 +4,7 @@
  * Clean-room implementation derived from Microsoft Learn specifications
  * and upstream Wine dlls/winegstreamer/main.c & dlls/wmadmod/wmadmod.c.
  *
- * Copyright 2026 Wine Parity Contributors
+ * Copyright 2026 Spumante Contributors
  * SPDX-License-Identifier: LGPL-2.1-or-later
  */
 
@@ -49,7 +49,7 @@ static const GUID CLSID_wg_mpeg1_splitter     = {0xa8edbf98, 0x2442, 0x42c5, {0x
 
 static BOOL wg_is_sim_stub(void)
 {
-    const char *sim = getenv("WINE_PARITY_SIMULATE_STUB");
+    const char *sim = getenv("SPUMANTE_SIMULATE_STUB");
     return sim != NULL && strcmp(sim, "1") == 0;
 }
 

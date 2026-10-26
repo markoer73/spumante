@@ -10,7 +10,7 @@
  *   - CreateSemaphoreExW / ReleaseSemaphore (ERROR_TOO_MANY_POSTS)
  *   - WaitForMultipleObjectsEx / SignalObjectAndWait / SleepEx
  *
- * Copyright 2026 Wine Parity Contributors
+ * Copyright 2026 Spumante Contributors
  * SPDX-License-Identifier: LGPL-2.1-or-later
  */
 
@@ -111,7 +111,7 @@ int main(void)
     DWORD err;
 
     NtdllResetSyncState();
-    parity_begin_document("kernelbase", "test_wait_on_address", "x86_64", "wine-parity");
+    parity_begin_document("kernelbase", "test_wait_on_address", "x86_64", "spumante");
 
     /* 1. WaitOnAddress invalid AddressSize values (0, 3, 5, 7) and NULL address */
     {

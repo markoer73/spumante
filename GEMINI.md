@@ -1,4 +1,4 @@
-# Wine Parity Repository Best Practices & Agent Guide
+# Spumante Repository Best Practices & Agent Guide
 
 This document is the canonical, succinct specification of repository behavior, architectural policies, coding standards, and workflow conventions for all AI assistants (Antigravity, Gemini, Claude, Codex/OpenAI, OpenCode, Cline) and human contributors.
 
@@ -84,7 +84,7 @@ Every AI assistant (Antigravity, Gemini, Claude, Codex, OpenCode, Cline) MUST co
 
 - **Differential Test Harness**: A ground-truth oracle running a genuine Windows 10/11 VM (via QEMU `hvf`/`tcg` on macOS or KVM on Linux, communicating over a host-local VirtIO serial `qemu-ga` Unix socket with QMP `loadvm` snapshot resets and Ground-Truth JSON caching) side-by-side with an isolated Wine execution environment.
 - **Dual-Compilation & Dual-Architecture Model**: Conformance tests compile cleanly under both `x86_64-w64-mingw32-gcc` and `aarch64-w64-mingw32-gcc` as well as Wine's `winetest` runner using the dual-mode `tests/include/parity_test.h` header.
-- **Hybrid Wine DLL & `wine-borrow` Sparse-Overlay Workflow (Strictly Read-Only Upstream)**: Target DLL sources and patches live in our own standalone `wine-parity` repository (`dlls/<dll_name>/` and `patches/`), tracked against upstream Wine via `upstream/manifest.json` (`"upstream_access_mode": "read-only"`) and a git-ignored blobless sparse checkout (`.wine-upstream/` with push locked to `DISABLE_PUSH_READ_ONLY_UPSTREAM`). Never touch or push to upstream Wine, and never duplicate the full upstream Wine tree in git; use the `wine-borrow` skill (`./scripts/build.sh --borrow <dll>` and `./scripts/test.sh --check-upstream --dll <dll>`) for surgical 3-way backports preserving `#ifdef __APPLE__` acceleration.
+- **Hybrid Wine DLL & `wine-borrow` Sparse-Overlay Workflow (Strictly Read-Only Upstream)**: Target DLL sources and patches live in our own standalone `spumante` repository (`dlls/<dll_name>/` and `patches/`), tracked against upstream Wine via `upstream/manifest.json` (`"upstream_access_mode": "read-only"`) and a git-ignored blobless sparse checkout (`.wine-upstream/` with push locked to `DISABLE_PUSH_READ_ONLY_UPSTREAM`). Never touch or push to upstream Wine, and never duplicate the full upstream Wine tree in git; use the `wine-borrow` skill (`./scripts/build.sh --borrow <dll>` and `./scripts/test.sh --check-upstream --dll <dll>`) for surgical 3-way backports preserving `#ifdef __APPLE__` acceleration.
 - **Wineserver vs. Client DLL Separation**:
   - Stateless APIs or local buffer manipulations belong in client DLLs (`ntdll`, `kernelbase`, `user32`, etc.).
   - Cross-process state, handles, security tokens, and synchronization objects MUST communicate via `wineserver` protocol IPC definitions. Never invent ad-hoc global IPC mechanisms.

@@ -5,7 +5,7 @@
  * Foundation specifications, Apple AVFoundation documentation, and upstream
  * Wine dlls/qcap/vfwcapture.c & dlls/qcap/v4l.c.
  *
- * Copyright 2026 Wine Parity Contributors
+ * Copyright 2026 Spumante Contributors
  * SPDX-License-Identifier: LGPL-2.1-or-later
  */
 
@@ -246,7 +246,7 @@ static void reverse_image(
 
 HRESULT WINAPI qcap_avf_create(int device_index, QCAP_AVF_DEVICE *out_dev)
 {
-    const char *sim_stub = getenv("WINE_PARITY_SIMULATE_STUB");
+    const char *sim_stub = getenv("SPUMANTE_SIMULATE_STUB");
     struct qcap_avf_device *dev;
 
     if (!out_dev) {

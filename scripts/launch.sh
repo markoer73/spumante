@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: LGPL-2.1-or-later
-# Canonical VM and guest agent launch/snapshot entrypoint for wine-parity.
+# Canonical VM and guest agent launch/snapshot entrypoint for Spumante.
 
 set -euo pipefail
 
@@ -25,8 +25,8 @@ Usage: ./scripts/launch.sh [--arch arm64|x86_64] [--snapshot <name>] [--disk <qc
        ./scripts/launch.sh --config-ui [--dry-run]
 
 Starts or restores the headless QEMU Windows 10/11 Ground-Truth VM (macOS hvf/tcg first, Linux kvm second)
-with VirtIO serial qemu-ga (/tmp/wine_parity_qga.sock) and QMP (/tmp/wine_parity_qmp.sock), registers
-the macOS WineParity.app LaunchServices .exe/.msi handler, or manages user-level config.json & sandboxing.
+with VirtIO serial qemu-ga (/tmp/spumante_qga.sock) and QMP (/tmp/spumante_qmp.sock), registers
+the macOS Spumante.app LaunchServices .exe/.msi handler, or manages user-level config.json & sandboxing.
 EOF
 }
 

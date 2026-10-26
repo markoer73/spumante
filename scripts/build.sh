@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: LGPL-2.1-or-later
-# Canonical surgical build and upstream borrow entrypoint for wine-parity.
+# Canonical surgical build and upstream borrow entrypoint for Spumante.
 # Refuses full-tree builds unless --all is explicitly provided.
 
 set -euo pipefail

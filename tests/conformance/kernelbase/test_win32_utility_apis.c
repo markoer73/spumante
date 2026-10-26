@@ -8,7 +8,7 @@
  *   - VirtualAlloc2 / VirtualAlloc2FromApp (MEM_EXTENDED_PARAMETER alignment requirements, W^X FromApp enforcement, MEM_RESERVE_PLACEHOLDER split & coalesce)
  *   - MapViewOfFile3 / UnmapViewOfFile2 (ERROR_MAPPED_ALIGNMENT 64KB vs 4KB MEM_REPLACE_PLACEHOLDER, shared section coherence, MEM_PRESERVE_PLACEHOLDER)
  *
- * Copyright 2026 Wine Parity Contributors
+ * Copyright 2026 Spumante Contributors
  * SPDX-License-Identifier: LGPL-2.1-or-later
  */
 
@@ -37,7 +37,7 @@ int main(void)
 
     NtdllResetSyncState();
     KernelBaseResetUtilityState();
-    parity_begin_document("kernelbase", "test_win32_utility_apis", "x86_64", "wine-parity");
+    parity_begin_document("kernelbase", "test_win32_utility_apis", "x86_64", "spumante");
 
     /* 1. GetSystemTimePreciseAsFileTime epoch range, strict monotonicity, and GetLastError preservation */
     {

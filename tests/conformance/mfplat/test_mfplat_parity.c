@@ -1,5 +1,5 @@
 /*
- * Wine Parity Differential Conformance Test: mfplat.dll Core APIs & VideoToolbox Bridge
+ * Spumante Differential Conformance Test: mfplat.dll Core APIs & VideoToolbox Bridge
  *
  * Clean-room test derived from Microsoft Learn specifications for:
  *   - MFStartup / MFShutdown / MFLockPlatform / MFUnlockPlatform / MFAllocateWorkQueue
@@ -9,7 +9,7 @@
  *   - MFCreateGuid / GetD3DFormatFromMFSubtype / MFCalculateImageSize
  *   - MFVideoToolboxCreateDecoder / MFVideoToolboxDecodeSample (H.264 NV12 & HEVC P010)
  *
- * Copyright 2026 Wine Parity Contributors
+ * Copyright 2026 Spumante Contributors
  * SPDX-License-Identifier: LGPL-2.1-or-later
  */
 

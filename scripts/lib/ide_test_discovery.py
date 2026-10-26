@@ -46,7 +46,7 @@ def generate_vscode_configs() -> dict[str, str]:
             {
                 "pattern": "builds/{x86_64,arm64}/**/test_*.bin",
                 "name": "${filename} (${relDirpath})",
-                "description": "Wine-Parity Differential Conformance Suite",
+                "description": "Spumante Differential Conformance Suite",
                 "cwd": "${workspaceFolder}",
                 "gtest": {
                     "prependTestRunningArgs": [],
@@ -79,7 +79,7 @@ def generate_vscode_configs() -> dict[str, str]:
         "version": "2.0.0",
         "tasks": [
             {
-                "label": "Wine-Parity: Build & Refresh All IDE Test Binaries",
+                "label": "Spumante: Build & Refresh All IDE Test Binaries",
                 "type": "shell",
                 "command": "./scripts/build.sh",
                 "args": ["--ide-tests"],
@@ -90,7 +90,7 @@ def generate_vscode_configs() -> dict[str, str]:
                 "problemMatcher": ["$gcc"],
             },
             {
-                "label": "Wine-Parity: Verify Antigravity IDE / TestMate Visibility",
+                "label": "Spumante: Verify Antigravity IDE / TestMate Visibility",
                 "type": "shell",
                 "command": "./scripts/test.sh",
                 "args": ["--ide-tests"],
@@ -98,7 +98,7 @@ def generate_vscode_configs() -> dict[str, str]:
                 "problemMatcher": [],
             },
             {
-                "label": "Wine-Parity: Run Style & IDE Visibility Linter",
+                "label": "Spumante: Run Style & IDE Visibility Linter",
                 "type": "shell",
                 "command": "./scripts/test.sh",
                 "args": ["--lint"],

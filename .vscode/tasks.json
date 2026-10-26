@@ -2,7 +2,7 @@
   "version": "2.0.0",
   "tasks": [
     {
-      "label": "Wine-Parity: Build & Refresh All IDE Test Binaries",
+      "label": "Spumante: Build & Refresh All IDE Test Binaries",
       "type": "shell",
       "command": "./scripts/build.sh",
       "args": [
@@ -17,7 +17,7 @@
       ]
     },
     {
-      "label": "Wine-Parity: Verify Antigravity IDE / TestMate Visibility",
+      "label": "Spumante: Verify Antigravity IDE / TestMate Visibility",
       "type": "shell",
       "command": "./scripts/test.sh",
       "args": [
@@ -27,7 +27,7 @@
       "problemMatcher": []
     },
     {
-      "label": "Wine-Parity: Run Style & IDE Visibility Linter",
+      "label": "Spumante: Run Style & IDE Visibility Linter",
       "type": "shell",
       "command": "./scripts/test.sh",
       "args": [

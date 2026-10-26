@@ -1,7 +1,7 @@
 /*
  * Wine BCrypt (Cryptography Next Generation) Implementation (macOS First, Linux Second)
  *
- * Copyright 2026 Wine Parity Contributors
+ * Copyright 2026 Spumante Contributors
  * SPDX-License-Identifier: LGPL-2.1-or-later
  */
 
@@ -104,7 +104,7 @@ struct bcrypt_hash_object {
 
 static int is_simulate_stub_enabled(void)
 {
-    const char *sim_stub = getenv("WINE_PARITY_SIMULATE_STUB");
+    const char *sim_stub = getenv("SPUMANTE_SIMULATE_STUB");
     return (sim_stub && strcmp(sim_stub, "1") == 0) ? 1 : 0;
 }
 

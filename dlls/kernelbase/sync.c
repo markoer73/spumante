@@ -3,7 +3,7 @@
  *
  * Clean-room implementation delegating to NTDLL macOS Fast Synchronization (NTSync Parity).
  *
- * Copyright 2026 Wine Parity Contributors
+ * Copyright 2026 Spumante Contributors
  * SPDX-License-Identifier: LGPL-2.1-or-later
  */
 
@@ -21,7 +21,7 @@ WINE_DEFAULT_DEBUG_CHANNEL(sync);
 
 static int kb_is_stub_simulated(void)
 {
-    const char *sim = getenv("WINE_PARITY_SIMULATE_STUB");
+    const char *sim = getenv("SPUMANTE_SIMULATE_STUB");
     return (sim != NULL && sim[0] == '1');
 }
 

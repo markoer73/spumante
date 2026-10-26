@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: LGPL-2.1-or-later
-"""Upstream Wine winetest & A/B (wine-parity vs. old .wine-upstream) anti-regression runner."""
+"""Upstream Wine winetest & A/B (Spumante vs. old .wine-upstream) anti-regression runner."""
 
 from __future__ import annotations
 
@@ -273,7 +273,7 @@ def run_winetest_and_ab(
     arch: str = "x86_64",
     subtest_filter: str | None = None,
 ) -> tuple[int, dict[str, Any]]:
-    """Run upstream winetest suite against baseline & wine-parity + ASan/UBSan and compare A/B results."""
+    """Run upstream winetest suite against baseline & Spumante + ASan/UBSan and compare A/B results."""
     if dll == "wineusb" and (REPO_ROOT / "dlls" / "wineusb.sys").is_dir():
         dll = "wineusb.sys"
     if dll == "winebth" and (REPO_ROOT / "dlls" / "winebth.sys").is_dir():
@@ -304,7 +304,7 @@ def run_winetest_and_ab(
         asan_mode=False,
     )
 
-    # Run (B): wine-parity macOS-accelerated mode (requires 100% pass including resolved todo_wine blocks)
+    # Run (B): Spumante macOS-accelerated mode (requires 100% pass including resolved todo_wine blocks)
     parity_rc, parity_doc, parity_ms, parity_stderr = _execute_winetest_binary(
         winetest_bin,
         dll=dll,
@@ -347,10 +347,10 @@ def run_winetest_and_ab(
         "ab_comparison": {
             "zero_regressions": passed,
             "baseline_passed_assertions": base_passed,
-            "wine_parity_passed_assertions": parity_passed,
+            "spumante_passed_assertions": parity_passed,
             "todo_wine_resolved_count": todo_resolved,
             "baseline_latency_ms": base_ms,
-            "wine_parity_latency_ms": parity_ms,
+            "spumante_latency_ms": parity_ms,
             "asan_ubsan_latency_ms": asan_ms,
             "asan_ubsan_passed": asan_passed,
             "upstream_catalog": inspect_upstream_winetest_catalog(dll),

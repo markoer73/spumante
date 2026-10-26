@@ -17,10 +17,10 @@ import time
 from pathlib import Path
 from typing import Any
 
-DEFAULT_QGA_SOCK = Path("/tmp/wine_parity_qga.sock")
-DEFAULT_QMP_SOCK = Path("/tmp/wine_parity_qmp.sock")
-DEFAULT_PID_FILE = Path("/tmp/wine_parity_qemu.pid")
-DEFAULT_OVERLAY_IMG = Path("/tmp/wine_parity_win11_overlay.qcow2")
+DEFAULT_QGA_SOCK = Path("/tmp/spumante_qga.sock")
+DEFAULT_QMP_SOCK = Path("/tmp/spumante_qmp.sock")
+DEFAULT_PID_FILE = Path("/tmp/spumante_qemu.pid")
+DEFAULT_OVERLAY_IMG = Path("/tmp/spumante_win11_overlay.qcow2")
 
 
 def detect_host_accel(target_arch: str) -> tuple[str, str, list[str]]:
@@ -70,7 +70,7 @@ def build_qemu_command(
     cmd = [
         qemu_bin,
         "-name",
-        f"wine-parity-win11-{arch}",
+        f"spumante-win11-{arch}",
         "-M",
         machine,
         *accel_flags,

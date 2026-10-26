@@ -123,8 +123,8 @@ def gate_static_sast_and_sandbox_scan() -> dict[str, Any]:
         manifest_data = json.loads(manifest_path.read_text(encoding="utf-8"))
         if manifest_data.get("upstream_access_mode") != "read-only":
             findings.append("upstream/manifest.json: upstream_access_mode must be 'read-only'")
-        if "markoer73/winehq-parity" not in manifest_data.get("project_repository", ""):
-            findings.append("upstream/manifest.json: project_repository must point to markoer73/winehq-parity")
+        if "markoer73/spumante" not in manifest_data.get("project_repository", "").lower():
+            findings.append("upstream/manifest.json: project_repository must point to markoer73/Spumante")
     borrow_txt = (lib_dir / "wine_borrow.py").read_text(encoding="utf-8")
     if "DISABLE_PUSH_READ_ONLY_UPSTREAM" not in borrow_txt:
         findings.append("scripts/lib/wine_borrow.py: Missing DISABLE_PUSH_READ_ONLY_UPSTREAM lock")
@@ -278,7 +278,7 @@ def run_security_audit(dll: str = "bcrypt", test_name: str = "test_symmetric_key
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Wine-Parity 4-Gate Security Scanner")
+    parser = argparse.ArgumentParser(description="Spumante 4-Gate Security Scanner")
     parser.add_argument("--dll", default="bcrypt")
     parser.add_argument("--test", default="test_symmetric_key")
     args = parser.parse_args(argv)

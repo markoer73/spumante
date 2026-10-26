@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: LGPL-2.1-or-later
-# Canonical stop and cleanup entrypoint for wine-parity.
+# Canonical stop and cleanup entrypoint for Spumante.
 
 set -euo pipefail
 

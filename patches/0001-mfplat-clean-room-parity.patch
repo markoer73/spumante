@@ -1,5 +1,5 @@
-From: Wine Parity Agent <agent@wine-parity.local>
+From: Spumante Agent <agent@spumante.local>
 Subject: [PATCH] mfplat: Implement clean-room conformance fixes
 
 Clean-Room-Spec: specs/mfplat/
-Signed-off-by: Wine Parity Agent <agent@wine-parity.local>
+Signed-off-by: Spumante Agent <agent@spumante.local>

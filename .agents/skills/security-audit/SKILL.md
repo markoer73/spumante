@@ -7,7 +7,7 @@ description: Self-contained C memory-safety review, differential commit audit, s
 
 ## Overview
 
-This skill provides a 100% self-contained, local security review and automated scanning workflow for `wine-parity`. It contains zero external web links and executes through the canonical `./scripts/test.sh --security` entrypoint.
+This skill provides a 100% self-contained, local security review and automated scanning workflow for `spumante`. It contains zero external web links and executes through the canonical `./scripts/test.sh --security` entrypoint.
 
 ## When to Apply This Skill
 

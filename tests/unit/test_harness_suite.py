@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: LGPL-2.1-or-later
-"""Unit and integration tests for the wine-parity harness, scripts, and bcrypt conformance slice."""
+"""Unit and integration tests for the Spumante harness, scripts, and bcrypt conformance slice."""
 
 import json
 import os
@@ -12,8 +12,8 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
-class TestWineParityArchitecture(unittest.TestCase):
-    """Verifies all phases of the wine-parity architecture and canonical scripts."""
+class TestSpumanteArchitecture(unittest.TestCase):
+    """Verifies all phases of the Spumante architecture and canonical scripts."""
 
     def test_01_canonical_scripts_and_anti_proliferation(self) -> None:
         """Only the 4 canonical shell scripts may exist directly in scripts/."""
@@ -67,7 +67,7 @@ class TestWineParityArchitecture(unittest.TestCase):
         schema_path = REPO_ROOT / "tests" / "schema" / "result.json"
         self.assertTrue(schema_path.is_file(), "tests/schema/result.json must exist")
         schema = json.loads(schema_path.read_text(encoding="utf-8"))
-        self.assertEqual(schema.get("title"), "WineParityDifferentialResult")
+        self.assertEqual(schema.get("title"), "SpumanteDifferentialResult")
         self.assertIn("assertions", schema.get("properties", {}))
 
         import sys
@@ -127,8 +127,8 @@ class TestWineParityArchitecture(unittest.TestCase):
         self.assertEqual(res.returncode, 0, res.stderr)
         output = res.stdout
         self.assertIn("qemu-system-aarch64", output)
-        self.assertIn("wine_parity_qga.sock", output)
-        self.assertIn("wine_parity_qmp.sock", output)
+        self.assertIn("spumante_qga.sock", output)
+        self.assertIn("spumante_qmp.sock", output)
         self.assertIn("-nic none", output)
 
         stop_sh = REPO_ROOT / "scripts" / "stop.sh"
@@ -733,9 +733,9 @@ class TestWineParityArchitecture(unittest.TestCase):
             check=False,
         )
         self.assertEqual(res_exec_x86.returncode, 0, res_exec_x86.stdout + res_exec_x86.stderr)
-        launcher_x86 = REPO_ROOT / "builds" / "wine-install-x86" / "bin" / "wine-parity"
-        self.assertTrue(launcher_x86.is_file(), "builds/wine-install-x86/bin/wine-parity must be created")
-        self.assertTrue(os.access(launcher_x86, os.X_OK), "wine-parity launcher must be executable")
+        launcher_x86 = REPO_ROOT / "builds" / "wine-install-x86" / "bin" / "spumante"
+        self.assertTrue(launcher_x86.is_file(), "builds/wine-install-x86/bin/spumante must be created")
+        self.assertTrue(os.access(launcher_x86, os.X_OK), "spumante launcher must be executable")
         launcher_txt = launcher_x86.read_text(encoding="utf-8")
         self.assertIn("WINEDLLOVERRIDES", launcher_txt)
         self.assertIn("WINEDLLPATH", launcher_txt)
@@ -1323,7 +1323,7 @@ class TestWineParityArchitecture(unittest.TestCase):
         self.assertIn("test_arm64ec_jit_disk_cache", wt_report["subtests_executed"])
 
     def test_22_macos_exe_handler_and_plus_x_permission_guard(self) -> None:
-        """Verify WineParity.app macOS .exe/.msi handler, PE arch auto-dispatch, LaunchServices CLI, and mandatory +x permission check."""
+        """Verify Spumante.app macOS .exe/.msi handler, PE arch auto-dispatch, LaunchServices CLI, and mandatory +x permission check."""
         import struct
         import sys
         import tempfile
@@ -1344,25 +1344,25 @@ class TestWineParityArchitecture(unittest.TestCase):
         build_report = json.loads(res_build.stdout)
         self.assertTrue(build_report["require_executable_bit"])
 
-        app_bundle = REPO_ROOT / "builds" / "WineParity.app"
+        app_bundle = REPO_ROOT / "builds" / "Spumante.app"
         info_plist = app_bundle / "Contents" / "Info.plist"
-        app_bin = app_bundle / "Contents" / "MacOS" / "WineParity"
-        shell_helper = REPO_ROOT / "builds" / "wine-parity-shell.sh"
-        exec_dylib = REPO_ROOT / "builds" / "libwine_parity_exec.dylib"
-        launcher_x86 = REPO_ROOT / "builds" / "wine-install-x86" / "bin" / "wine-parity"
-        launcher_arm64 = REPO_ROOT / "builds" / "wine-install-arm64" / "bin" / "wine-parity"
+        app_bin = app_bundle / "Contents" / "MacOS" / "Spumante"
+        shell_helper = REPO_ROOT / "builds" / "spumante-shell.sh"
+        exec_dylib = REPO_ROOT / "builds" / "libspumante_exec.dylib"
+        launcher_x86 = REPO_ROOT / "builds" / "wine-install-x86" / "bin" / "spumante"
+        launcher_arm64 = REPO_ROOT / "builds" / "wine-install-arm64" / "bin" / "spumante"
 
-        self.assertTrue(info_plist.is_file(), "WineParity.app/Contents/Info.plist must exist")
-        self.assertTrue(app_bin.is_file(), "WineParity.app/Contents/MacOS/WineParity binary must exist")
-        self.assertTrue(os.access(app_bin, os.X_OK), "WineParity binary must be executable")
-        self.assertTrue(shell_helper.is_file(), "builds/wine-parity-shell.sh must exist")
-        self.assertTrue(launcher_x86.is_file(), "x86 wine-parity launcher must exist")
-        self.assertTrue(launcher_arm64.is_file(), "arm64 wine-parity launcher must exist")
+        self.assertTrue(info_plist.is_file(), "Spumante.app/Contents/Info.plist must exist")
+        self.assertTrue(app_bin.is_file(), "Spumante.app/Contents/MacOS/Spumante binary must exist")
+        self.assertTrue(os.access(app_bin, os.X_OK), "Spumante binary must be executable")
+        self.assertTrue(shell_helper.is_file(), "builds/spumante-shell.sh must exist")
+        self.assertTrue(launcher_x86.is_file(), "x86 spumante launcher must exist")
+        self.assertTrue(launcher_arm64.is_file(), "arm64 spumante launcher must exist")
         if sys.platform == "darwin":
-            self.assertTrue(exec_dylib.is_file(), "builds/libwine_parity_exec.dylib must exist on macOS")
+            self.assertTrue(exec_dylib.is_file(), "builds/libspumante_exec.dylib must exist on macOS")
 
         plist_txt = info_plist.read_text(encoding="utf-8")
-        self.assertIn("org.wine-parity.launcher", plist_txt)
+        self.assertIn("org.spumante.launcher", plist_txt)
         self.assertIn("com.microsoft.windows-executable", plist_txt)
         self.assertIn("com.microsoft.msi-installer", plist_txt)
 
@@ -1393,7 +1393,7 @@ class TestWineParityArchitecture(unittest.TestCase):
             exe_arm64.chmod(0o644)
             msi_pkg.chmod(0o644)
 
-            # 2. Verify bin/wine-parity REFUSES to launch .exe and .msi without +x (exit code 126)
+            # 2. Verify bin/spumante REFUSES to launch .exe and .msi without +x (exit code 126)
             for target_file in (exe_x64, msi_pkg):
                 res_no_x_script = subprocess.run(
                     [str(launcher_x86), str(target_file)],
@@ -1405,12 +1405,12 @@ class TestWineParityArchitecture(unittest.TestCase):
                 self.assertEqual(
                     res_no_x_script.returncode,
                     126,
-                    f"bin/wine-parity must refuse non-executable {target_file.name} with exit 126:\n"
+                    f"bin/spumante must refuse non-executable {target_file.name} with exit 126:\n"
                     f"{res_no_x_script.stdout}\n{res_no_x_script.stderr}",
                 )
                 self.assertIn("+x", res_no_x_script.stderr)
 
-            # 3. Verify WineParity.app binary REFUSES to launch .exe and .msi without +x (exit code 126)
+            # 3. Verify Spumante.app binary REFUSES to launch .exe and .msi without +x (exit code 126)
             for target_file in (exe_x64, exe_arm64, msi_pkg):
                 res_no_x_app = subprocess.run(
                     [str(app_bin), str(target_file)],
@@ -1422,7 +1422,7 @@ class TestWineParityArchitecture(unittest.TestCase):
                 self.assertEqual(
                     res_no_x_app.returncode,
                     126,
-                    f"WineParity.app must refuse non-executable {target_file.name} with exit 126:\n"
+                    f"Spumante.app must refuse non-executable {target_file.name} with exit 126:\n"
                     f"{res_no_x_app.stdout}\n{res_no_x_app.stderr}",
                 )
                 self.assertIn("+x", res_no_x_app.stderr)
@@ -1433,8 +1433,8 @@ class TestWineParityArchitecture(unittest.TestCase):
             msi_pkg.chmod(0o755)
 
             env_trace = os.environ.copy()
-            env_trace["WINE_PARITY_DRY_RUN_JSON"] = "1"
-            env_trace["WINE_PARITY_CONFIG"] = str(tmp_path / "test22_config.json")
+            env_trace["SPUMANTE_DRY_RUN_JSON"] = "1"
+            env_trace["SPUMANTE_CONFIG"] = str(tmp_path / "test22_config.json")
             env_trace["WINEPREFIX"] = str(tmp_path / "test22_prefix")
 
             res_ok_x64 = subprocess.run(
@@ -1449,7 +1449,7 @@ class TestWineParityArchitecture(unittest.TestCase):
             trace_x64 = json.loads(res_ok_x64.stdout)
             self.assertEqual(trace_x64["pe_arch"], "x86_64")
             self.assertTrue(trace_x64["executable_bit_verified"])
-            self.assertIn("wine-install-x86/bin/wine-parity", trace_x64["selected_launcher"])
+            self.assertIn("wine-install-x86/bin/spumante", trace_x64["selected_launcher"])
             self.assertEqual(Path(trace_x64["working_directory"]).resolve(), sub_dir.resolve())
             self.assertEqual(trace_x64["args"], ["--windowed"])
 
@@ -1465,7 +1465,7 @@ class TestWineParityArchitecture(unittest.TestCase):
             trace_arm64 = json.loads(res_ok_arm64.stdout)
             self.assertEqual(trace_arm64["pe_arch"], "arm64")
             self.assertTrue(trace_arm64["executable_bit_verified"])
-            self.assertIn("wine-install-arm64/bin/wine-parity", trace_arm64["selected_launcher"])
+            self.assertIn("wine-install-arm64/bin/spumante", trace_arm64["selected_launcher"])
             self.assertEqual(Path(trace_arm64["working_directory"]).resolve(), sub_dir.resolve())
             self.assertEqual(trace_arm64["args"], ["--arm-arg"])
 
@@ -1493,7 +1493,7 @@ class TestWineParityArchitecture(unittest.TestCase):
             )
             self.assertEqual(res_reg.returncode, 0, res_reg.stdout + res_reg.stderr)
             reg_info = json.loads(res_reg.stdout)
-            self.assertEqual(reg_info["bundle_id"], "org.wine-parity.launcher")
+            self.assertEqual(reg_info["bundle_id"], "org.spumante.launcher")
             self.assertTrue(reg_info["require_executable_bit"])
 
             res_stat = subprocess.run(
@@ -1505,7 +1505,7 @@ class TestWineParityArchitecture(unittest.TestCase):
             )
             self.assertEqual(res_stat.returncode, 0, res_stat.stdout + res_stat.stderr)
             stat_info = json.loads(res_stat.stdout)
-            self.assertEqual(stat_info["bundle_id"], "org.wine-parity.launcher")
+            self.assertEqual(stat_info["bundle_id"], "org.spumante.launcher")
             self.assertTrue(stat_info["require_executable_bit"])
 
             res_unreg = subprocess.run(
@@ -1519,12 +1519,12 @@ class TestWineParityArchitecture(unittest.TestCase):
             unreg_info = json.loads(res_unreg.stdout)
             self.assertEqual(unreg_info["action"], "unregister-exe-handler")
 
-            # 6. Verify wine-parity-shell.sh wrapper enforces +x before dispatching
+            # 6. Verify spumante-shell.sh wrapper enforces +x before dispatching
             exe_no_x = sub_dir / "blocked.exe"
             exe_no_x.write_bytes(make_pe_bytes(0x8664))
             exe_no_x.chmod(0o644)
             res_shell_no_x = subprocess.run(
-                ["bash", "-c", f'source "{shell_helper}" && _wine_parity_run_checked "{exe_no_x}"'],
+                ["bash", "-c", f'source "{shell_helper}" && _spumante_run_checked "{exe_no_x}"'],
                 cwd=REPO_ROOT,
                 env=env_trace,
                 capture_output=True,
@@ -1535,7 +1535,7 @@ class TestWineParityArchitecture(unittest.TestCase):
             self.assertIn("+x", res_shell_no_x.stderr)
 
             res_shell_ok = subprocess.run(
-                ["bash", "-c", f'source "{shell_helper}" && _wine_parity_run_checked "{exe_x64}" --from-shell'],
+                ["bash", "-c", f'source "{shell_helper}" && _spumante_run_checked "{exe_x64}" --from-shell'],
                 cwd=REPO_ROOT,
                 env=env_trace,
                 capture_output=True,
@@ -1547,7 +1547,7 @@ class TestWineParityArchitecture(unittest.TestCase):
             self.assertEqual(shell_trace["pe_arch"], "x86_64")
             self.assertEqual(shell_trace["args"], ["--from-shell"])
 
-            # 7. On Darwin, verify libwine_parity_exec.dylib interposer enforces +x and dispatches +x PE binaries
+            # 7. On Darwin, verify libspumante_exec.dylib interposer enforces +x and dispatches +x PE binaries
             if sys.platform == "darwin":
                 helper_c = tmp_path / "spawn_probe.c"
                 helper_bin = tmp_path / "spawn_probe.bin"
@@ -1588,7 +1588,7 @@ class TestWineParityArchitecture(unittest.TestCase):
                 )
                 self.assertEqual(res_dylib_no_x.returncode, 126, res_dylib_no_x.stdout + res_dylib_no_x.stderr)
 
-                # With +x -> transparently intercepted and routed through WineParity
+                # With +x -> transparently intercepted and routed through Spumante
                 res_dylib_ok = subprocess.run(
                     [str(helper_bin), str(exe_arm64), "--via-dylib"],
                     cwd=REPO_ROOT,
@@ -1614,7 +1614,7 @@ class TestWineParityArchitecture(unittest.TestCase):
             self.assertFalse(os.access(seven_zip_fm, os.X_OK))
             self.assertFalse(os.access(seven_zip_cli, os.X_OK))
 
-            # Running WineParity.app on an installer automatically marks newly installed drive_c .exe files as +x
+            # Running Spumante.app on an installer automatically marks newly installed drive_c .exe files as +x
             res_inst = subprocess.run(
                 [str(app_bin), str(exe_x64), "/S"],
                 cwd=REPO_ROOT,
@@ -1657,7 +1657,7 @@ class TestWineParityArchitecture(unittest.TestCase):
 
         build_sh = REPO_ROOT / "scripts" / "build.sh"
         test_sh = REPO_ROOT / "scripts" / "test.sh"
-        app_bin = REPO_ROOT / "builds" / "WineParity.app" / "Contents" / "MacOS" / "WineParity"
+        app_bin = REPO_ROOT / "builds" / "Spumante.app" / "Contents" / "MacOS" / "Spumante"
 
         subprocess.run([str(build_sh), "--exe-handler"], cwd=REPO_ROOT, check=True, capture_output=True)
 
@@ -1733,8 +1733,8 @@ class TestWineParityArchitecture(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="wine_pe_scan_") as tmpdir:
             tmp_path = Path(tmpdir)
             env_trace = os.environ.copy()
-            env_trace["WINE_PARITY_DRY_RUN_JSON"] = "1"
-            env_trace["WINE_PARITY_CONFIG"] = str(tmp_path / "test23_config.json")
+            env_trace["SPUMANTE_DRY_RUN_JSON"] = "1"
+            env_trace["SPUMANTE_CONFIG"] = str(tmp_path / "test23_config.json")
             env_trace["WINEPREFIX"] = str(tmp_path / "test23_prefix")
 
             # 1. Clean PE binary passes all 3 gates
@@ -1939,7 +1939,7 @@ class TestWineParityArchitecture(unittest.TestCase):
                 self.assertTrue(rep_vt_clean["gates"]["gate3_static_pe_and_virustotal"]["virustotal"]["scanned"])
                 self.assertEqual(rep_vt_clean["gates"]["gate3_static_pe_and_virustotal"]["virustotal"]["malicious"], 0)
 
-                # Malicious binary flagged by VT is blocked by both --scan-exe and WineParity.app
+                # Malicious binary flagged by VT is blocked by both --scan-exe and Spumante.app
                 res_vt_bad = subprocess.run(
                     [str(test_sh), "--scan-exe", str(bad_vt_exe)],
                     cwd=REPO_ROOT,
@@ -1974,7 +1974,7 @@ class TestWineParityArchitecture(unittest.TestCase):
 
         build_sh = REPO_ROOT / "scripts" / "build.sh"
         launch_sh = REPO_ROOT / "scripts" / "launch.sh"
-        app_bin = REPO_ROOT / "builds" / "WineParity.app" / "Contents" / "MacOS" / "WineParity"
+        app_bin = REPO_ROOT / "builds" / "Spumante.app" / "Contents" / "MacOS" / "Spumante"
 
         # 1. Verify skill, rule, and documentation files exist and have zero external floating URLs
         skill_md = REPO_ROOT / ".agents" / "skills" / "user-config-containment" / "SKILL.md"
@@ -2009,7 +2009,7 @@ class TestWineParityArchitecture(unittest.TestCase):
             z_link.symlink_to("/")
 
             env = os.environ.copy()
-            env["WINE_PARITY_CONFIG"] = str(cfg_file)
+            env["SPUMANTE_CONFIG"] = str(cfg_file)
             env["WINEPREFIX"] = str(prefix_dir)
 
             # 2. Verify default zero-trust config initialization via ./scripts/launch.sh --config-status
@@ -2151,7 +2151,7 @@ class TestWineParityArchitecture(unittest.TestCase):
 
             subprocess.run([str(build_sh), "--exe-handler"], cwd=REPO_ROOT, check=True, capture_output=True)
 
-            app_m_file = REPO_ROOT / "builds" / "exe_handler_src" / "wine_parity_app.m"
+            app_m_file = REPO_ROOT / "builds" / "exe_handler_src" / "spumante_app.m"
             if app_m_file.is_file():
                 objc_src = app_m_file.read_text(encoding="utf-8")
                 self.assertIn("virustotalEnableCheck", objc_src)
@@ -2198,7 +2198,7 @@ class TestWineParityArchitecture(unittest.TestCase):
                 capture_output=True,
             )
 
-            # Create a clean +x PE binary and verify WineParity dispatches it under the zero-trust sandbox
+            # Create a clean +x PE binary and verify Spumante dispatches it under the zero-trust sandbox
             pe_buf = bytearray(512)
             pe_buf[0:2] = b"MZ"
             struct.pack_into("<I", pe_buf, 0x3C, 0x40)
@@ -2209,7 +2209,7 @@ class TestWineParityArchitecture(unittest.TestCase):
             sample_exe.chmod(0o755)
 
             env_run = env.copy()
-            env_run["WINE_PARITY_DRY_RUN_JSON"] = "1"
+            env_run["SPUMANTE_DRY_RUN_JSON"] = "1"
             res_run = subprocess.run(
                 [str(app_bin), str(sample_exe), "--test-sandbox"],
                 cwd=REPO_ROOT,
@@ -2366,7 +2366,7 @@ class TestWineParityArchitecture(unittest.TestCase):
         self.assertTrue(doc_winetest["ab_comparison"]["asan_ubsan_passed"])
 
     def test_27_macos_dmg_installer_and_standalone_config_app(self) -> None:
-        """Verify ./scripts/build.sh --dmg creates WineParity-Installer.dmg, standalone WineParityConfig.app, and Install WineParity.command."""
+        """Verify ./scripts/build.sh --dmg creates Spumante-Installer.dmg, standalone SpumanteConfig.app, and Install Spumante.command."""
         import stat
         import tempfile
 
@@ -2392,14 +2392,14 @@ class TestWineParityArchitecture(unittest.TestCase):
         self.assertTrue(dmg_path.is_file(), f"Missing DMG file at {dmg_path}")
         self.assertGreater(dmg_path.stat().st_size, 1024, "DMG file is unexpectedly small")
 
-        # 2. Verify standalone WineParityConfig.app bundle and executable
+        # 2. Verify standalone SpumanteConfig.app bundle and executable
         config_app_bundle = Path(dmg_report["config_app_bundle"])
         config_app_bin = Path(dmg_report["config_app_binary"])
-        self.assertTrue(config_app_bundle.is_dir(), f"Missing WineParityConfig.app at {config_app_bundle}")
-        self.assertTrue(config_app_bin.is_file(), f"Missing WineParityConfig binary at {config_app_bin}")
-        self.assertTrue(os.access(config_app_bin, os.X_OK), "WineParityConfig binary must be executable (+x)")
+        self.assertTrue(config_app_bundle.is_dir(), f"Missing SpumanteConfig.app at {config_app_bundle}")
+        self.assertTrue(config_app_bin.is_file(), f"Missing SpumanteConfig binary at {config_app_bin}")
+        self.assertTrue(os.access(config_app_bin, os.X_OK), "SpumanteConfig binary must be executable (+x)")
 
-        # 3. Verify running WineParityConfig directly (with --dry-run) opens the 4-tab settings interface without needing --config-ui
+        # 3. Verify running SpumanteConfig directly (with --dry-run) opens the 4-tab settings interface without needing --config-ui
         res_cfg_app = subprocess.run(
             [str(config_app_bin), "--dry-run"],
             cwd=REPO_ROOT,
@@ -2410,11 +2410,11 @@ class TestWineParityArchitecture(unittest.TestCase):
         self.assertEqual(
             res_cfg_app.returncode,
             0,
-            f"WineParityConfig --dry-run failed:\n{res_cfg_app.stdout}\n{res_cfg_app.stderr}",
+            f"SpumanteConfig --dry-run failed:\n{res_cfg_app.stdout}\n{res_cfg_app.stderr}",
         )
         cfg_ui_doc = json.loads(res_cfg_app.stdout)
         self.assertEqual(cfg_ui_doc["action"], "config-ui")
-        self.assertEqual(cfg_ui_doc["window_title"], "Wine Parity Settings")
+        self.assertEqual(cfg_ui_doc["window_title"], "Spumante Settings")
         self.assertEqual(
             cfg_ui_doc["sections"],
             [
@@ -2447,19 +2447,19 @@ class TestWineParityArchitecture(unittest.TestCase):
         self.assertEqual(cfg_ui_doc["builtin_apps"]["gui"], expected_gui_apps)
         self.assertEqual(cfg_ui_doc["builtin_apps"]["cli"], expected_cli_apps)
         temp_env_spec = cfg_ui_doc["builtin_apps"]["temporary_launch_env"]
-        self.assertEqual(temp_env_spec["WINE_PARITY_SKIP_SECURITY_GATES"], "1")
-        self.assertEqual(temp_env_spec["WINE_PARITY_REQUIRE_AUTHENTICODE"], "0")
-        self.assertEqual(temp_env_spec["WINE_PARITY_NO_SANDBOX"], "1")
+        self.assertEqual(temp_env_spec["SPUMANTE_SKIP_SECURITY_GATES"], "1")
+        self.assertEqual(temp_env_spec["SPUMANTE_REQUIRE_AUTHENTICODE"], "0")
+        self.assertEqual(temp_env_spec["SPUMANTE_NO_SANDBOX"], "1")
 
-        # 4. Verify DMG staging directory contents (WineParity.app, WineParity Config.app, Windows Apps/, Install WineParity.command, Applications symlink, README.txt)
+        # 4. Verify DMG staging directory contents (Spumante.app, Spumante Config.app, Windows Apps/, Install Spumante.command, Applications symlink, README.txt)
         staging_dir = Path(dmg_report["staging_dir"])
         installer_cmd = Path(dmg_report["installer_script"])
         staged_win_apps_dir = staging_dir / "Windows Apps"
-        self.assertTrue((staging_dir / "WineParity.app").is_dir())
-        self.assertTrue((staging_dir / "WineParity Config.app").is_dir())
+        self.assertTrue((staging_dir / "Spumante.app").is_dir())
+        self.assertTrue((staging_dir / "Spumante Config.app").is_dir())
         self.assertTrue(staged_win_apps_dir.is_dir(), "Missing 'Windows Apps' directory in DMG staging")
         self.assertTrue(installer_cmd.is_file())
-        self.assertTrue(os.access(installer_cmd, os.X_OK), "Install WineParity.command must be executable (+x)")
+        self.assertTrue(os.access(installer_cmd, os.X_OK), "Install Spumante.command must be executable (+x)")
         self.assertTrue((staging_dir / "Applications").is_symlink())
         self.assertTrue((staging_dir / "README.txt").is_file())
 
@@ -2472,7 +2472,7 @@ class TestWineParityArchitecture(unittest.TestCase):
                 self.assertTrue(exe_path.is_file(), f"Missing built-in app {app_name} in {check_dir}")
                 self.assertTrue(os.access(exe_path, os.X_OK), f"Built-in app {exe_path} must have +x permission")
 
-        # 5. Execute Install WineParity.command into an isolated temporary target directory
+        # 5. Execute Install Spumante.command into an isolated temporary target directory
         with tempfile.TemporaryDirectory() as tmp:
             tmp_root = Path(tmp)
             target_apps = tmp_root / "Applications"
@@ -2501,26 +2501,26 @@ class TestWineParityArchitecture(unittest.TestCase):
             self.assertEqual(
                 res_install.returncode,
                 0,
-                f"Install WineParity.command failed:\n{res_install.stdout}\n{res_install.stderr}",
+                f"Install Spumante.command failed:\n{res_install.stdout}\n{res_install.stderr}",
             )
 
             # Verify installed app bundles
-            installed_launcher = target_apps / "WineParity.app" / "Contents" / "MacOS" / "WineParity"
+            installed_launcher = target_apps / "Spumante.app" / "Contents" / "MacOS" / "Spumante"
             installed_config_app = (
-                target_apps / "WineParity Config.app" / "Contents" / "MacOS" / "WineParityConfig"
+                target_apps / "Spumante Config.app" / "Contents" / "MacOS" / "SpumanteConfig"
             )
             self.assertTrue(installed_launcher.is_file() and os.access(installed_launcher, os.X_OK))
             self.assertTrue(installed_config_app.is_file() and os.access(installed_config_app, os.X_OK))
 
-            # Verify CLI wrappers (wine-parity and wine-parity-config)
-            cli_wine_parity = target_bin / "wine-parity"
-            cli_wine_parity_config = target_bin / "wine-parity-config"
-            self.assertTrue(cli_wine_parity.is_file() and os.access(cli_wine_parity, os.X_OK))
-            self.assertTrue(cli_wine_parity_config.is_file() and os.access(cli_wine_parity_config, os.X_OK))
+            # Verify CLI wrappers (spumante and spumante-config)
+            cli_spumante = target_bin / "spumante"
+            cli_spumante_config = target_bin / "spumante-config"
+            self.assertTrue(cli_spumante.is_file() and os.access(cli_spumante, os.X_OK))
+            self.assertTrue(cli_spumante_config.is_file() and os.access(cli_spumante_config, os.X_OK))
 
-            # Verify running wine-parity-config --dry-run invokes the configuration UI
+            # Verify running spumante-config --dry-run invokes the configuration UI
             res_cli_cfg = subprocess.run(
-                [str(cli_wine_parity_config), "--dry-run"],
+                [str(cli_spumante_config), "--dry-run"],
                 cwd=REPO_ROOT,
                 capture_output=True,
                 text=True,
@@ -2536,17 +2536,17 @@ class TestWineParityArchitecture(unittest.TestCase):
             self.assertTrue((target_prefix / "user.reg").is_file())
 
             # Enable require_authenticode=true in target_cfg and verify:
-            # (a) Launching built-in GUI/CLI apps via WineParityConfig --launch-builtin sets up temporary security-bypass env
-            # (b) Running WineParity directly on builds/wine-install-x86/lib/wine/x86_64-windows/notepad.exe or winmine.exe is not blocked
+            # (a) Launching built-in GUI/CLI apps via SpumanteConfig --launch-builtin sets up temporary security-bypass env
+            # (b) Running Spumante directly on builds/wine-install-x86/lib/wine/x86_64-windows/notepad.exe or winmine.exe is not blocked
             cfg_obj = json.loads(target_cfg.read_text(encoding="utf-8"))
             cfg_obj.setdefault("security", {})["require_authenticode"] = True
             target_cfg.write_text(json.dumps(cfg_obj, indent=2), encoding="utf-8")
             target_cfg.chmod(0o600)
 
             strict_env = os.environ.copy()
-            strict_env["WINE_PARITY_CONFIG"] = str(target_cfg)
+            strict_env["SPUMANTE_CONFIG"] = str(target_cfg)
             strict_env["WINEPREFIX"] = str(target_prefix)
-            strict_env["WINE_PARITY_DRY_RUN_JSON"] = "1"
+            strict_env["SPUMANTE_DRY_RUN_JSON"] = "1"
 
             for builtin_test_app in ("notepad.exe", "winmine.exe", "hostname.exe"):
                 res_launch_builtin = subprocess.run(
@@ -2566,9 +2566,9 @@ class TestWineParityArchitecture(unittest.TestCase):
                 self.assertEqual(lb_doc["action"], "launch-builtin-app")
                 self.assertEqual(lb_doc["app_name"], builtin_test_app)
                 self.assertTrue(lb_doc["temporary_security_bypass_env"])
-                self.assertEqual(lb_doc["launch_env"]["WINE_PARITY_SKIP_SECURITY_GATES"], "1")
-                self.assertEqual(lb_doc["launch_env"]["WINE_PARITY_REQUIRE_AUTHENTICODE"], "0")
-                self.assertEqual(lb_doc["launch_env"]["WINE_PARITY_NO_SANDBOX"], "1")
+                self.assertEqual(lb_doc["launch_env"]["SPUMANTE_SKIP_SECURITY_GATES"], "1")
+                self.assertEqual(lb_doc["launch_env"]["SPUMANTE_REQUIRE_AUTHENTICODE"], "0")
+                self.assertEqual(lb_doc["launch_env"]["SPUMANTE_NO_SANDBOX"], "1")
 
             for direct_app in ("notepad.exe", "winmine.exe"):
                 res_direct = subprocess.run(
@@ -2587,7 +2587,7 @@ class TestWineParityArchitecture(unittest.TestCase):
                 direct_doc = json.loads(res_direct.stdout)
                 self.assertTrue(direct_doc["executable_bit_verified"])
 
-            # 5B. Verify 2-layer Rosetta 2 verification & explicit user consent in Install WineParity.command and WineParity.app
+            # 5B. Verify 2-layer Rosetta 2 verification & explicit user consent in Install Spumante.command and Spumante.app
             res_inst_dry = subprocess.run(
                 [str(installer_cmd), "--dry-run"],
                 cwd=REPO_ROOT,
@@ -2629,21 +2629,21 @@ class TestWineParityArchitecture(unittest.TestCase):
             rosetta_probe_exe.write_bytes(bytes(pe_buf))
             rosetta_probe_exe.chmod(0o755)
 
-            # First verify that if the user DISAGREES ("n" at prompt), Rosetta 2 is NOT installed and wine-parity installation is ABORTED
+            # First verify that if the user DISAGREES ("n" at prompt), Rosetta 2 is NOT installed and spumante installation is ABORTED
             declined_apps = tmp_root / "DeclinedApplications"
             declined_bin = tmp_root / "DeclinedBin"
             declined_cfg = tmp_root / "DeclinedConfig" / "config.json"
             declined_prefix = tmp_root / "DeclinedPrefix"
 
             env_rosetta_prompt = os.environ.copy()
-            env_rosetta_prompt["WINE_PARITY_CONFIG"] = str(declined_cfg)
+            env_rosetta_prompt["SPUMANTE_CONFIG"] = str(declined_cfg)
             env_rosetta_prompt["WINEPREFIX"] = str(declined_prefix)
-            env_rosetta_prompt["WINE_PARITY_DRY_RUN_JSON"] = "1"
-            env_rosetta_prompt["WINE_PARITY_REQUIRE_AUTHENTICODE"] = "0"
-            env_rosetta_prompt["WINE_PARITY_SIMULATE_MISSING_ROSETTA"] = "1"
-            env_rosetta_prompt["WINE_PARITY_SOFTWAREUPDATE_BIN"] = str(mock_swupdate_ok)
-            env_rosetta_prompt.pop("WINE_PARITY_NONINTERACTIVE_ROSETTA", None)
-            env_rosetta_prompt.pop("WINE_PARITY_ROSETTA_CONSENT", None)
+            env_rosetta_prompt["SPUMANTE_DRY_RUN_JSON"] = "1"
+            env_rosetta_prompt["SPUMANTE_REQUIRE_AUTHENTICODE"] = "0"
+            env_rosetta_prompt["SPUMANTE_SIMULATE_MISSING_ROSETTA"] = "1"
+            env_rosetta_prompt["SPUMANTE_SOFTWAREUPDATE_BIN"] = str(mock_swupdate_ok)
+            env_rosetta_prompt.pop("SPUMANTE_NONINTERACTIVE_ROSETTA", None)
+            env_rosetta_prompt.pop("SPUMANTE_ROSETTA_CONSENT", None)
 
             res_inst_decline = subprocess.run(
                 [
@@ -2671,31 +2671,31 @@ class TestWineParityArchitecture(unittest.TestCase):
                 f"Installer must abort with exit code 86 when user declines Rosetta 2:\n{res_inst_decline.stdout}\n{res_inst_decline.stderr}",
             )
             self.assertIn("declined by user", res_inst_decline.stderr)
-            self.assertIn("Aborting wine-parity installation", res_inst_decline.stderr)
+            self.assertIn("Aborting spumante installation", res_inst_decline.stderr)
             self.assertFalse(
                 rosetta_log.is_file(),
                 "softwareupdate must NOT be invoked when user declines Rosetta 2 installation",
             )
             self.assertFalse(
-                (declined_apps / "WineParity.app").exists(),
-                "WineParity.app must NOT be installed when user declines Rosetta 2",
+                (declined_apps / "Spumante.app").exists(),
+                "Spumante.app must NOT be installed when user declines Rosetta 2",
             )
             self.assertFalse(
-                (declined_apps / "WineParity Config.app").exists(),
-                "WineParity Config.app must NOT be installed when user declines Rosetta 2",
+                (declined_apps / "Spumante Config.app").exists(),
+                "Spumante Config.app must NOT be installed when user declines Rosetta 2",
             )
             self.assertFalse(
-                (declined_bin / "wine-parity").exists(),
-                "wine-parity CLI wrapper must NOT be installed when user declines Rosetta 2",
+                (declined_bin / "spumante").exists(),
+                "spumante CLI wrapper must NOT be installed when user declines Rosetta 2",
             )
             self.assertFalse(
                 declined_cfg.exists(),
                 "config.json must NOT be created when user declines Rosetta 2",
             )
 
-            # Also verify WineParity.app aborts without running softwareupdate when user declines (WINE_PARITY_ROSETTA_CONSENT=no)
+            # Also verify Spumante.app aborts without running softwareupdate when user declines (SPUMANTE_ROSETTA_CONSENT=no)
             env_app_decline = env_rosetta_prompt.copy()
-            env_app_decline["WINE_PARITY_ROSETTA_CONSENT"] = "no"
+            env_app_decline["SPUMANTE_ROSETTA_CONSENT"] = "no"
             res_app_decline = subprocess.run(
                 [str(installed_launcher), str(rosetta_probe_exe)],
                 cwd=REPO_ROOT,
@@ -2708,12 +2708,12 @@ class TestWineParityArchitecture(unittest.TestCase):
             self.assertIn("declined by user", res_app_decline.stderr)
             self.assertFalse(
                 rosetta_log.is_file(),
-                "WineParity.app must NOT invoke softwareupdate when user declines Rosetta 2",
+                "Spumante.app must NOT invoke softwareupdate when user declines Rosetta 2",
             )
 
-            # Now verify that when the user AGREES ("y" at prompt), Rosetta 2 is installed and wine-parity installation succeeds
+            # Now verify that when the user AGREES ("y" at prompt), Rosetta 2 is installed and spumante installation succeeds
             env_rosetta_ok = env_rosetta_prompt.copy()
-            env_rosetta_ok["WINE_PARITY_CONFIG"] = str(target_cfg)
+            env_rosetta_ok["SPUMANTE_CONFIG"] = str(target_cfg)
             env_rosetta_ok["WINEPREFIX"] = str(target_prefix)
 
             res_inst_rosetta = subprocess.run(
@@ -2744,7 +2744,7 @@ class TestWineParityArchitecture(unittest.TestCase):
             self.assertTrue(rosetta_log.is_file(), "Installer must invoke softwareupdate after user agrees")
             self.assertIn("--install-rosetta --agree-to-license", rosetta_log.read_text(encoding="utf-8"))
 
-            env_rosetta_ok["WINE_PARITY_ROSETTA_CONSENT"] = "yes"
+            env_rosetta_ok["SPUMANTE_ROSETTA_CONSENT"] = "yes"
             res_app_rosetta_ok = subprocess.run(
                 [str(installed_launcher), str(rosetta_probe_exe)],
                 cwd=REPO_ROOT,
@@ -2758,7 +2758,7 @@ class TestWineParityArchitecture(unittest.TestCase):
 
             # Verify installer exits 86 (EBADARCH) when Rosetta 2 is missing and softwareupdate fails
             env_rosetta_fail = env_rosetta_ok.copy()
-            env_rosetta_fail["WINE_PARITY_SOFTWAREUPDATE_BIN"] = str(mock_swupdate_fail)
+            env_rosetta_fail["SPUMANTE_SOFTWAREUPDATE_BIN"] = str(mock_swupdate_fail)
             res_inst_rosetta_fail = subprocess.run(
                 [
                     str(installer_cmd),
@@ -2781,7 +2781,7 @@ class TestWineParityArchitecture(unittest.TestCase):
             self.assertEqual(res_inst_rosetta_fail.returncode, 86)
             self.assertIn("Rosetta 2", res_inst_rosetta_fail.stderr)
 
-            # Verify WineParity.app runtime guard exits 86 when Rosetta 2 is missing and installation fails
+            # Verify Spumante.app runtime guard exits 86 when Rosetta 2 is missing and installation fails
             res_app_rosetta_fail = subprocess.run(
                 [str(installed_launcher), str(rosetta_probe_exe)],
                 cwd=REPO_ROOT,
@@ -2800,9 +2800,9 @@ class TestWineParityArchitecture(unittest.TestCase):
                 "--dmg",
                 "-nz",
                 "--codesign-identity",
-                "Developer ID Application: WineParity Test (TEAM123456)",
+                "Developer ID Application: Spumante Test (TEAM123456)",
                 "--notary-profile",
-                "wine-parity-notary-test",
+                "spumante-notary-test",
                 "--dry-run",
             ],
             cwd=REPO_ROOT,
@@ -2823,9 +2823,9 @@ class TestWineParityArchitecture(unittest.TestCase):
         self.assertTrue(nz_info["hardened_runtime"])
         self.assertEqual(
             nz_info["codesign_identity"],
-            "Developer ID Application: WineParity Test (TEAM123456)",
+            "Developer ID Application: Spumante Test (TEAM123456)",
         )
-        self.assertEqual(nz_info["notary_profile"], "wine-parity-notary-test")
+        self.assertEqual(nz_info["notary_profile"], "spumante-notary-test")
         self.assertIn("notarytool", " ".join(nz_info["notarytool_command"]))
         self.assertIn("stapler", " ".join(nz_info["stapler_command"]))
 

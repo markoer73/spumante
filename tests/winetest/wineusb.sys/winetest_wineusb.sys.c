@@ -2,7 +2,7 @@
  * Upstream Wine Winetest Anti-Regression Suite for wineusb.sys
  * (Wine USB Bus Driver, macOS IOKit Backend, SetupDi Service Installation)
  *
- * Copyright 2026 Wine Parity Contributors
+ * Copyright 2026 Spumante Contributors
  * SPDX-License-Identifier: LGPL-2.1-or-later
  */
 

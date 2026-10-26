@@ -1,12 +1,12 @@
 /*
- * Wine Parity Dual-Mode Conformance Test Header
+ * Spumante Dual-Mode Conformance Test Header
  *
- * Copyright 2026 Wine Parity Contributors
+ * Copyright 2026 Spumante Contributors
  * SPDX-License-Identifier: LGPL-2.1-or-later
  */
 
-#ifndef _WINE_PARITY_TEST_H
-#define _WINE_PARITY_TEST_H
+#ifndef _SPUMANTE_PARITY_TEST_H
+#define _SPUMANTE_PARITY_TEST_H
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -557,4 +557,4 @@ static inline void parity_record_roundtrip_impl(
     (parity_set_record_location(__FILE__, __LINE__), \
      parity_record_roundtrip_impl((id), (case_name), (api_name), (status), (last_error), (out_length), (buf), (buf_len), (roundtrip_ok)))
 
-#endif /* _WINE_PARITY_TEST_H */
+#endif /* _SPUMANTE_PARITY_TEST_H */

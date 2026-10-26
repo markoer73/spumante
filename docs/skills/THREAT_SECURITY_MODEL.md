@@ -1,6 +1,6 @@
 # Threat & Security Model
 
-This document outlines the security architecture, threat model, and isolation invariants for the `wine-parity` project.
+This document outlines the security architecture, threat model, and isolation invariants for the `spumante` project.
 
 ---
 

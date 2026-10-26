@@ -1,14 +1,14 @@
-# Wine Parity for macOS (`wine-parity`)
+# Spumante for macOS (`spumante`)
 
 Run Windows `.exe` and `.msi` applications directly on macOS (Apple Silicon & Intel) with native Metal graphics, Retina High-DPI, a native macOS Settings app, and built-in zero-trust security & sandboxing.
 
 ---
 
-## 1. Install Wine Parity
+## 1. Install Spumante
 
 > **Warning — Rosetta 2 Is Required on Apple Silicon Macs:**
 > Running 32-bit and 64-bit Intel (`x86` / `x86_64`) Windows applications on Apple Silicon (`M1` / `M2` / `M3` / `M4`) requires **Apple Rosetta 2**.
-> - If Rosetta 2 is not yet installed on your Mac, **`Install WineParity.command`** and **`WineParity.app`** will prompt for your consent to install it automatically (`softwareupdate --install-rosetta`), and will abort installation if declined.
+> - If Rosetta 2 is not yet installed on your Mac, **`Install Spumante.command`** and **`Spumante.app`** will prompt for your consent to install it automatically (`softwareupdate --install-rosetta`), and will abort installation if declined.
 > - You can also install Rosetta 2 manually at any time in Terminal:
 >   ```sh
 >   softwareupdate --install-rosetta --agree-to-license
@@ -16,21 +16,21 @@ Run Windows `.exe` and `.msi` applications directly on macOS (Apple Silicon & In
 
 ### Option A: Install from the `.dmg` Package (Fastest)
 
-1. Open **`WineParity-Installer.dmg`** (located in `builds/WineParity-Installer.dmg` if built locally).
-2. Double-click **`Install WineParity.command`**.
-   - Installs **`WineParity.app`** and **`WineParity Config.app`** into `/Applications`.
-   - Installs the `wine-parity` and `wine-parity-config` terminal commands.
+1. Open **`Spumante-Installer.dmg`** (located in `builds/Spumante-Installer.dmg` if built locally).
+2. Double-click **`Install Spumante.command`**.
+   - Installs **`Spumante.app`** and **`Spumante Config.app`** into `/Applications`.
+   - Installs the `spumante` and `spumante-config` terminal commands.
    - Registers `.exe` and `.msi` files so you can double-click them in Finder.
-   - Opens **`WineParity Config.app`** so you are ready to go.
+   - Opens **`Spumante Config.app`** so you are ready to go.
 
-*(Alternatively, drag `WineParity.app` and `WineParity Config.app` into the `Applications` folder inside the DMG.)*
+*(Alternatively, drag `Spumante.app` and `Spumante Config.app` into the `Applications` folder inside the DMG.)*
 
 ### Option B: Build from Scratch (2 Commands)
 
 If you cloned this repository and want to build the entire runtime and `.dmg` installer from source:
 
 ```sh
-# 1. Build Wine Parity for 32-bit & 64-bit Windows apps (Intel & Apple Silicon via Rosetta 2)
+# 1. Build Spumante for 32-bit & 64-bit Windows apps (Intel & Apple Silicon via Rosetta 2)
 ./scripts/build.sh --full-x86
 
 # 2. Package the macOS DMG installer (add -nz to code-sign & notarize with Apple)
@@ -41,9 +41,9 @@ If you cloned this repository and want to build the entire runtime and `.dmg` in
 
 ---
 
-## 2. Configure Wine Parity (`WineParity Config.app`)
+## 2. Configure Spumante (`Spumante Config.app`)
 
-Open **`WineParity Config.app`** from `/Applications` (or run `wine-parity-config` in Terminal):
+Open **`Spumante Config.app`** from `/Applications` (or run `spumante-config` in Terminal):
 
 - **General**: Choose the reported Windows version (`Windows 11`, `Windows 10`, etc.), CPU architecture (`Auto-Detect`, `ARM64`, `x86_64`), or open classic `winecfg`.
 - **Security**: Toggle macOS Quarantine checks, Authenticode signature verification, and optional **VirusTotal v3** cloud hash scanning.
@@ -56,9 +56,9 @@ Open **`WineParity Config.app`** from `/Applications` (or run `wine-parity-confi
 ## 3. Run Any Windows `.exe` or `.msi` Program
 
 > **Security Notice — Why `chmod +x` Is Required for Downloaded `.exe` and `.msi` Files:**
-> By default, macOS does not consider Windows `.exe` and `.msi` files to be native executable applications and saves downloaded files without the POSIX executable flag (`+x`). As a deliberate security measure—preventing untrusted or accidentally clicked Windows binaries from running without your explicit authorization—Wine Parity requires the executable bit (`chmod +x`) and no macOS download quarantine attribute before launching external `.exe` or `.msi` files.
+> By default, macOS does not consider Windows `.exe` and `.msi` files to be native executable applications and saves downloaded files without the POSIX executable flag (`+x`). As a deliberate security measure—preventing untrusted or accidentally clicked Windows binaries from running without your explicit authorization—Spumante requires the executable bit (`chmod +x`) and no macOS download quarantine attribute before launching external `.exe` or `.msi` files.
 >
-> **Automatic Post-Installer Sync (`drive_c`):** Whenever a Windows installer (such as the 7-Zip installer) finishes running under Wine Parity, Wine Parity **automatically sets `chmod +x`** on all newly installed `.exe` and `.msi` programs inside `$WINEPREFIX/drive_c/` (`~/.wine/drive_c/`). You can also trigger this at any time by clicking **"Sync Installed drive_c Apps (+x)"** in the **General** tab of **`WineParity Config.app`** or running `wine-parity --sync-drive-c` (`./scripts/launch.sh --sync-drive-c`).
+> **Automatic Post-Installer Sync (`drive_c`):** Whenever a Windows installer (such as the 7-Zip installer) finishes running under Spumante, Spumante **automatically sets `chmod +x`** on all newly installed `.exe` and `.msi` programs inside `$WINEPREFIX/drive_c/` (`~/.wine/drive_c/`). You can also trigger this at any time by clicking **"Sync Installed drive_c Apps (+x)"** in the **General** tab of **`Spumante Config.app`** or running `spumante --sync-drive-c` (`./scripts/launch.sh --sync-drive-c`).
 
 ```sh
 # 1. Authorize a downloaded .exe or .msi file to run
@@ -72,7 +72,7 @@ open /path/to/program.exe
 You can also run programs directly from Terminal:
 
 ```sh
-wine-parity /path/to/program.exe
+spumante /path/to/program.exe
 ```
 
 ---
@@ -81,9 +81,9 @@ wine-parity /path/to/program.exe
 
 ### A. Built-in Windows Apps (No Download Needed)
 
-Wine Parity bundles 14 ready-to-run Windows GUI and CLI apps in the DMG (`Windows Apps/` folder) and inside **`WineParity Config.app`**:
+Spumante bundles 14 ready-to-run Windows GUI and CLI apps in the DMG (`Windows Apps/` folder) and inside **`Spumante Config.app`**:
 
-1. Open **`WineParity Config.app`** and select the **`Built-in Apps`** tab.
+1. Open **`Spumante Config.app`** and select the **`Built-in Apps`** tab.
 2. Click **Launch** next to any GUI app:
    - **Notepad** (`notepad.exe`)
    - **Minesweeper** (`winmine.exe`)
@@ -104,7 +104,7 @@ chmod +x /tmp/7z-x64.exe
 open /tmp/7z-x64.exe
 ```
 
-Once the installer finishes, Wine Parity automatically marks `7zFM.exe` in `drive_c` as executable—launch the 7-Zip GUI directly:
+Once the installer finishes, Spumante automatically marks `7zFM.exe` in `drive_c` as executable—launch the 7-Zip GUI directly:
 
 ```sh
 open "$HOME/.wine/drive_c/Program Files/7-Zip/7zFM.exe"

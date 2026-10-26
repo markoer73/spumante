@@ -4,7 +4,7 @@
  * Clean-room implementation derived from Microsoft Learn specifications
  * and upstream Wine dlls/qcap/qcap_main.c.
  *
- * Copyright 2026 Wine Parity Contributors
+ * Copyright 2026 Spumante Contributors
  * SPDX-License-Identifier: LGPL-2.1-or-later
  */
 
@@ -106,7 +106,7 @@ static struct class_factory vfw_capture_cf  = {{&class_factory_vtbl}, vfw_captur
 
 HRESULT WINAPI DllGetClassObject(REFCLSID rclsid, REFIID riid, void **ppv)
 {
-    const char *sim_stub = getenv("WINE_PARITY_SIMULATE_STUB");
+    const char *sim_stub = getenv("SPUMANTE_SIMULATE_STUB");
     TRACE("(%p, %p, %p)\n", rclsid, riid, ppv);
 
     if (!ppv) {

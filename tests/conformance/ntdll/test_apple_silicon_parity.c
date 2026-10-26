@@ -10,7 +10,7 @@
  *   7. Cross-process emulator work-list lock-free FIFO queue & heavy flush signaling
  *   8. Rosetta 2 / WoW64 LDT selector table (RtlWow64GetThreadSelectorEntry, NtSetLdtEntries) & %gs: fixup
  *
- * Copyright 2026 Wine Parity Contributors
+ * Copyright 2026 Spumante Contributors
  * SPDX-License-Identifier: LGPL-2.1-or-later
  */
 

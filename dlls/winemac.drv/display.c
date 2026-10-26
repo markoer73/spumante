@@ -12,7 +12,7 @@
  *   - Apple Developer Documentation: CoreGraphics Display Services (CGDirectDisplay)
  *   - Microsoft Learn: ChangeDisplaySettingsExW, EnumDisplaySettingsExW, EnumDisplayDevicesW
  *
- * Copyright 2026 Wine Parity Contributors
+ * Copyright 2026 Spumante Contributors
  * SPDX-License-Identifier: LGPL-2.1-or-later
  */
 
@@ -77,7 +77,7 @@ static BOOL g_allow_set_gamma = TRUE;
 
 static bool is_full_stub_mode_enabled(void)
 {
-    const char *env = getenv("WINE_PARITY_SIMULATE_STUB");
+    const char *env = getenv("SPUMANTE_SIMULATE_STUB");
     return (env && strcmp(env, "1") == 0);
 }
 

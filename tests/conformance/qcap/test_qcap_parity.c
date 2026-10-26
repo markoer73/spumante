@@ -1,11 +1,11 @@
 /*
- * Wine Parity Differential Conformance Test: qcap.dll
+ * Spumante Differential Conformance Test: qcap.dll
  * (macOS AVFoundation Video Capture, DirectShow CLSID_AudioRecord, and mfreadwrite Bridge)
  *
  * Clean-room test derived from Microsoft Learn specifications and upstream
  * Wine dlls/qcap/tests/audiorecord.c & dlls/qcap/tests/videocapture.c.
  *
- * Copyright 2026 Wine Parity Contributors
+ * Copyright 2026 Spumante Contributors
  * SPDX-License-Identifier: LGPL-2.1-or-later
  */
 

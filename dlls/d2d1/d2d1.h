@@ -2,7 +2,7 @@
  * Direct2D (d2d1.dll) & vkd3d-shader Metal Shading Language (MSL) Public Definitions
  *
  * Clean-Room Spec: specs/d2d1/
- * Copyright (C) 2026 Wine Parity Project
+ * Copyright (C) 2026 Spumante Project
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public

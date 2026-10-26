@@ -1,7 +1,7 @@
 /*
  * Wine Bluetooth Bus Driver & WDM Definitions (macOS IOBluetooth Parity)
  *
- * Copyright 2026 Wine Parity Contributors
+ * Copyright 2026 Spumante Contributors
  * SPDX-License-Identifier: LGPL-2.1-or-later
  */
 

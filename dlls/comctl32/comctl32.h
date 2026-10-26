@@ -2,7 +2,7 @@
  * Comctl32 SysLink Control & Font Fallback Header
  *
  * Copyright 2004-2006 Thomas Weidenmueller <w3seek@reactos.com>
- * Copyright 2026 Wine Parity Contributors
+ * Copyright 2026 Spumante Contributors
  * SPDX-License-Identifier: LGPL-2.1-or-later
  */
 

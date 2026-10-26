@@ -2,7 +2,7 @@
  * Differential Conformance Test: Direct2D Primitives & vkd3d-shader MSL Generator
  *
  * Clean-Room Spec: specs/d2d1/
- * Copyright (C) 2026 Wine Parity Project
+ * Copyright (C) 2026 Spumante Project
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -23,7 +23,7 @@ static int float_near(float a, float b, float eps)
 
 int main(void)
 {
-    parity_begin_document("d2d1", "test_d2d1_msl_parity", "x86_64", "wine-parity");
+    parity_begin_document("d2d1", "test_d2d1_msl_parity", "x86_64", "spumante");
 
     /* 1. D2D1CreateFactory_InvalidType */
     {

@@ -5,7 +5,7 @@
  * Clean-room declaration derived from Microsoft Learn public specifications
  * and upstream Wine dlls/qcap/qcap_private.h & include/strmif.idl.
  *
- * Copyright 2026 Wine Parity Contributors
+ * Copyright 2026 Spumante Contributors
  * SPDX-License-Identifier: LGPL-2.1-or-later
  */
 

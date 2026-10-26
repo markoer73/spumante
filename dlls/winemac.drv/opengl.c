@@ -10,7 +10,7 @@
  *   - Apple Developer Documentation: CGLTexImageIOSurface2D, IOSurface.framework
  *   - Microsoft Learn: ChoosePixelFormat, SetPixelFormat, SwapBuffers, wglMakeCurrent
  *
- * Copyright 2026 Wine Parity Contributors
+ * Copyright 2026 Spumante Contributors
  * SPDX-License-Identifier: LGPL-2.1-or-later
  */
 
@@ -56,7 +56,7 @@ static uint32_t g_next_gl_iosurface_id = 7000;
 
 static bool is_opengl_stub_simulation_enabled(void)
 {
-    const char *env = getenv("WINE_PARITY_SIMULATE_STUB");
+    const char *env = getenv("SPUMANTE_SIMULATE_STUB");
     const char *base = getenv("WINETEST_BASELINE_MODE");
     if (env && strcmp(env, "1") == 0) {
         return true;

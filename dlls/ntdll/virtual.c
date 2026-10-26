@@ -2,7 +2,7 @@
  * Wine NTDLL Virtual Memory Management
  * (Apple Silicon 16 KB Host Page vs. 4 KB Windows PE Page, Rosetta 2 Fault Parity & MAP_JIT W^X)
  *
- * Copyright 2026 Wine Parity Contributors
+ * Copyright 2026 Spumante Contributors
  * SPDX-License-Identifier: LGPL-2.1-or-later
  */
 
@@ -67,7 +67,7 @@ static int g_thread_exec_write_set = 0;
 
 static int is_stub_simulation_enabled(void)
 {
-    const char *env = getenv("WINE_PARITY_SIMULATE_STUB");
+    const char *env = getenv("SPUMANTE_SIMULATE_STUB");
     return (env != NULL && strcmp(env, "1") == 0);
 }
 

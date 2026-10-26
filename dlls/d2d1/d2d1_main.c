@@ -3,7 +3,7 @@
  * (True Cubic Beziers, Elliptical Arcs, Layer Stack, Supersampled Anti-Aliasing, Gradient Brushes)
  *
  * Clean-Room Spec: specs/d2d1/
- * Copyright (C) 2026 Wine Parity Project
+ * Copyright (C) 2026 Spumante Project
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -24,7 +24,7 @@ WINE_DEFAULT_DEBUG_CHANNEL(d2d1);
 
 static int d2d1_simulate_stub(void)
 {
-    const char *env = getenv("WINE_PARITY_SIMULATE_STUB");
+    const char *env = getenv("SPUMANTE_SIMULATE_STUB");
     return (env && strcmp(env, "1") == 0);
 }
 

@@ -17,7 +17,7 @@
  *     with Darwin Mach VM (vm_remap) backing, 64KB standard vs 4KB MEM_REPLACE_PLACEHOLDER
  *     alignment validation (ERROR_MAPPED_ALIGNMENT 1132), and atomic placeholder restoration.
  *
- * Copyright 2026 Wine Parity Contributors
+ * Copyright 2026 Spumante Contributors
  * SPDX-License-Identifier: LGPL-2.1-or-later
  */
 
@@ -153,7 +153,7 @@ static KB_VM_REGION        g_vm_regions[KB_MAX_VM_REGIONS];
 
 static int kb_util_is_stub_simulated(void)
 {
-    const char *sim = getenv("WINE_PARITY_SIMULATE_STUB");
+    const char *sim = getenv("SPUMANTE_SIMULATE_STUB");
     return (sim != NULL && sim[0] == '1');
 }
 

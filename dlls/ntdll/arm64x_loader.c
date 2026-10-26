@@ -7,7 +7,7 @@
  *   - Upstream Wine dlls/ntdll/unix/virtual.c (apply_arm64x_relocations)
  *   - WineConf 2025 ARM64EC / WoW64 roadmap notes
  *
- * Copyright 2026 Wine Parity Contributors
+ * Copyright 2026 Spumante Contributors
  * SPDX-License-Identifier: LGPL-2.1-or-later
  */
 
@@ -69,12 +69,12 @@ static NTDLL_TSC_SCALE_STATE g_tsc_scale_state = {
 };
 
 static LONGLONG g_last_qpc_value = 100000LL;
-static char g_jit_cache_dir[512] = "/tmp/wine_parity_ntdll_jit_cache";
+static char g_jit_cache_dir[512] = "/tmp/spumante_ntdll_jit_cache";
 static NTDLL_JIT_CACHE_STATS g_jit_cache_stats = { 0, 0, 0, 0, 0, 0, 0 };
 
 static int is_stub_simulation_enabled(void)
 {
-    const char *env = getenv("WINE_PARITY_SIMULATE_STUB");
+    const char *env = getenv("SPUMANTE_SIMULATE_STUB");
     return (env != NULL && strcmp(env, "1") == 0);
 }
 

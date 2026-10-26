@@ -5,7 +5,7 @@
 STRICT READ-ONLY UPSTREAM INVARIANT:
 The original Wine repository (winehq.org) is strictly READ-ONLY. Pushing to upstream Wine
 is permanently disabled via `git remote set-url --push origin DISABLE_PUSH_READ_ONLY_UPSTREAM`.
-All development, commits, and CI run exclusively in the user's own `wine-parity` GitHub repository.
+All development, commits, and CI run exclusively in the user's own `Spumante` GitHub repository.
 """
 
 from __future__ import annotations
@@ -406,7 +406,7 @@ def ensure_macos_freetype(
 
 
 def build_full_wine_plan(target: str, dry_run: bool = False) -> dict[str, Any]:
-    """Construct the build plan for a full upstream Wine + wine-parity installation."""
+    """Construct the build plan for a full upstream Wine + Spumante installation."""
     manifest = load_manifest()
     cache_dir = manifest.get("local_sparse_cache", ".wine-upstream")
     remote = manifest["upstream_remote"]
@@ -471,7 +471,7 @@ def build_full_wine_plan(target: str, dry_run: bool = False) -> dict[str, Any]:
         "parity_dlls": borrowed_dlls,
         "build_dir": str(build_dir),
         "install_dir": str(install_dir),
-        "launcher_path": str(install_dir / "bin" / "wine-parity"),
+        "launcher_path": str(install_dir / "bin" / "spumante"),
         "upstream_prepare_commands": upstream_prepare_commands,
         "configure_command": configure_cmd,
         "make_command": make_cmd,
@@ -480,8 +480,8 @@ def build_full_wine_plan(target: str, dry_run: bool = False) -> dict[str, Any]:
     }
 
 
-def write_wine_parity_launcher(plan: dict[str, Any]) -> Path:
-    """Create the executable wine-parity launcher in builds/wine-install-<target>/bin/."""
+def write_spumante_launcher(plan: dict[str, Any]) -> Path:
+    """Create the executable spumante launcher in builds/wine-install-<target>/bin/."""
     install_dir = Path(plan["install_dir"])
     bin_dir = install_dir / "bin"
     bin_dir.mkdir(parents=True, exist_ok=True)
@@ -491,10 +491,10 @@ def write_wine_parity_launcher(plan: dict[str, Any]) -> Path:
     dll_overrides = "mscoree,mshtml=;" + ",".join(dlls) + "=b"
     is_x86 = plan["target_mode"] == "full-x86"
 
-    launcher = bin_dir / "wine-parity"
+    launcher = bin_dir / "spumante"
     script = f"""#!/usr/bin/env bash
 # SPDX-License-Identifier: LGPL-2.1-or-later
-# Auto-generated wine-parity launcher ({plan["target_mode"]}, arch={arch})
+# Auto-generated spumante launcher ({plan["target_mode"]}, arch={arch})
 set -euo pipefail
 
 # Mandatory +x executable permission check and 3-gate PE security scan for any .exe/.msi/.com/.scr target file
@@ -503,10 +503,10 @@ for _wp_arg in "$@"; do
         *.[eE][xX][eE]|*.[mM][sS][iI]|*.[cC][oO][mM]|*.[sS][cC][rR])
             if [ -e "$_wp_arg" ]; then
                 if [ ! -f "$_wp_arg" ] || [ ! -x "$_wp_arg" ]; then
-                    echo "[wine-parity] ERROR: Refusing to launch '$_wp_arg': missing executable permission (+x). Run 'chmod +x \"$_wp_arg\"' first." >&2
+                    echo "[spumante] ERROR: Refusing to launch '$_wp_arg': missing executable permission (+x). Run 'chmod +x \"$_wp_arg\"' first." >&2
                     exit 126
                 fi
-                if [ "${{WINE_PARITY_SKIP_SECURITY_GATES:-0}}" != "1" ]; then
+                if [ "${{SPUMANTE_SKIP_SECURITY_GATES:-0}}" != "1" ]; then
                     python3 "{REPO_ROOT / "scripts" / "lib" / "exe_handler.py"}" --action scan --exe "$_wp_arg" --quiet-stdout || exit 126
                 fi
             fi
@@ -530,14 +530,14 @@ run_wine_bin() {{
     local bin="$1"
     shift
     if [ "{1 if is_x86 else 0}" = "1" ] && [ "$(uname -s)" = "Darwin" ] && ( [ "$(uname -m)" = "arm64" ] || [ "$(sysctl -n hw.optional.arm64 2>/dev/null || echo 0)" = "1" ] ); then
-        if [ "${{WINE_PARITY_SIMULATE_MISSING_ROSETTA:-0}}" = "1" ] || [ ! -f "/Library/Apple/usr/libexec/oah/libRosettaRuntime" ] || ! arch -x86_64 /usr/bin/true >/dev/null 2>&1; then
-            local _wp_consent="${{WINE_PARITY_ROSETTA_CONSENT:-}}"
-            if [ -z "$_wp_consent" ] && [ "${{WINE_PARITY_NONINTERACTIVE_ROSETTA:-0}}" = "1" ]; then
+        if [ "${{SPUMANTE_SIMULATE_MISSING_ROSETTA:-0}}" = "1" ] || [ ! -f "/Library/Apple/usr/libexec/oah/libRosettaRuntime" ] || ! arch -x86_64 /usr/bin/true >/dev/null 2>&1; then
+            local _wp_consent="${{SPUMANTE_ROSETTA_CONSENT:-}}"
+            if [ -z "$_wp_consent" ] && [ "${{SPUMANTE_NONINTERACTIVE_ROSETTA:-0}}" = "1" ]; then
                 _wp_consent="yes"
             fi
-            echo "[wine-parity] Apple Silicon detected without Rosetta 2." >&2
+            echo "[spumante] Apple Silicon detected without Rosetta 2." >&2
             if [ -z "$_wp_consent" ]; then
-                if ! read -r -p "[wine-parity] Do you agree to install Rosetta 2 now? [y/N]: " _wp_consent; then
+                if ! read -r -p "[spumante] Do you agree to install Rosetta 2 now? [y/N]: " _wp_consent; then
                     _wp_consent="no"
                 fi
             fi
@@ -545,13 +545,13 @@ run_wine_bin() {{
                 [yY]|[yY][eE][sS]|1|[tT][rR][uU][eE]|[aA][gG][rR][eE][eE])
                     ;;
                 *)
-                    echo "[wine-parity] ERROR: Rosetta 2 installation declined by user. Aborting wine-parity execution." >&2
+                    echo "[spumante] ERROR: Rosetta 2 installation declined by user. Aborting spumante execution." >&2
                     exit 86
                     ;;
             esac
-            echo "[wine-parity] Installing Rosetta 2..." >&2
-            if ! "${{WINE_PARITY_SOFTWAREUPDATE_BIN:-/usr/sbin/softwareupdate}}" --install-rosetta --agree-to-license; then
-                echo "[wine-parity] ERROR: Rosetta 2 is required on Apple Silicon to run x86/x86_64 Windows applications. Run '/usr/sbin/softwareupdate --install-rosetta --agree-to-license' first." >&2
+            echo "[spumante] Installing Rosetta 2..." >&2
+            if ! "${{SPUMANTE_SOFTWAREUPDATE_BIN:-/usr/sbin/softwareupdate}}" --install-rosetta --agree-to-license; then
+                echo "[spumante] ERROR: Rosetta 2 is required on Apple Silicon to run x86/x86_64 Windows applications. Run '/usr/sbin/softwareupdate --install-rosetta --agree-to-license' first." >&2
                 exit 86
             fi
         fi
@@ -585,8 +585,8 @@ elif command -v wine64 >/dev/null 2>&1; then
 elif command -v wine >/dev/null 2>&1; then
     run_wine_bin "$(command -v wine)" "$@"
 else
-    echo "[wine-parity] Pre-configured WINEDLLPATH=$WINEDLLPATH WINEDLLOVERRIDES=$WINEDLLOVERRIDES" >&2
-    echo "[wine-parity] Run './scripts/build.sh --{plan["target_mode"]}' with Homebrew dependencies installed to complete monolithic wine64 binary compilation." >&2
+    echo "[spumante] Pre-configured WINEDLLPATH=$WINEDLLPATH WINEDLLOVERRIDES=$WINEDLLOVERRIDES" >&2
+    echo "[spumante] Run './scripts/build.sh --{plan["target_mode"]}' with Homebrew dependencies installed to complete monolithic wine64 binary compilation." >&2
     exit 1
 fi
 """
@@ -634,7 +634,7 @@ def write_monolithic_build_stamp(
 ) -> Path:
     """Persist the build stamp so subsequent builds skip redundant configure/make steps."""
     build_dir.mkdir(parents=True, exist_ok=True)
-    stamp_path = build_dir / ".wine-parity-stamp.json"
+    stamp_path = build_dir / ".spumante-stamp.json"
     stamp_data = {
         "target_mode": target_mode,
         "enable_archs": enable_archs,
@@ -647,7 +647,7 @@ def write_monolithic_build_stamp(
 
 def load_monolithic_build_stamp(build_dir: Path) -> dict[str, Any] | None:
     """Load the previous monolithic build stamp if present."""
-    stamp_path = build_dir / ".wine-parity-stamp.json"
+    stamp_path = build_dir / ".spumante-stamp.json"
     if not stamp_path.is_file():
         return None
     try:
@@ -684,18 +684,18 @@ def execute_full_wine_build(
     install_dir_override: Path | None = None,
     upstream_head_override: str | None = None,
 ) -> dict[str, Any]:
-    """Execute or preview a complete upstream Wine + wine-parity build with incremental caching."""
+    """Execute or preview a complete upstream Wine + Spumante build with incremental caching."""
     plan = build_full_wine_plan(target=target, dry_run=dry_run)
     if build_dir_override is not None:
         plan["build_dir"] = str(build_dir_override)
     if install_dir_override is not None:
         plan["install_dir"] = str(install_dir_override)
-        plan["launcher_path"] = str(install_dir_override / "bin" / "wine-parity")
+        plan["launcher_path"] = str(install_dir_override / "bin" / "spumante")
 
     if dry_run:
         return plan
 
-    launcher = write_wine_parity_launcher(plan)
+    launcher = write_spumante_launcher(plan)
     plan["launcher_created"] = str(launcher)
 
     if skip_monolithic_compile:
@@ -798,7 +798,7 @@ def execute_full_wine_build(
         env["PATH"] = ":".join(extra_bins) + f":{env.get('PATH', '')}"
 
     # Ensure .wine-upstream/dlls stays clean so tools/makedep uses upstream Makefile.in headers;
-    # wine-parity DLL overrides are loaded via WINEDLLPATH/WINEDLLOVERRIDES in bin/wine-parity.
+    # Spumante DLL overrides are loaded via WINEDLLPATH/WINEDLLOVERRIDES in bin/spumante.
     if (sparse_dir / ".git").exists():
         status_res = subprocess.run(
             ["git", "-C", str(sparse_dir), "status", "--porcelain", "--", "dlls"],
@@ -832,7 +832,7 @@ def execute_full_wine_build(
         upstream_head=upstream_head,
         dll_hashes=current_dll_hashes,
     )
-    write_wine_parity_launcher(plan)
+    write_spumante_launcher(plan)
     plan["changed_dlls"] = changed_dlls
     plan["status"] = "full_monolithic_and_parity_installed"
     return plan

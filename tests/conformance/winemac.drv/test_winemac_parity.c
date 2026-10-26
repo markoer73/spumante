@@ -6,7 +6,7 @@
  *   2. Multi-monitor ChangeDisplaySettingsEx on non-primary displays & adapter detaching (display.c:767-772)
  *   3. Cross-process window DCs / OpenGL drawables & layered window attributes (opengl.c:1139, window.c:1318)
  *
- * Copyright 2026 Wine Parity Contributors
+ * Copyright 2026 Spumante Contributors
  * SPDX-License-Identifier: LGPL-2.1-or-later
  */
 

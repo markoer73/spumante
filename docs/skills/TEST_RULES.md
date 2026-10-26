@@ -36,7 +36,7 @@ All VM management, guest agent control, building, test execution, stub discovery
 
 - **Default Surgical Guard**: `scripts/build.sh` and `scripts/test.sh` require a specific `--dll` or `--test` target by default and refuse full-project builds unless `--all` is explicitly passed.
 - **Ground-Truth Cache Acceleration**: During the iterative GREEN/REFACTOR loop on macOS Wine, `scripts/test.sh` compares Wine output against cached Ground-Truth JSON records in `tests/ground_truth/<dll>/` in milliseconds, and supports `--live-vm` to force fresh execution against the warm QEMU Windows VM.
-- **Mandatory Follow-Up Upstream `winetest` & A/B Anti-Regression Stage**: Every target DLL change MUST be verified against the adapted upstream Wine `winetest` suite (`tests/winetest/<dll>/winetest_<dll>.c` using `tests/include/wine/test.h`) via `./scripts/test.sh --winetest --dll <dll>` as a follow-up stage after unit/differential tests and 4-gate security checks. The runner (`scripts/lib/winetest_runner.py`) executes A/B comparison (`WINETEST_BASELINE_MODE=1` vs. `wine-parity`) plus ASan+UBSan runtime instrumentation (`winetest_<dll>_asan.bin`) and enforces zero regressions.
+- **Mandatory Follow-Up Upstream `winetest` & A/B Anti-Regression Stage**: Every target DLL change MUST be verified against the adapted upstream Wine `winetest` suite (`tests/winetest/<dll>/winetest_<dll>.c` using `tests/include/wine/test.h`) via `./scripts/test.sh --winetest --dll <dll>` as a follow-up stage after unit/differential tests and 4-gate security checks. The runner (`scripts/lib/winetest_runner.py`) executes A/B comparison (`WINETEST_BASELINE_MODE=1` vs. `spumante`) plus ASan+UBSan runtime instrumentation (`winetest_<dll>_asan.bin`) and enforces zero regressions.
 
 ---
 
@@ -45,7 +45,7 @@ All VM management, guest agent control, building, test execution, stub discovery
 Differential testing operates across two isolated environments:
 1. **Windows VM (Ground Truth Oracle)**:
    - Genuine Windows 10/11 running headless under QEMU (`-accel hvf` on Apple Silicon macOS for ARM64 Windows 11 + x64 emulation, `-accel tcg`/`hvf` for x86_64, or KVM on Linux).
-   - Host-local VirtIO serial `qemu-ga` Unix socket (`/tmp/wine_parity_qga.sock`) + QMP control socket (`/tmp/wine_parity_qmp.sock`) for sub-second `loadvm clean_ready` resets.
+   - Host-local VirtIO serial `qemu-ga` Unix socket (`/tmp/spumante_qga.sock`) + QMP control socket (`/tmp/spumante_qmp.sock`) for sub-second `loadvm clean_ready` resets.
    - Zero external internet access (`-nic none` or restricted loopback).
 2. **Wine Execution Environment**:
    - Ephemeral Wine prefix (`WINEPREFIX=/tmp/wine_test_$$`) with drive `Z:` isolated and `winemenubuilder.exe=d`.

@@ -1,5 +1,5 @@
 /*
- * Wine Parity Differential Conformance Test: winegstreamer.dll
+ * Spumante Differential Conformance Test: winegstreamer.dll
  * (macOS AudioToolbox / VideoToolbox / CoreMedia Bridge for wmadmod.dll,
  *  wmvcore.dll, and ir50_32.dll)
  *
@@ -7,7 +7,7 @@
  * Wine dlls/wmadmod/wmadmod.c, dlls/winegstreamer/wma_decoder.c,
  * video_decoder.c, and wm_reader.c.
  *
- * Copyright 2026 Wine Parity Contributors
+ * Copyright 2026 Spumante Contributors
  * SPDX-License-Identifier: LGPL-2.1-or-later
  */
 

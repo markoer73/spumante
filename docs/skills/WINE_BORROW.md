@@ -1,6 +1,6 @@
 # Upstream Wine Alignment & The `wine-borrow` Skill
 
-This document defines the mandatory architecture and workflow for keeping `wine-parity` aligned with the upstream Wine project (`gitlab.winehq.org/wine/wine.git`) while maintaining our **macOS-first** divergence and **strictly avoiding duplication of the full upstream Wine source tree**.
+This document defines the mandatory architecture and workflow for keeping `spumante` aligned with the upstream Wine project (`gitlab.winehq.org/wine/wine.git`) while maintaining our **macOS-first** divergence and **strictly avoiding duplication of the full upstream Wine source tree**.
 
 ---
 
@@ -12,21 +12,21 @@ This document defines the mandatory architecture and workflow for keeping `wine-
      ```sh
      git -C .wine-upstream remote set-url --push origin DISABLE_PUSH_READ_ONLY_UPSTREAM
      ```
-   - `wine-parity` is hosted in its **own standalone GitHub repository**, where all commits, branches, and GitHub Actions CI workflows execute.
+   - `spumante` is hosted in its **own standalone GitHub repository**, where all commits, branches, and GitHub Actions CI workflows execute.
 
 2. **Zero Full-Tree Duplication**:
-   - Upstream Wine contains >5,000 source files and hundreds of megabytes of legacy subsystems. **NEVER copy or commit the full upstream Wine source tree into `wine-parity`.**
+   - Upstream Wine contains >5,000 source files and hundreds of megabytes of legacy subsystems. **NEVER copy or commit the full upstream Wine source tree into `spumante`.**
    - Upstream Wine is fetched on demand into an ignored local blobless sparse checkout at `.wine-upstream/` (`git clone --filter=blob:none --no-checkout --sparse`), materializing **only** `include/` and the specific `dlls/<name>` directories tracked in [`upstream/manifest.json`](../../upstream/manifest.json).
 
 3. **Parallel Divergence with Surgical Backporting**:
-   - `wine-parity` diverges from upstream Wine where needed to prioritize **macOS first** (Apple Silicon `hvf`, `CommonCrypto`/`Security.framework`, `CoreFoundation`, `VideoToolbox`/`CoreMedia`, Darwin/Mach APIs) and strict Windows 10/11 Ground-Truth parity.
+   - `spumante` diverges from upstream Wine where needed to prioritize **macOS first** (Apple Silicon `hvf`, `CommonCrypto`/`Security.framework`, `CoreFoundation`, `VideoToolbox`/`CoreMedia`, Darwin/Mach APIs) and strict Windows 10/11 Ground-Truth parity.
    - Simultaneously, we continuously borrow and re-backport upstream Wine bug fixes, `.spec` updates, and new `winetest` cases from `.wine-upstream/` into `dlls/<name>/`.
 
 4. **Centralized Script Execution Only (Gate 4)**:
    - Never create standalone shell scripts for upstream syncing or full builds. Use only the canonical entrypoints:
      - `./scripts/build.sh --borrow <dll> [--upstream-ref <sha_or_tag>] [--dry-run]`
-     - `./scripts/build.sh --full-x86` (or `--x86` / `--full-x86_64`) — Builds all `wine-parity` DLLs/tests (`--all --arch x86_64`) + complete upstream Wine + parity overlay configured to run 32-bit `i386` and 64-bit `x86_64` Windows binaries on macOS (`--enable-archs=i386,x86_64 --without-x --without-wayland`, installing into `builds/wine-install-x86/` with `builds/wine-install-x86/bin/wine-parity`).
-     - `./scripts/build.sh --full-arm64` (or `--arm64`) — Builds all `wine-parity` DLLs/tests (`--all --arch arm64`) + complete upstream Wine + parity overlay configured for native Apple Silicon ARM64 + ARM64EC/i386 (`--enable-archs=arm64ec,i386 --without-x --without-wayland`, installing into `builds/wine-install-arm64/` with `builds/wine-install-arm64/bin/wine-parity`).
+     - `./scripts/build.sh --full-x86` (or `--x86` / `--full-x86_64`) — Builds all `spumante` DLLs/tests (`--all --arch x86_64`) + complete upstream Wine + parity overlay configured to run 32-bit `i386` and 64-bit `x86_64` Windows binaries on macOS (`--enable-archs=i386,x86_64 --without-x --without-wayland`, installing into `builds/wine-install-x86/` with `builds/wine-install-x86/bin/spumante`).
+     - `./scripts/build.sh --full-arm64` (or `--arm64`) — Builds all `spumante` DLLs/tests (`--all --arch arm64`) + complete upstream Wine + parity overlay configured for native Apple Silicon ARM64 + ARM64EC/i386 (`--enable-archs=arm64ec,i386 --without-x --without-wayland`, installing into `builds/wine-install-arm64/` with `builds/wine-install-arm64/bin/spumante`).
      - `./scripts/test.sh --check-upstream --dll <dll>`
 
 ---

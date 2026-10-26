@@ -1,7 +1,7 @@
 /*
  * WineUSB Unix Library Implementation (macOS IOKit & libusb-1.0 Parity)
  *
- * Copyright 2026 Wine Parity Contributors
+ * Copyright 2026 Spumante Contributors
  * SPDX-License-Identifier: LGPL-2.1-or-later
  */
 
@@ -126,7 +126,7 @@ static void macos_enumerate_iokit_devices(void)
             snprintf(dev->product_name, sizeof(dev->product_name), "USB Root Hub");
         }
         if (dev->manufacturer_name[0] == '\0') {
-            snprintf(dev->manufacturer_name, sizeof(dev->manufacturer_name), "Wine Parity Virtual Hub");
+            snprintf(dev->manufacturer_name, sizeof(dev->manufacturer_name), "Spumante Virtual Hub");
         }
 
         if (prop_vendor) CFRelease(prop_vendor);
@@ -164,7 +164,7 @@ static void populate_fallback_root_hub(void)
     hub->portnum = 1;
     hub->is_hub = true;
     snprintf(hub->product_name, sizeof(hub->product_name), "Wine USB Root Hub");
-    snprintf(hub->manufacturer_name, sizeof(hub->manufacturer_name), "Wine Parity Project");
+    snprintf(hub->manufacturer_name, sizeof(hub->manufacturer_name), "Spumante Project");
     snprintf(hub->serial_number, sizeof(hub->serial_number), "00000001");
     s_device_count = 1;
 }

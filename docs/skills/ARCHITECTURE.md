@@ -1,6 +1,6 @@
 # System Architecture & Design Principles
 
-This document defines the architectural principles, subsystem boundaries, and clean-room requirements for the `wine-parity` repository.
+This document defines the architectural principles, subsystem boundaries, and clean-room requirements for the `spumante` repository.
 
 ---
 

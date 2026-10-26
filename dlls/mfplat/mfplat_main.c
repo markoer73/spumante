@@ -4,7 +4,7 @@
  * Clean-room implementation derived from Microsoft Learn specifications
  * and upstream Wine dlls/mfplat/ (main.c, buffer.c, mediatype.c).
  *
- * Copyright 2026 Wine Parity Contributors
+ * Copyright 2026 Spumante Contributors
  * SPDX-License-Identifier: LGPL-2.1-or-later
  */
 
@@ -75,7 +75,7 @@ static size_t mf_wcslen(LPCWSTR str)
 
 HRESULT WINAPI MFStartup(ULONG version, DWORD flags)
 {
-    const char *sim_stub = getenv("WINE_PARITY_SIMULATE_STUB");
+    const char *sim_stub = getenv("SPUMANTE_SIMULATE_STUB");
     TRACE("(0x%08x, 0x%08x)\n", (unsigned)version, (unsigned)flags);
     (void)flags;
 

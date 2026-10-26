@@ -1,7 +1,7 @@
 /*
  * Wine NTDLL x86_64 & WoW64 Signal / LDT / Rosetta 2 GSBASE Parity
  *
- * Copyright 2026 Wine Parity Contributors
+ * Copyright 2026 Spumante Contributors
  * SPDX-License-Identifier: LGPL-2.1-or-later
  */
 
@@ -41,7 +41,7 @@ static NTDLL_ROSETTA_GSBASE_STATE g_rosetta_gsbase = {
 
 static int is_stub_simulation_enabled(void)
 {
-    const char *env = getenv("WINE_PARITY_SIMULATE_STUB");
+    const char *env = getenv("SPUMANTE_SIMULATE_STUB");
     return (env != NULL && strcmp(env, "1") == 0);
 }
 

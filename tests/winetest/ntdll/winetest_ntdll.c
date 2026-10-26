@@ -6,7 +6,7 @@
  *
  * Adapted from upstream Wine dlls/ntdll/tests/virtual.c and dlls/ntdll/tests/wow64.c
  * Copyright 2003-2024 Alexandre Julliard
- * Copyright 2026 Wine Parity Contributors
+ * Copyright 2026 Spumante Contributors
  * SPDX-License-Identifier: LGPL-2.1-or-later
  */
 
@@ -1139,7 +1139,7 @@ static void test_arm64ec_jit_disk_cache(void)
     key.emulator_id = 1U;
 
     todo_wine {
-        status = NtdllJitCacheInit("/tmp/wine_parity_winetest_ntdll_jit_cache");
+        status = NtdllJitCacheInit("/tmp/spumante_winetest_ntdll_jit_cache");
         ok(status == STATUS_SUCCESS, "NtdllJitCacheInit failed: 0x%08x\n", (unsigned int)status);
 
         status = NtdllJitCacheStoreBlock(&key, 0x1040U, code_in, sizeof(code_in));

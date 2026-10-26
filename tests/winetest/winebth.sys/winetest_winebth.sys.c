@@ -2,7 +2,7 @@
  * Upstream Wine Winetest Anti-Regression Suite for winebth.sys
  * (Wine Bluetooth Bus Driver, macOS IOBluetooth Backend, SetupDi Service Installation)
  *
- * Copyright 2026 Wine Parity Contributors
+ * Copyright 2026 Spumante Contributors
  * SPDX-License-Identifier: LGPL-2.1-or-later
  */
 

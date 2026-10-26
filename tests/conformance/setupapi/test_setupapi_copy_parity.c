@@ -2,7 +2,7 @@
  * Differential Conformance Test for SetupAPI SP_COPY_NOOVERWRITE (0x10)
  * file copy style handling and overwrite prevention during prefix initialization.
  *
- * Copyright 2026 Wine Parity Contributors
+ * Copyright 2026 Spumante Contributors
  * SPDX-License-Identifier: LGPL-2.1-or-later
  */
 

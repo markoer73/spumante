@@ -1,6 +1,6 @@
 # Security Audit, Commit Scanning & Memory-Safety Playbook
 
-This document is the self-contained, statically stored authority for security reviews, pre-commit scanning, C memory-safety verification, and periodic security testing in `wine-parity`.
+This document is the self-contained, statically stored authority for security reviews, pre-commit scanning, C memory-safety verification, and periodic security testing in `spumante`.
 
 > **Self-Contained Static Policy:** Security skills and rules in this repository must never depend on or link to floating external web URLs. All checklists, SAST patterns, and sanitizer workflows are stored statically in this file and executed deterministically via `./scripts/test.sh --security`.
 

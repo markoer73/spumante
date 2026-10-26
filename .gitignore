@@ -1,4 +1,4 @@
-# Wine Parity Repository Ignore Rules
+# Spumante Repository Ignore Rules
 # Never commit upstream Wine checkouts, build artifacts, or VM disk images.
 
 .wine-upstream/

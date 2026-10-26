@@ -1,5 +1,5 @@
 ; Wine Bluetooth Bus Driver Installation File
-; Copyright 2026 Wine Parity Contributors
+; Copyright 2026 Spumante Contributors
 
 [Version]
 Signature="$CHICAGO$"
@@ -39,6 +39,6 @@ ServiceBinary=%12%\winebth.sys
 LoadOrderGroup=WinePlugPlay
 
 [Strings]
-Wine="Wine Parity Project"
+Wine="Spumante Project"
 WineBTH.DeviceDesc="Wine Bluetooth Bus Driver"
 WineBTH.ServiceDesc="Wine Bluetooth Bus Service"

@@ -36,7 +36,7 @@ def select_compilers(arch: str) -> dict[str, str | None]:
 
 def is_artifact_up_to_date(target: Path, inputs: list[Path]) -> bool:
     """Return True if target exists and its mtime is newer than or equal to all input files."""
-    if os.environ.get("WINE_PARITY_FORCE_REBUILD") == "1" or not target.is_file():
+    if os.environ.get("SPUMANTE_FORCE_REBUILD") == "1" or not target.is_file():
         return False
     target_mtime = target.stat().st_mtime
     for inp in inputs:
@@ -310,10 +310,10 @@ def surgical_build(
         patches_dir.mkdir(parents=True, exist_ok=True)
         patch_file = patches_dir / f"0001-{dll}-clean-room-parity.patch"
         patch_content = (
-            f"From: Wine Parity Agent <agent@wine-parity.local>\n"
+            f"From: Spumante Agent <agent@spumante.local>\n"
             f"Subject: [PATCH] {dll}: Implement clean-room conformance fixes\n\n"
             f"Clean-Room-Spec: specs/{dll}/\n"
-            f"Signed-off-by: Wine Parity Agent <agent@wine-parity.local>\n"
+            f"Signed-off-by: Spumante Agent <agent@spumante.local>\n"
         )
         patch_file.write_text(patch_content, encoding="utf-8")
         built_artifacts.append(str(patch_file.relative_to(REPO_ROOT)))
@@ -379,9 +379,9 @@ def run_differential_test(
         env["WINEDLLOVERRIDES"] = f"winemenubuilder.exe=d;{dll}=n,b"
         env["WINEDLLPATH"] = str(build_dir)
         if simulate_stub:
-            env["WINE_PARITY_SIMULATE_STUB"] = "1"
+            env["SPUMANTE_SIMULATE_STUB"] = "1"
         else:
-            env.pop("WINE_PARITY_SIMULATE_STUB", None)
+            env.pop("SPUMANTE_SIMULATE_STUB", None)
 
         proc = subprocess.run(
             [str(test_bin)],

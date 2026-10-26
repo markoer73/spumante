@@ -22,7 +22,7 @@
  *   Derived strictly from Microsoft Learn documentation, public Wine headers/tests, and
  *   black-box Windows 11 differential conformance behavior.
  *
- * Copyright 2026 Wine Parity Contributors
+ * Copyright 2026 Spumante Contributors
  * SPDX-License-Identifier: LGPL-2.1-or-later
  */
 
@@ -203,7 +203,7 @@ static volatile ULONG g_stat_tid_alert_wake_calls = 0;
 
 static int ntsync_is_stub_simulated(void)
 {
-    const char *sim = getenv("WINE_PARITY_SIMULATE_STUB");
+    const char *sim = getenv("SPUMANTE_SIMULATE_STUB");
     return (sim != NULL && sim[0] == '1');
 }
 

@@ -2,7 +2,7 @@
  * Wine NTDLL ARM64 & ARM64EC Signal / Context / WoW64 Management
  * (Darwin x18 Platform-Register Preservation & ARM64EC fexcore.dll / box64cpu.dll Support)
  *
- * Copyright 2026 Wine Parity Contributors
+ * Copyright 2026 Spumante Contributors
  * SPDX-License-Identifier: LGPL-2.1-or-later
  */
 
@@ -59,7 +59,7 @@ static NTDLL_ARM64EC_EMULATOR_INFO g_arm64ec_emu = {
 
 static int is_stub_simulation_enabled(void)
 {
-    const char *env = getenv("WINE_PARITY_SIMULATE_STUB");
+    const char *env = getenv("SPUMANTE_SIMULATE_STUB");
     return (env != NULL && strcmp(env, "1") == 0);
 }
 

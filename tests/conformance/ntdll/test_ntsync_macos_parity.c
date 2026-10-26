@@ -12,7 +12,7 @@
  *   - NtCreateKeyedEvent / NtWaitForKeyedEvent / NtReleaseKeyedEvent
  *   - RtlSRWLock / RtlConditionVariable / RtlRunOnce / RtlBarrier / RtlResource
  *
- * Copyright 2026 Wine Parity Contributors
+ * Copyright 2026 Spumante Contributors
  * SPDX-License-Identifier: LGPL-2.1-or-later
  */
 
@@ -179,7 +179,7 @@ int main(void)
     short_timeout.QuadPart = -10000LL; /* 1 ms relative */
 
     NtdllResetSyncState();
-    parity_begin_document("ntdll", "test_ntsync_macos_parity", "x86_64", "wine-parity");
+    parity_begin_document("ntdll", "test_ntsync_macos_parity", "x86_64", "spumante");
 
     /* 1. Query macOS Darwin ulock & Mach semaphore backend availability */
     memset(&sync_state, 0, sizeof(sync_state));

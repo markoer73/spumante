@@ -6,7 +6,7 @@
  *
  * Adapted from upstream Wine dlls/d2d1/tests/d2d1.c
  * Copyright (C) 2014-2024 Wine contributors
- * Copyright (C) 2026 Wine Parity Project
+ * Copyright (C) 2026 Spumante Project
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
