@@ -361,11 +361,11 @@ static void test_scm_autostart_and_shutdown_ordering(void)
 
 START_TEST(winetest_ole32)
 {
-    test_co_initialize();
-    test_ps_clsid_registration();
-    test_stream_on_hglobal();
-    test_interface_marshaling();
-    test_local_server_apartment_stream();
-    test_class_registration_and_rpcss();
-    test_scm_autostart_and_shutdown_ordering();
+    WINETEST_RUN_SUBTEST(test_co_initialize);
+    WINETEST_RUN_SUBTEST(test_ps_clsid_registration);
+    WINETEST_RUN_SUBTEST(test_stream_on_hglobal);
+    WINETEST_RUN_SUBTEST(test_interface_marshaling);
+    WINETEST_RUN_SUBTEST(test_local_server_apartment_stream);
+    WINETEST_RUN_SUBTEST(test_class_registration_and_rpcss);
+    WINETEST_RUN_SUBTEST(test_scm_autostart_and_shutdown_ordering);
 }

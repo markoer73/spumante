@@ -66,7 +66,11 @@ static const char *winetest_filter_pattern = NULL;
 
 #define WINETEST_MAX_SUBTESTS 64
 static const char *winetest_subtest_names[WINETEST_MAX_SUBTESTS];
+static const char *winetest_subtest_files[WINETEST_MAX_SUBTESTS];
+static int winetest_subtest_lines[WINETEST_MAX_SUBTESTS];
+static int winetest_subtest_failed[WINETEST_MAX_SUBTESTS];
 static int winetest_subtest_count = 0;
+static char winetest_suite_label[128] = "winetest";
 
 static inline int winetest_lstrcmpW(const WCHAR *a, const WCHAR *b)
 {
@@ -188,15 +192,44 @@ static inline void winetest_end_flaky(void)
     winetest_flaky_level = 0;
 }
 
-static inline int winetest_should_run(const char *subtest_name)
+static inline int winetest_should_run(const char *subtest_name, const char *file, int line)
 {
+    if (g_parity_gtest_mode == 1) {
+        if (winetest_subtest_count < WINETEST_MAX_SUBTESTS) {
+            winetest_subtest_names[winetest_subtest_count] = subtest_name;
+            winetest_subtest_files[winetest_subtest_count] = file;
+            winetest_subtest_lines[winetest_subtest_count] = line;
+            winetest_subtest_failed[winetest_subtest_count] = 0;
+            winetest_subtest_count++;
+        }
+        return 0;
+    }
+    if (g_parity_gtest_mode == 2) {
+        char full_name[256];
+        snprintf(full_name, sizeof(full_name), "%s.%s", winetest_suite_label, subtest_name);
+        if (!parity_gtest_matches_filter(g_parity_gtest_filter, full_name, subtest_name)) {
+            return 0;
+        }
+        if (winetest_subtest_count < WINETEST_MAX_SUBTESTS) {
+            winetest_subtest_names[winetest_subtest_count] = subtest_name;
+            winetest_subtest_files[winetest_subtest_count] = file;
+            winetest_subtest_lines[winetest_subtest_count] = line;
+            winetest_subtest_failed[winetest_subtest_count] = 0;
+            winetest_subtest_count++;
+        }
+        return 1;
+    }
     if (winetest_filter_pattern && winetest_filter_pattern[0] != '\0') {
         if (strstr(subtest_name, winetest_filter_pattern) == NULL) {
             return 0;
         }
     }
     if (winetest_subtest_count < WINETEST_MAX_SUBTESTS) {
-        winetest_subtest_names[winetest_subtest_count++] = subtest_name;
+        winetest_subtest_names[winetest_subtest_count] = subtest_name;
+        winetest_subtest_files[winetest_subtest_count] = file;
+        winetest_subtest_lines[winetest_subtest_count] = line;
+        winetest_subtest_failed[winetest_subtest_count] = 0;
+        winetest_subtest_count++;
     }
     return 1;
 }
@@ -226,8 +259,23 @@ static inline int winetest_should_run(const char *subtest_name)
 
 #define WINETEST_RUN_SUBTEST(fn) \
     do { \
-        if (winetest_should_run(#fn)) { \
+        if (winetest_should_run(#fn, __FILE__, __LINE__)) { \
+            int prev_fail_ = winetest_failures; \
+            int idx_ = winetest_subtest_count - 1; \
+            if (g_parity_gtest_mode == 2) { \
+                printf("[ RUN      ] %s.%s\n", winetest_suite_label, #fn); \
+            } \
             fn(); \
+            if (idx_ >= 0 && idx_ < WINETEST_MAX_SUBTESTS) { \
+                winetest_subtest_failed[idx_] = (winetest_failures > prev_fail_) ? 1 : 0; \
+            } \
+            if (g_parity_gtest_mode == 2) { \
+                if (winetest_failures > prev_fail_) { \
+                    printf("[  FAILED  ] %s.%s (0 ms)\n", winetest_suite_label, #fn); \
+                } else { \
+                    printf("[       OK ] %s.%s (0 ms)\n", winetest_suite_label, #fn); \
+                } \
+            } \
         } \
     } while (0)
 
@@ -239,17 +287,102 @@ static inline int winetest_should_run(const char *subtest_name)
         int total_executed; \
         const char *env_filter = getenv("WINETEST_FILTER"); \
         const char *env_baseline = getenv("WINETEST_BASELINE_MODE"); \
-        if (argc > 1 && argv[1] && argv[1][0] != '\0') { \
-            winetest_filter_pattern = argv[1]; \
-        } else if (env_filter && env_filter[0] != '\0') { \
-            winetest_filter_pattern = env_filter; \
+        snprintf(winetest_suite_label, sizeof(winetest_suite_label), "winetest_%s", #name); \
+        for (i = 0; winetest_suite_label[i] != '\0'; i++) { \
+            if (winetest_suite_label[i] == '.' || winetest_suite_label[i] == '-') { \
+                winetest_suite_label[i] = '_'; \
+            } \
+        } \
+        for (i = 1; i < argc; i++) { \
+            if (argv[i]) { \
+                parity_parse_arg_token(argv[i]); \
+            } \
+        } \
+        if (g_parity_gtest_mode == 0) { \
+            if (argc > 1 && argv[1] && argv[1][0] != '\0' && strncmp(argv[1], "--", 2) != 0) { \
+                winetest_filter_pattern = argv[1]; \
+            } else if (env_filter && env_filter[0] != '\0') { \
+                winetest_filter_pattern = env_filter; \
+            } \
         } \
         if (env_baseline && env_baseline[0] == '1') { \
             winetest_platform_is_wine = 1; \
         } else { \
             winetest_platform_is_wine = 0; \
         } \
+        if (g_parity_gtest_mode == 2) { \
+            printf("[==========] Running subtests from %s.\n", winetest_suite_label); \
+            printf("[----------] Global test environment set-up.\n"); \
+            printf("[----------] Subtests from %s\n", winetest_suite_label); \
+        } \
         func_##name(); \
+        if (g_parity_gtest_mode != 0 && winetest_subtest_count == 0) { \
+            winetest_subtest_names[0] = #name; \
+            winetest_subtest_files[0] = __FILE__; \
+            winetest_subtest_lines[0] = __LINE__; \
+            winetest_subtest_failed[0] = (winetest_failures > 0) ? 1 : 0; \
+            winetest_subtest_count = 1; \
+        } \
+        if (g_parity_gtest_mode == 1) { \
+            printf("%s.\n", winetest_suite_label); \
+            for (i = 0; i < winetest_subtest_count; i++) { \
+                printf("  %s\n", winetest_subtest_names[i]); \
+            } \
+            if (g_parity_gtest_xml_path[0] != '\0') { \
+                FILE *xf = fopen(g_parity_gtest_xml_path, "w"); \
+                if (xf) { \
+                    fprintf(xf, "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"); \
+                    fprintf(xf, "<testsuites tests=\"%d\" name=\"AllTests\">\n", winetest_subtest_count); \
+                    fprintf(xf, "  <testsuite name=\"%s\" tests=\"%d\">\n", winetest_suite_label, winetest_subtest_count); \
+                    for (i = 0; i < winetest_subtest_count; i++) { \
+                        fprintf(xf, "    <testcase name=\"%s\" file=\"%s\" line=\"%d\" />\n", \
+                                winetest_subtest_names[i], winetest_subtest_files[i], winetest_subtest_lines[i]); \
+                    } \
+                    fprintf(xf, "  </testsuite>\n</testsuites>\n"); \
+                    fclose(xf); \
+                } \
+            } \
+            return 0; \
+        } \
+        if (g_parity_gtest_mode == 2) { \
+            int failed_subtests = 0; \
+            for (i = 0; i < winetest_subtest_count; i++) { \
+                if (winetest_subtest_failed[i]) { \
+                    failed_subtests++; \
+                } \
+            } \
+            printf("[----------] %d tests from %s (0 ms total)\n\n", winetest_subtest_count, winetest_suite_label); \
+            printf("[----------] Global test environment tear-down\n"); \
+            printf("[==========] %d tests from 1 test suite ran. (0 ms total)\n", winetest_subtest_count); \
+            printf("[  PASSED  ] %d tests.\n", winetest_subtest_count - failed_subtests); \
+            if (failed_subtests > 0 || winetest_failures > 0) { \
+                printf("[  FAILED  ] %d tests.\n", failed_subtests > 0 ? failed_subtests : 1); \
+            } \
+            if (g_parity_gtest_xml_path[0] != '\0') { \
+                FILE *xf = fopen(g_parity_gtest_xml_path, "w"); \
+                if (xf) { \
+                    fprintf(xf, "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"); \
+                    fprintf(xf, "<testsuites tests=\"%d\" failures=\"%d\" disabled=\"0\" errors=\"0\" time=\"0\" name=\"AllTests\">\n", \
+                            winetest_subtest_count, failed_subtests); \
+                    fprintf(xf, "  <testsuite name=\"%s\" tests=\"%d\" failures=\"%d\" disabled=\"0\" errors=\"0\" time=\"0\">\n", \
+                            winetest_suite_label, winetest_subtest_count, failed_subtests); \
+                    for (i = 0; i < winetest_subtest_count; i++) { \
+                        if (winetest_subtest_failed[i]) { \
+                            fprintf(xf, "    <testcase name=\"%s\" status=\"run\" result=\"completed\" time=\"0\" classname=\"%s\" file=\"%s\" line=\"%d\">\n" \
+                                        "      <failure message=\"Subtest failed\" type=\"\"/>\n" \
+                                        "    </testcase>\n", \
+                                    winetest_subtest_names[i], winetest_suite_label, winetest_subtest_files[i], winetest_subtest_lines[i]); \
+                        } else { \
+                            fprintf(xf, "    <testcase name=\"%s\" status=\"run\" result=\"completed\" time=\"0\" classname=\"%s\" file=\"%s\" line=\"%d\" />\n", \
+                                    winetest_subtest_names[i], winetest_suite_label, winetest_subtest_files[i], winetest_subtest_lines[i]); \
+                        } \
+                    } \
+                    fprintf(xf, "  </testsuite>\n</testsuites>\n"); \
+                    fclose(xf); \
+                } \
+            } \
+            return (winetest_failures == 0) ? 0 : 1; \
+        } \
         total_executed = winetest_successes + winetest_failures + winetest_todo_successes + winetest_todo_failures; \
         fprintf(stderr, "%s: %d tests executed (%d marked as todo, %d skipped), %d failures.\n", \
                 #name, total_executed, winetest_todo_successes + winetest_todo_failures, \

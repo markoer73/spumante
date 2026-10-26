@@ -22,6 +22,7 @@ BUILD_DMG=0
 NOTARIZE_DMG=0
 CODESIGN_IDENTITY=""
 NOTARY_PROFILE=""
+BUILD_IDE_TESTS=0
 
 usage() {
     cat <<EOF
@@ -31,6 +32,7 @@ Usage: ./scripts/build.sh --dll <dll_name> [--test <test_name>] [--winetest] [--
        ./scripts/build.sh --full-arm64|--arm64 [--dry-run] [--skip-monolithic-compile]
        ./scripts/build.sh --exe-handler [--dry-run]
        ./scripts/build.sh --dmg|--package-dmg [-nz|--notarize] [--codesign-identity <id>] [--notary-profile <profile>] [--dry-run]
+       ./scripts/build.sh --ide-tests [--arch x86_64|arm64]
 
 Surgical single-target build & upstream Wine borrow script (macOS First, Linux Second).
 Examples:
@@ -119,6 +121,10 @@ while [[ $# -gt 0 ]]; do
             NOTARY_PROFILE="${2:-}"
             shift 2
             ;;
+        --ide-tests)
+            BUILD_IDE_TESTS=1
+            shift
+            ;;
         -h|--help)
             usage
             exit 0
@@ -130,6 +136,11 @@ while [[ $# -gt 0 ]]; do
             ;;
     esac
 done
+
+if [[ "$BUILD_IDE_TESTS" -eq 1 ]]; then
+    python3 "$REPO_ROOT/scripts/lib/ide_test_discovery.py" --action build --arch "$ARCH"
+    exit 0
+fi
 
 if [[ "$BUILD_DMG" -eq 1 ]]; then
     DMG_ARGS=()

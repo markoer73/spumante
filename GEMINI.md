@@ -103,6 +103,7 @@ Apply the `test-driven-development` skill for all new API implementations, bug f
   3. **REFACTOR**: Clean up design, remove duplication, and verify WineHQ coding standards (`./scripts/test.sh --lint`) and 4-gate security (`./scripts/test.sh --security`) while keeping tests green.
 - **Hermetic & Fast**: Test targets must run quickly and deterministically without network dependencies.
 - **Surgical Single-Target Execution**: Always use `./scripts/build.sh` and `./scripts/test.sh` with `--dll` / `--test` / `--filter` parameters. Never rebuild or run unrelated DLLs or test suites during iterative development.
+- **Mandatory Antigravity IDE & TestMate Visibility Constraint**: Every test in the repository—including all C differential conformance suites (`tests/conformance/<dll>/test_*.c`), all adapted upstream Wine `winetest` suites (`tests/winetest/<dll>/winetest_*.c`), and all Python unit/architecture tests (`tests/unit/test_*.py`)—MUST be visible, discoverable, and runnable inside **Antigravity IDE** via **C++ TestMate** (`--gtest_list_tests` / `--gtest_filter` / `--gtest_output=xml:` provided by `tests/include/parity_test.h` and `tests/include/wine/test.h` and configured in `.vscode/settings.json`) and the **Python Test Explorer** (`unittest`). Run `./scripts/build.sh --ide-tests` and `./scripts/test.sh --ide-tests` (also enforced by `./scripts/test.sh --lint`) whenever adding or modifying tests.
 
 ---
 

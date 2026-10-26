@@ -334,11 +334,11 @@ static void test_unixlib_abi_and_installed_so(void)
 
 START_TEST(winebth)
 {
-    test_driver_entry();
-    test_add_device_and_fdo();
-    test_pnp_start_and_relations();
-    test_query_ids();
-    test_ioctls();
-    test_setupdi_service_install();
-    test_unixlib_abi_and_installed_so();
+    WINETEST_RUN_SUBTEST(test_driver_entry);
+    WINETEST_RUN_SUBTEST(test_add_device_and_fdo);
+    WINETEST_RUN_SUBTEST(test_pnp_start_and_relations);
+    WINETEST_RUN_SUBTEST(test_query_ids);
+    WINETEST_RUN_SUBTEST(test_ioctls);
+    WINETEST_RUN_SUBTEST(test_setupdi_service_install);
+    WINETEST_RUN_SUBTEST(test_unixlib_abi_and_installed_so);
 }

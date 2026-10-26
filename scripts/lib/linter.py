@@ -105,8 +105,36 @@ def lint_script_proliferation() -> list[str]:
     return errors
 
 
+def lint_ide_test_visibility() -> list[str]:
+    """Enforce project constraint: all tests in the project must be configured for Antigravity IDE / TestMate visibility."""
+    errors: list[str] = []
+    vscode_settings = REPO_ROOT / ".vscode" / "settings.json"
+    if not vscode_settings.is_file():
+        errors.append("Missing .vscode/settings.json required for Antigravity IDE / TestMate test visibility")
+        return errors
+
+    settings_txt = vscode_settings.read_text(encoding="utf-8", errors="replace")
+    if "testMate.cpp.test.advancedExecutables" not in settings_txt and "testMate.cpp.test.executables" not in settings_txt:
+        errors.append(".vscode/settings.json must configure testMate.cpp.test.advancedExecutables for C conformance & winetest suites")
+    if '"python.testing.unittestEnabled": true' not in settings_txt:
+        errors.append(".vscode/settings.json must enable python.testing.unittestEnabled for Python unit tests")
+
+    parity_h = REPO_ROOT / "tests" / "include" / "parity_test.h"
+    wine_test_h = REPO_ROOT / "tests" / "include" / "wine" / "test.h"
+    if parity_h.is_file() and "--gtest_list_tests" not in parity_h.read_text(encoding="utf-8", errors="replace"):
+        errors.append("tests/include/parity_test.h: Missing --gtest_list_tests TestMate discovery support")
+    if wine_test_h.is_file() and "g_parity_gtest_mode" not in wine_test_h.read_text(encoding="utf-8", errors="replace"):
+        errors.append("tests/include/wine/test.h: Missing g_parity_gtest_mode TestMate discovery support")
+    return errors
+
+
 def main() -> int:
-    errors = lint_c_and_h_files() + lint_markdown_files() + lint_script_proliferation()
+    errors = (
+        lint_c_and_h_files()
+        + lint_markdown_files()
+        + lint_script_proliferation()
+        + lint_ide_test_visibility()
+    )
     if errors:
         for err in errors:
             print(f"[LINT ERROR] {err}", file=sys.stderr)

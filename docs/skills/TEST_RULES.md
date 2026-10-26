@@ -60,3 +60,15 @@ Differential testing operates across two isolated environments:
 - Differential assertion outputs validate against `tests/schema/result.json` using field-level comparison modes (`exact`, `handle_state`, `masked`, `roundtrip`).
 - Tests must be **hermetic, deterministic, and self-contained** with zero network calls.
 
+---
+
+## 5. Mandatory Antigravity IDE & TestMate Visibility Requirement
+
+All tests in the project MUST be visible, discoverable with source file/line gutter icons, and runnable directly inside **Antigravity IDE** (via **C++ TestMate** `matepek.vscode-catch2-test-adapter` and the **Python Test Explorer**):
+
+1. **C Conformance & `winetest` Suites**: `tests/include/parity_test.h` and `tests/include/wine/test.h` implement the GoogleTest CLI discovery and execution protocol (`--help`, `--gtest_list_tests`, `--gtest_filter=<pattern>`, `--gtest_output=xml:<path>`) alongside standard JSON output.
+2. **Workspace IDE Configuration**: `.vscode/settings.json` configures `testMate.cpp.test.advancedExecutables` for `builds/{x86_64,arm64}/**/test_*.bin` and `builds/{x86_64,arm64}/**/winetest_*.bin` (excluding `*_asan.bin`) and enables `python.testing.unittestEnabled` for `tests/unit/test_*.py`.
+3. **Build & Verification Commands**:
+   - `./scripts/build.sh --ide-tests` compiles/refreshes all host test binaries and updates `.vscode/` configs.
+   - `./scripts/test.sh --ide-tests` (and `./scripts/test.sh --lint`) verifies 100% IDE test discovery across all conformance, `winetest`, and Python test suites.
+

@@ -22,6 +22,7 @@ RUN_ALL=0
 SCAN_EXE=""
 REQUIRE_SIGNATURE=0
 VT_API_KEY_ARG=""
+RUN_IDE_TESTS=0
 
 usage() {
     cat <<EOF
@@ -43,6 +44,7 @@ Options:
   --require-signature      Require valid PE Authenticode signature during --scan-exe
   --vt-api-key <key>       Optional VirusTotal v3 API key for --scan-exe (or set VT_API_KEY)
   --fetch-spec <dll:api>   Generate auditable Clean-Room Spec Packet in specs/<dll>/<api>.json
+  --ide-tests              Verify all C conformance, winetest, and Python tests are visible in Antigravity IDE / TestMate
   --lint                   Run WineHQ C99/C11, Markdown \[...\], and script boundary linter
   --ci                     Run full CI verification suite (linter + differential + security + winetest follow-up)
   --all                    Explicitly run all registered differential and winetest suites
@@ -107,6 +109,10 @@ while [[ $# -gt 0 ]]; do
             FETCH_SPEC="${2:-}"
             shift 2
             ;;
+        --ide-tests)
+            RUN_IDE_TESTS=1
+            shift
+            ;;
         --lint)
             RUN_LINT=1
             shift
@@ -130,6 +136,11 @@ while [[ $# -gt 0 ]]; do
             ;;
     esac
 done
+
+if [[ "$RUN_IDE_TESTS" -eq 1 ]]; then
+    python3 "$REPO_ROOT/scripts/lib/ide_test_discovery.py" --action verify --arch "$ARCH"
+    exit $?
+fi
 
 if [[ "$RUN_LINT" -eq 1 ]]; then
     python3 "$REPO_ROOT/scripts/lib/linter.py"

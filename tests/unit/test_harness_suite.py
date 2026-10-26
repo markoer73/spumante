@@ -2978,6 +2978,112 @@ class TestWineParityArchitecture(unittest.TestCase):
         self.assertEqual(res_sec.returncode, 0, res_sec.stdout + res_sec.stderr)
         self.assertTrue(json.loads(res_sec.stdout)["passed"])
 
+    def test_32_antigravity_ide_testmate_visibility_and_constraint(self) -> None:
+        """Verify all C conformance tests, winetest suites, and Python unit tests are visible in Antigravity IDE (TestMate + Python Test Explorer) and enforced as a project constraint."""
+        import tempfile
+        import xml.etree.ElementTree as ET
+
+        build_sh = REPO_ROOT / "scripts" / "build.sh"
+        test_sh = REPO_ROOT / "scripts" / "test.sh"
+
+        # 1. Verify .vscode/settings.json, .vscode/extensions.json, and .vscode/tasks.json exist and configure TestMate + Python unittest
+        vscode_settings = REPO_ROOT / ".vscode" / "settings.json"
+        vscode_extensions = REPO_ROOT / ".vscode" / "extensions.json"
+        vscode_tasks = REPO_ROOT / ".vscode" / "tasks.json"
+        self.assertTrue(vscode_settings.is_file(), "Missing .vscode/settings.json for Antigravity IDE test visibility")
+        self.assertTrue(vscode_extensions.is_file(), "Missing .vscode/extensions.json")
+        self.assertTrue(vscode_tasks.is_file(), "Missing .vscode/tasks.json")
+
+        settings_doc = json.loads(vscode_settings.read_text(encoding="utf-8"))
+        self.assertTrue(settings_doc.get("python.testing.unittestEnabled"))
+        self.assertIn("testMate.cpp.test.advancedExecutables", settings_doc)
+
+        # 2. Run ./scripts/build.sh --ide-tests and ./scripts/test.sh --ide-tests
+        res_build_ide = subprocess.run(
+            [str(build_sh), "--ide-tests"],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(res_build_ide.returncode, 0, res_build_ide.stdout + res_build_ide.stderr)
+
+        res_test_ide = subprocess.run(
+            [str(test_sh), "--ide-tests"],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(res_test_ide.returncode, 0, res_test_ide.stdout + res_test_ide.stderr)
+        ide_doc = json.loads(res_test_ide.stdout)
+        self.assertTrue(ide_doc["passed"])
+        self.assertGreaterEqual(ide_doc["conformance_suites_count"], 18)
+        self.assertGreaterEqual(ide_doc["winetest_suites_count"], 13)
+        self.assertGreaterEqual(ide_doc["python_unittest_cases_count"], 32)
+
+        # 3. Directly verify TestMate GoogleTest protocol (--help, --gtest_list_tests, --gtest_output=xml:..., --gtest_filter=...) on both a conformance binary and a winetest binary
+        conf_bin = REPO_ROOT / "builds" / "x86_64" / "bcrypt" / "test_symmetric_key.bin"
+        wt_bin = REPO_ROOT / "builds" / "x86_64" / "bcrypt" / "winetest_bcrypt.bin"
+        for test_bin in (conf_bin, wt_bin):
+            self.assertTrue(test_bin.is_file(), f"Missing IDE test binary: {test_bin}")
+            res_help = subprocess.run(
+                [str(test_bin), "--help"],
+                cwd=REPO_ROOT,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(res_help.returncode, 0)
+            self.assertIn("This program contains tests written using Google Test.", res_help.stdout)
+            self.assertIn("--gtest_list_tests", res_help.stdout)
+
+            with tempfile.TemporaryDirectory() as tmp:
+                xml_path = Path(tmp) / "gtest_list.xml"
+                res_list = subprocess.run(
+                    [str(test_bin), "--gtest_list_tests", f"--gtest_output=xml:{xml_path}"],
+                    cwd=REPO_ROOT,
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                )
+                self.assertEqual(res_list.returncode, 0, res_list.stdout + res_list.stderr)
+                self.assertTrue(xml_path.is_file(), f"Missing GoogleTest XML output for {test_bin}")
+                tree = ET.parse(xml_path)
+                testcases = tree.getroot().findall(".//testcase")
+                self.assertGreater(len(testcases), 0)
+                for tc in testcases:
+                    self.assertTrue(tc.attrib.get("file", "").endswith(".c"))
+                    self.assertGreater(int(tc.attrib.get("line", "0")), 0)
+
+                first_suite = tree.getroot().find(".//testsuite").attrib["name"]
+                first_case = testcases[0].attrib["name"]
+                run_xml = Path(tmp) / "gtest_run.xml"
+                res_run = subprocess.run(
+                    [
+                        str(test_bin),
+                        f"--gtest_filter={first_suite}.{first_case}",
+                        f"--gtest_output=xml:{run_xml}",
+                    ],
+                    cwd=REPO_ROOT,
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                )
+                self.assertEqual(res_run.returncode, 0, res_run.stdout + res_run.stderr)
+                self.assertIn("[  PASSED  ]", res_run.stdout)
+                self.assertTrue(run_xml.is_file())
+
+        # 4. Verify project requirement and constraint is documented in GEMINI.md, docs/skills/TEST_RULES.md, and .agents/rules/test.md
+        for doc_file in (
+            REPO_ROOT / "GEMINI.md",
+            REPO_ROOT / "docs" / "skills" / "TEST_RULES.md",
+            REPO_ROOT / ".agents" / "rules" / "test.md",
+        ):
+            txt = doc_file.read_text(encoding="utf-8")
+            self.assertIn("TestMate", txt, f"Missing TestMate visibility constraint in {doc_file}")
+            self.assertIn("Antigravity IDE", txt, f"Missing Antigravity IDE visibility constraint in {doc_file}")
+
 
 if __name__ == "__main__":
     unittest.main()

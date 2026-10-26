@@ -163,6 +163,10 @@ All host/VM orchestration, compilation, differential testing, stub discovery, an
 #     Pass -nz (or --notarize) to code-sign with Hardened Runtime, submit to Apple Notary Service (notarytool), and staple the ticket
 ./scripts/build.sh --dmg
 ./scripts/build.sh --dmg -nz
+
+# 11. Build & Verify Antigravity IDE Test Discovery (C++ TestMate & Python Test Explorer)
+./scripts/build.sh --ide-tests
+./scripts/test.sh --ide-tests
 ```
 
 ---
