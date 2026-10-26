@@ -1991,14 +1991,15 @@ class TestWineParityArchitecture(unittest.TestCase):
                 "http_https_only",
                 "Outgoing networking must default to HTTP/HTTPS only",
             )
-            self.assertEqual(cfg["network"]["allowed_outgoing_ports"], [80, 443])
+            self.assertEqual(cfg["network"]["allowed_outgoing_ports"], [80, 443, 53])
 
-            # Verify default Seatbelt profile enforces incoming deny + outgoing ports 80/443 only
+            # Verify default Seatbelt profile enforces incoming deny + outgoing ports 80/443/53
             sb_default = status_data["seatbelt_profile_preview"]
             self.assertIn("(deny network-inbound)", sb_default)
             self.assertIn("(deny network-outbound)", sb_default)
             self.assertIn("*:80", sb_default)
             self.assertIn("*:443", sb_default)
+            self.assertIn("*:53", sb_default)
             self.assertIn(".ssh", sb_default)
 
             # 3. Verify --set-config updates config.json AND cascades to $WINEPREFIX/user.reg & dosdevices/
@@ -2054,6 +2055,26 @@ class TestWineParityArchitecture(unittest.TestCase):
             self.assertNotIn("*:80", sb_custom)
             self.assertNotIn("*:443", sb_custom)
 
+            # Verify dns_only mode in Seatbelt profile
+            res_net_dns = subprocess.run(
+                [
+                    str(launch_sh),
+                    "--set-config",
+                    "network.outgoing=dns_only",
+                ],
+                cwd=REPO_ROOT,
+                env=env,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(res_net_dns.returncode, 0, res_net_dns.stdout + res_net_dns.stderr)
+            sb_dns = json.loads(res_net_dns.stdout)["seatbelt_profile_preview"]
+            self.assertIn("(deny network-outbound)", sb_dns)
+            self.assertIn("*:53", sb_dns)
+            self.assertNotIn("*:80", sb_dns)
+            self.assertNotIn("*:443", sb_dns)
+
             # Restore default incoming=deny and outgoing=http_https_only
             subprocess.run(
                 [
@@ -2093,6 +2114,9 @@ class TestWineParityArchitecture(unittest.TestCase):
                 self.assertIn("virustotalKeyField", objc_src)
                 self.assertIn("NSSecureTextField", objc_src)
                 self.assertIn("toggleVtKeyVisibility:", objc_src)
+                self.assertNotIn("Saved locally with 0600 permissions", objc_src)
+                self.assertIn("HTTP / HTTPS & DNS", objc_src)
+                self.assertIn("DNS Only — Port 53", objc_src)
                 self.assertIn("security.virustotal_enabled=", objc_src)
                 self.assertIn("security.virustotal_api_key=", objc_src)
 
@@ -2156,7 +2180,7 @@ class TestWineParityArchitecture(unittest.TestCase):
             self.assertTrue(run_trace["z_drive_stripped"])
             self.assertEqual(run_trace["network_incoming"], "deny")
             self.assertEqual(run_trace["network_outgoing"], "http_https_only")
-            self.assertEqual(run_trace["allowed_outgoing_ports"], [80, 443])
+            self.assertEqual(run_trace["allowed_outgoing_ports"], [80, 443, 53])
             self.assertTrue(Path(run_trace["seatbelt_profile"]).is_file())
 
     def test_25_wineusb_macos_backend_parity(self) -> None:

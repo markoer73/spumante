@@ -15,7 +15,7 @@ This document is the authoritative specification for `wine-parity`'s user-level 
 - `wine-parity` provides a **native macOS AppKit Configuration Dialog** built directly into `builds/WineParity.app` (`WineParity --config-ui` / `./scripts/launch.sh --config-ui`) inspired by macOS System Settings:
   1. **General & Windows Environment**: Target Windows version (`win11`, `win10`, `win81`, `win7`), Retina/HiDPI mode (`RetinaMode`), Virtual Desktop toggle, and active `WINEPREFIX` mode (`shared`, `per_app`, `ephemeral`).
   2. **Security & Verification**: Mandatory `+x` executable check, macOS Quarantine (`com.apple.quarantine`) enforcement, PE Authenticode requirement (`require_authenticode`), and optional VirusTotal v3 scan key.
-  3. **Sandbox & Network Firewall**: Sandboxed execution toggle (enabled by default), Drive `Z:` stripping (`strip_z_drive`), sensitive host directory protection (`~/.ssh`, `~/.aws`, `~/.gnupg`, `~/Library/Keychains`), incoming network policy (`deny` by default), and outgoing network policy (`http_https_only` on TCP ports `80` and `443` by default).
+  3. **Sandbox & Network Firewall**: Sandboxed execution toggle (enabled by default), Drive `Z:` stripping (`strip_z_drive`), sensitive host directory protection (`~/.ssh`, `~/.aws`, `~/.gnupg`, `~/Library/Keychains`), incoming network policy (`deny` by default), and outgoing network policy (`http_https_only` on TCP ports `80`, `443` & DNS port `53` by default).
   4. **Apple Silicon & Hardware Acceleration**: Metal / `IOSurface` swapchains, `VideoToolbox` H.264/HEVC hardware decode, and ARM64EC `WJTC` on-disk JIT cache.
 
 ### Principle 3: Automatic Non-Destructive Cascading to Wine Registry Hives (`user.reg` & `system.reg`)
@@ -34,7 +34,7 @@ By default, every `.exe` and `.msi` launched via `WineParity.app` or `bin/wine-p
 2. **`sandbox.strip_z_drive = true`**: Unlinks `$WINEPREFIX/dosdevices/z:` prior to launch and disables `winemenubuilder.exe`.
 3. **`sandbox.protect_sensitive_host_paths = true`**: Kernel-level Seatbelt `(deny file-read* file-write* ...)` on `~/.ssh`, `~/.aws`, `~/.gnupg`, `~/Library/Keychains`, and `~/.config/wine-parity`.
 4. **`network.incoming = "deny"`**: Blocks all inbound TCP/UDP listening sockets (`(deny network-inbound)`) while allowing local Unix domain sockets required by `wineserver` IPC.
-5. **`network.outgoing = "http_https_only"`** (`allowed_outgoing_ports = [80, 443]`): Blocks arbitrary outbound TCP/UDP connections (`(deny network-outbound)`) and explicitly permits only local Unix domain sockets, DNS resolution (`udp:53`, `tcp:53`), loopback (`localhost`), and outbound TCP connections on ports `80` (HTTP) and `443` (HTTPS). Supported modes: `"http_https_only"` (default), `"allow_all"`, `"custom_ports"`, and `"deny_all"`.
+5. **`network.outgoing = "http_https_only"`** (`allowed_outgoing_ports = [80, 443, 53]`): Blocks arbitrary outbound TCP/UDP connections (`(deny network-outbound)`) and explicitly permits only local Unix domain sockets, DNS resolution (`udp:53`, `tcp:53`), loopback (`localhost`), and outbound TCP connections on ports `80` (HTTP) and `443` (HTTPS). Supported modes: `"http_https_only"` (default), `"dns_only"`, `"allow_all"`, `"custom_ports"`, and `"deny_all"`.
 
 ---
 
@@ -72,7 +72,7 @@ By default, every `.exe` and `.msi` launched via `WineParity.app` or `bin/wine-p
     "incoming": "deny",
     "allowed_incoming_ports": [],
     "outgoing": "http_https_only",
-    "allowed_outgoing_ports": [80, 443]
+    "allowed_outgoing_ports": [80, 443, 53]
   },
   "acceleration": {
     "metal_iosurface_swapchain": true,

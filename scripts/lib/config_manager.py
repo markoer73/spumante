@@ -49,7 +49,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "incoming": "deny",
         "allowed_incoming_ports": [],
         "outgoing": "http_https_only",
-        "allowed_outgoing_ports": [80, 443],
+        "allowed_outgoing_ports": [80, 443, 53],
     },
     "acceleration": {
         "metal_iosurface_swapchain": True,
@@ -160,8 +160,13 @@ def apply_key_value_updates(cfg: dict[str, Any], updates: list[str]) -> dict[str
 
     # Keep allowed_outgoing_ports synchronized when outgoing mode changes
     net = updated.get("network", {})
-    if net.get("outgoing") == "http_https_only" and not net.get("allowed_outgoing_ports"):
-        net["allowed_outgoing_ports"] = [80, 443]
+    if net.get("outgoing") == "http_https_only":
+        if not net.get("allowed_outgoing_ports") or net.get("allowed_outgoing_ports") in ([80, 443], [53]):
+            net["allowed_outgoing_ports"] = [80, 443, 53]
+    elif net.get("outgoing") == "dns_only":
+        net["allowed_outgoing_ports"] = [53]
+    elif net.get("outgoing") == "deny_all":
+        net["allowed_outgoing_ports"] = []
 
     return updated
 
@@ -332,14 +337,20 @@ def generate_seatbelt_profile(cfg: dict[str, Any], exe_name: str | None = None) 
     elif outgoing_mode == "deny_all":
         lines.append("(deny network-outbound)")
         lines.append("(allow network-outbound (local unix))")
+    elif outgoing_mode == "dns_only":
+        lines.append("(deny network-outbound)")
+        lines.append("(allow network-outbound (local unix))")
+        lines.append('(allow network-outbound (remote udp "*:53") (remote tcp "*:53"))')
     else:
-        ports = net_cfg.get("allowed_outgoing_ports", [80, 443])
+        ports = net_cfg.get("allowed_outgoing_ports", [80, 443, 53])
         if outgoing_mode == "http_https_only" and not ports:
-            ports = [80, 443]
+            ports = [80, 443, 53]
         lines.append("(deny network-outbound)")
         lines.append("(allow network-outbound (local unix))")
         lines.append('(allow network-outbound (remote udp "*:53") (remote tcp "*:53"))')
         for port in ports:
+            if int(port) == 53:
+                continue
             lines.append(f'(allow network-outbound (remote tcp "*:{int(port)}"))')
 
     return "\n".join(lines) + "\n"

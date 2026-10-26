@@ -1084,8 +1084,10 @@ static int handle_status(void)
     NSInteger outIdx = [self.outgoingNetPopup indexOfSelectedItem];
     NSString *outMode = @"http_https_only";
     if (outIdx == 1)
-        outMode = @"deny_all";
+        outMode = @"dns_only";
     else if (outIdx == 2)
+        outMode = @"deny_all";
+    else if (outIdx == 3)
         outMode = @"allow_all";
 
     BOOL showPlain = ([self.showVtKeyCheck state] == NSControlStateValueOn);
@@ -1225,11 +1227,6 @@ static int handle_status(void)
     [self.showVtKeyCheck setEnabled:vtEnabled];
     [secView addSubview:self.showVtKeyCheck];
 
-    NSTextField *vtHint = [self makeLabel:@"Saved locally with 0600 permissions in ~/.config/wine-parity/config.json (only SHA-256 digest is queried)." frame:NSMakeRect(20, 48, 540, 18) bold:NO];
-    [vtHint setFont:[NSFont systemFontOfSize:11.0]];
-    [vtHint setTextColor:[NSColor secondaryLabelColor]];
-    [secView addSubview:vtHint];
-
     [secTab setView:secView];
     [tabView addTabViewItem:secTab];
 
@@ -1257,12 +1254,19 @@ static int handle_status(void)
 
     [sbView addSubview:[self makeLabel:@"Outgoing Connections:" frame:NSMakeRect(20, 90, 160, 22) bold:NO]];
     self.outgoingNetPopup = [[NSPopUpButton alloc] initWithFrame:NSMakeRect(185, 86, 340, 26) pullsDown:NO];
-    [self.outgoingNetPopup addItemsWithTitles:@[@"HTTP / HTTPS Only — Ports 80 & 443 (Default)", @"Block All Outgoing Connections", @"Allow All Outgoing Connections"]];
+    [self.outgoingNetPopup addItemsWithTitles:@[
+        @"HTTP / HTTPS & DNS — Ports 80, 443 & 53 (Default)",
+        @"DNS Only — Port 53",
+        @"Block All Outgoing Connections",
+        @"Allow All Outgoing Connections"
+    ]];
     NSString *curOut = [netCfg[@"outgoing"] isKindOfClass:[NSString class]] ? netCfg[@"outgoing"] : @"http_https_only";
-    if ([curOut isEqualToString:@"deny_all"])
+    if ([curOut isEqualToString:@"dns_only"])
         [self.outgoingNetPopup selectItemAtIndex:1];
-    else if ([curOut isEqualToString:@"allow_all"])
+    else if ([curOut isEqualToString:@"deny_all"])
         [self.outgoingNetPopup selectItemAtIndex:2];
+    else if ([curOut isEqualToString:@"allow_all"])
+        [self.outgoingNetPopup selectItemAtIndex:3];
     else
         [self.outgoingNetPopup selectItemAtIndex:0];
     [sbView addSubview:self.outgoingNetPopup];
@@ -1844,7 +1848,7 @@ def main(argv: list[str] | None = None) -> int:
             "z_drive_stripped": bool(cfg_status["cascade"]["z_drive_stripped"]),
             "network_incoming": cfg.get("network", {}).get("incoming", "deny"),
             "network_outgoing": cfg.get("network", {}).get("outgoing", "http_https_only"),
-            "allowed_outgoing_ports": cfg.get("network", {}).get("allowed_outgoing_ports", [80, 443]),
+            "allowed_outgoing_ports": cfg.get("network", {}).get("allowed_outgoing_ports", [80, 443, 53]),
             "seatbelt_profile": str(sb_path),
             "args": extra,
         }
