@@ -237,6 +237,21 @@
       "required_conformance_tests": [
         "test_win32u_msg_icon_parity"
       ]
+    },
+    "comctl32": {
+      "upstream_path": "dlls/comctl32",
+      "upstream_tests_path": "dlls/comctl32/tests",
+      "base_upstream_commit": "wine-10.0-base",
+      "merge_strategy": "3-way-backport-preserving-macos-blocks",
+      "macos_acceleration": "CoreText / Universal libfreetype.6.dylib & Tahoma/SystemFont GDI fallback",
+      "tracked_files": [
+        "dlls/comctl32/comctl32.h",
+        "dlls/comctl32/comctl32.spec",
+        "dlls/comctl32/syslink.c"
+      ],
+      "required_conformance_tests": [
+        "test_comctl32_syslink_parity"
+      ]
     }
   }
 }

@@ -149,6 +149,7 @@ def borrow_or_backport_dll(
 
 
 MOLTENVK_MACOS_URL = "https://github.com/KhronosGroup/MoltenVK/releases/download/v1.4.2/MoltenVK-macos.tar"
+FREETYPE_SOURCE_URL = "https://download.savannah.gnu.org/releases/freetype/freetype-2.15.0.tar.xz"
 
 
 def can_use_rosetta_x86_host() -> bool:
@@ -229,6 +230,181 @@ def ensure_macos_moltenvk(
     return target_dylib
 
 
+def _is_universal_macho(path: Path) -> bool:
+    """Return True if path is a Universal (fat) Mach-O binary."""
+    if not path.is_file():
+        return False
+    try:
+        with path.open("rb") as f:
+            magic = f.read(4)
+        return magic in (b"\xca\xfe\xba\xbe", b"\xbe\xba\xfe\xca")
+    except OSError:
+        return False
+
+
+def ensure_macos_freetype(
+    install_dir: Path,
+    build_dir: Path | None = None,
+    dry_run: bool = False,
+) -> Path | None:
+    """Ensure Universal (x86_64 + arm64) libfreetype.6.dylib is installed and HAVE_FREETYPE / SONAME_LIBFREETYPE is enabled on macOS."""
+    if sys.platform != "darwin":
+        return None
+    target_dylib = install_dir / "lib" / "libfreetype.6.dylib"
+    if dry_run:
+        return target_dylib
+
+    cache_root = REPO_ROOT / "builds" / "freetype"
+    cached_install = cache_root / "install"
+    cached_dylib = cached_install / "lib" / "libfreetype.6.dylib"
+    cached_inc = cached_install / "include" / "freetype2"
+
+    if not _is_universal_macho(cached_dylib) and str(install_dir).startswith(str(REPO_ROOT / "builds")):
+        cache_root.mkdir(parents=True, exist_ok=True)
+        tarball = cache_root / "freetype-2.15.0.tar.xz"
+        src_dir = cache_root / "freetype-2.15.0"
+        if not tarball.is_file():
+            subprocess.run(["curl", "-fsSL", FREETYPE_SOURCE_URL, "-o", str(tarball)], cwd=REPO_ROOT, check=False)
+        if tarball.is_file() and not (src_dir / "configure").is_file():
+            subprocess.run(["tar", "-xf", str(tarball), "-C", str(cache_root)], cwd=REPO_ROOT, check=False)
+        if (src_dir / "configure").is_file():
+            ncpu = os.cpu_count() or 4
+            subprocess.run(
+                [
+                    "sh",
+                    "-c",
+                    f'CFLAGS="-arch x86_64 -arch arm64 -O2" LDFLAGS="-arch x86_64 -arch arm64" '
+                    f'./configure --prefix="{cached_install}" --without-png --without-harfbuzz '
+                    f'--without-brotli --with-zlib=yes --with-bzip2=yes --disable-static --enable-shared && '
+                    f'make -j{ncpu} && make install',
+                ],
+                cwd=src_dir,
+                check=False,
+            )
+
+    if cached_dylib.is_file():
+        target_dylib.parent.mkdir(parents=True, exist_ok=True)
+        if not target_dylib.is_file() or not _is_universal_macho(target_dylib):
+            shutil.copy2(cached_dylib, target_dylib)
+            subprocess.run(["install_name_tool", "-id", str(target_dylib), str(target_dylib)], check=False)
+            subprocess.run(["codesign", "--force", "--sign", "-", str(target_dylib)], capture_output=True, check=False)
+            alias_dylib = install_dir / "lib" / "libfreetype.dylib"
+            shutil.copy2(target_dylib, alias_dylib)
+
+    ft_inc = cached_inc if cached_inc.is_dir() else Path("/opt/homebrew/include/freetype2")
+
+    if build_dir is not None:
+        config_h = build_dir / "include" / "config.h"
+        if config_h.is_file():
+            orig_stat = config_h.stat()
+            txt = config_h.read_text(encoding="utf-8", errors="replace")
+            soname_str = str(target_dylib)
+            updated = txt
+            if "/* #undef HAVE_FT2BUILD_H */" in updated:
+                updated = updated.replace(
+                    "/* #undef HAVE_FT2BUILD_H */",
+                    "#define HAVE_FT2BUILD_H 1\n#define HAVE_FREETYPE 1",
+                )
+            if "/* #undef SONAME_LIBFREETYPE */" in updated:
+                updated = updated.replace(
+                    "/* #undef SONAME_LIBFREETYPE */",
+                    f'#define SONAME_LIBFREETYPE "{soname_str}"',
+                )
+            if updated != txt:
+                config_h.write_text(updated, encoding="utf-8")
+                os.utime(config_h, (orig_stat.st_atime, orig_stat.st_mtime))
+
+            top_mk = build_dir / "Makefile"
+            built_so = build_dir / "dlls" / "win32u" / "win32u.so"
+            needs_win32u = (
+                updated != txt
+                or not built_so.is_file()
+                or b"libfreetype.6.dylib" not in built_so.read_bytes()
+            )
+            if needs_win32u and top_mk.is_file():
+                mk_stat = top_mk.stat()
+                mk_txt = top_mk.read_text(encoding="utf-8", errors="replace")
+                if "\nFREETYPE_CFLAGS = \n" in mk_txt and ft_inc.is_dir():
+                    mk_txt = mk_txt.replace("\nFREETYPE_CFLAGS = \n", f"\nFREETYPE_CFLAGS = -I{ft_inc}\n")
+                    top_mk.write_text(mk_txt, encoding="utf-8")
+                    os.utime(top_mk, (mk_stat.st_atime, mk_stat.st_mtime))
+                for stale in (
+                    build_dir / "dlls" / "win32u" / "freetype.o",
+                    build_dir / "dlls" / "win32u" / "win32u.so",
+                ):
+                    if stale.is_file():
+                        stale.unlink()
+                subprocess.run(
+                    [
+                        "make",
+                        "-C",
+                        str(build_dir),
+                        f"CFLAGS=-g -O2 -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=0 -I{ft_inc}",
+                        f"FREETYPE_CFLAGS=-I{ft_inc}",
+                        "dlls/win32u/win32u.so",
+                    ],
+                    cwd=REPO_ROOT,
+                    check=False,
+                )
+            if built_so.is_file() and (install_dir / "lib" / "wine").is_dir():
+                for unix_dir in (install_dir / "lib" / "wine").glob("*-unix"):
+                    dst_so = unix_dir / "win32u.so"
+                    if unix_dir.is_dir() and (
+                        needs_win32u
+                        or not dst_so.is_file()
+                        or b"libfreetype.6.dylib" not in dst_so.read_bytes()
+                    ):
+                        shutil.copy2(built_so, dst_so)
+
+            # Also ensure comctl32_v6.dll has SYSLINK_SetFont fallback while keeping .wine-upstream clean
+            up_syslink = REPO_ROOT / ".wine-upstream" / "dlls" / "comctl32_v6" / "syslink.c"
+            if up_syslink.is_file() and (build_dir / "dlls" / "comctl32_v6").is_dir():
+                orig_syslink_bytes = up_syslink.read_bytes()
+                orig_syslink_stat = up_syslink.stat()
+                old_block = (
+                    "            /* create a new underline font */\n"
+                    "            if(GetTextMetricsW(hdc, &tm) &&\n"
+                    "               GetObjectW(infoPtr->Font, sizeof(LOGFONTW), &lf))"
+                )
+                new_block = (
+                    "            /* create a new underline font with HDC/stock font fallback */\n"
+                    "            HFONT hFontUse = infoPtr->Font;\n"
+                    "            if (!hFontUse || !GetObjectW(hFontUse, sizeof(LOGFONTW), &lf))\n"
+                    "                hFontUse = GetCurrentObject(hdc, OBJ_FONT);\n"
+                    "            if (!hFontUse || !GetObjectW(hFontUse, sizeof(LOGFONTW), &lf))\n"
+                    "                hFontUse = GetStockObject(DEFAULT_GUI_FONT);\n"
+                    "            if (!hFontUse || !GetObjectW(hFontUse, sizeof(LOGFONTW), &lf))\n"
+                    "                hFontUse = GetStockObject(SYSTEM_FONT);\n"
+                    "            if(GetTextMetricsW(hdc, &tm) &&\n"
+                    "               GetObjectW(hFontUse, sizeof(LOGFONTW), &lf))"
+                )
+                syslink_txt = orig_syslink_bytes.decode("utf-8", errors="replace")
+                if old_block in syslink_txt and updated != txt:
+                    try:
+                        up_syslink.write_text(syslink_txt.replace(old_block, new_block, 1), encoding="utf-8")
+                        subprocess.run(
+                            [
+                                "make",
+                                "-C",
+                                str(build_dir),
+                                "dlls/comctl32_v6/x86_64-windows/comctl32_v6.dll",
+                                "dlls/comctl32_v6/i386-windows/comctl32_v6.dll",
+                            ],
+                            cwd=REPO_ROOT,
+                            check=False,
+                        )
+                        for pe_sub in ("x86_64-windows", "i386-windows"):
+                            built_v6 = build_dir / "dlls" / "comctl32_v6" / pe_sub / "comctl32_v6.dll"
+                            dst_v6 = install_dir / "lib" / "wine" / pe_sub / "comctl32_v6.dll"
+                            if built_v6.is_file() and dst_v6.parent.is_dir():
+                                shutil.copy2(built_v6, dst_v6)
+                    finally:
+                        up_syslink.write_bytes(orig_syslink_bytes)
+                        os.utime(up_syslink, (orig_syslink_stat.st_atime, orig_syslink_stat.st_mtime))
+
+    return target_dylib
+
+
 def build_full_wine_plan(target: str, dry_run: bool = False) -> dict[str, Any]:
     """Construct the build plan for a full upstream Wine + wine-parity installation."""
     manifest = load_manifest()
@@ -248,9 +424,7 @@ def build_full_wine_plan(target: str, dry_run: bool = False) -> dict[str, Any]:
         install_dir = REPO_ROOT / "builds" / "wine-install-x86"
         build_dir = REPO_ROOT / "builds" / "wine-full-x86"
         if sys.platform == "darwin" and rosetta_active:
-            extra_cfg_flags.extend(["--build=x86_64-apple-darwin", "--host=x86_64-apple-darwin"])
-            if not Path("/usr/local/lib/libfreetype.dylib").is_file():
-                extra_cfg_flags.append("--without-freetype")
+            extra_cfg_flags.extend(["--build=x86_64-apple-darwin", "--host=x86_64-apple-darwin", "--with-freetype"])
             cc_arg = "CC=clang -arch x86_64"
             cxx_arg = "CXX=clang++ -arch x86_64"
     else:
@@ -262,6 +436,7 @@ def build_full_wine_plan(target: str, dry_run: bool = False) -> dict[str, Any]:
 
     if sys.platform == "darwin":
         extra_cfg_flags.append(f"ac_cv_lib_soname_MoltenVK={install_dir / 'lib' / 'libMoltenVK.dylib'}")
+        extra_cfg_flags.append(f"ac_cv_lib_soname_freetype={install_dir / 'lib' / 'libfreetype.6.dylib'}")
 
     upstream_prepare_commands = [
         f"git clone --filter=blob:none --no-checkout --sparse {remote} {cache_dir}",
@@ -490,6 +665,7 @@ def execute_full_wine_build(
     build_dir = Path(plan["build_dir"])
     install_dir = Path(plan["install_dir"])
     ensure_macos_moltenvk(install_dir=install_dir, build_dir=build_dir, dry_run=dry_run)
+    ensure_macos_freetype(install_dir=install_dir, build_dir=build_dir, dry_run=dry_run)
     enable_archs = "--enable-archs=i386,x86_64" if plan["target_mode"] == "full-x86" else "--enable-archs=arm64ec,i386"
     current_dll_hashes = compute_parity_dll_hashes(plan["parity_dlls"])
     prev_stamp = load_monolithic_build_stamp(build_dir)
@@ -606,6 +782,7 @@ def execute_full_wine_build(
     subprocess.run(plan["make_command"], cwd=build_dir, env=env, check=True)
     subprocess.run(plan["make_install_command"], cwd=build_dir, env=env, check=True)
     ensure_macos_moltenvk(install_dir=install_dir, build_dir=build_dir, dry_run=dry_run)
+    ensure_macos_freetype(install_dir=install_dir, build_dir=build_dir, dry_run=dry_run)
     plan["make_executed"] = True
 
     write_monolithic_build_stamp(

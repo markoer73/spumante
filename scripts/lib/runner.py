@@ -244,6 +244,20 @@ def surgical_build(
                 build_and_install_unix_so(dll, c_sources, dep_paths, host_cc, darwin_frameworks)
             )
 
+        if dll == "comctl32" and sys.platform == "darwin":
+            from scripts.lib.wine_borrow import ensure_macos_freetype
+
+            for inst_name, full_name in (
+                ("wine-install-x86", "wine-full-x86"),
+                ("wine-install-arm64", "wine-full-arm64"),
+            ):
+                ft_out = ensure_macos_freetype(
+                    install_dir=REPO_ROOT / "builds" / inst_name,
+                    build_dir=REPO_ROOT / "builds" / full_name,
+                )
+                if ft_out and ft_out.is_file():
+                    built_artifacts.append(str(ft_out.relative_to(REPO_ROOT)))
+
     # 2. Surgically compile ONLY the requested single conformance test binary
     if test_name:
         test_c = REPO_ROOT / "tests" / "conformance" / dll / f"{test_name}.c"

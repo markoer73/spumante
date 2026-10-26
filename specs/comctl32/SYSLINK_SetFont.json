@@ -1,0 +1,45 @@
+{
+  "dll": "comctl32",
+  "api": "SYSLINK_SetFont",
+  "source_url": "https://learn.microsoft.com/en-us/windows/win32/winmsg/wm-setfont",
+  "header": "commctrl.h",
+  "signature": "HFONT WINAPI SYSLINK_SetFont(SYSLINK_INFO *infoPtr, HFONT hFont, BOOL bRedraw);",
+  "parameters": [
+    {
+      "name": "infoPtr",
+      "type": "SYSLINK_INFO *",
+      "direction": "in_out",
+      "description": "Pointer to the SysLink control instance state."
+    },
+    {
+      "name": "hFont",
+      "type": "HFONT",
+      "direction": "in",
+      "description": "Handle to the new font, or NULL to draw text using the default system/GUI font."
+    },
+    {
+      "name": "bRedraw",
+      "type": "BOOL",
+      "direction": "in",
+      "description": "TRUE if the control should redraw immediately after updating the font."
+    }
+  ],
+  "return_values": {
+    "success": "Previous HFONT stored in infoPtr->Font, with infoPtr->LinkFont populated as an underlined HFONT.",
+    "errors": [
+      {
+        "code": "NULL",
+        "condition": "Returned when no previous font was assigned, while still creating a valid underlined LinkFont via HDC/stock font fallback."
+      }
+    ]
+  },
+  "edge_cases": [
+    "When hFont is NULL or GetObjectW(hFont, sizeof(LOGFONTW), &lf) fails, SYSLINK_SetFont falls back through GetCurrentObject(hdc, OBJ_FONT), GetStockObject(DEFAULT_GUI_FONT), and GetStockObject(SYSTEM_FONT) before synthesizing a default Tahoma LOGFONTW so LinkFont creation never fails with 'err:syslink:SYSLINK_SetFont Failed to create link font!'.",
+    "On macOS Rosetta 2 (--full-x86), Universal (x86_64 + arm64) libfreetype.6.dylib is provisioned so x86_64-unix/win32u.so links HAVE_FREETYPE / SONAME_LIBFREETYPE and loads built-in tahoma.ttf and /System/Library/Fonts."
+  ],
+  "clean_room_provenance": {
+    "ms_learn_verified": true,
+    "wine_header_verified": true,
+    "no_proprietary_source_used": true
+  }
+}

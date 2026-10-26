@@ -140,6 +140,20 @@ def build_winetest(dll: str, arch: str = "x86_64") -> dict[str, Any]:
             build_and_install_unix_so(dll, c_sources, dep_paths, host_cc, darwin_frameworks)
         )
 
+    if dll == "comctl32" and sys.platform == "darwin":
+        from scripts.lib.wine_borrow import ensure_macos_freetype
+
+        for inst_name, full_name in (
+            ("wine-install-x86", "wine-full-x86"),
+            ("wine-install-arm64", "wine-full-arm64"),
+        ):
+            ft_out = ensure_macos_freetype(
+                install_dir=REPO_ROOT / "builds" / inst_name,
+                build_dir=REPO_ROOT / "builds" / full_name,
+            )
+            if ft_out and ft_out.is_file():
+                built_artifacts.append(str(ft_out.relative_to(REPO_ROOT)))
+
     # 1. Standard optimized host binary
     winetest_bin = build_dir / f"winetest_{dll}.bin"
     if not is_artifact_up_to_date(winetest_bin, dep_paths):

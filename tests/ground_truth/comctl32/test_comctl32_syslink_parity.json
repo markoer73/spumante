@@ -1,0 +1,140 @@
+{
+  "dll": "comctl32",
+  "test_name": "test_comctl32_syslink_parity",
+  "architecture": "x86_64",
+  "environment": "windows_vm",
+  "assertions": [
+    {
+      "id": "comctl32_syslink_setfont_explicit_hfont",
+      "case": "Comctl32_SysLink_SetFont_ExplicitHFont",
+      "api": "SYSLINK_SetFont",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 1,
+      "buffer_hex": "0100000001000000f3ffffff01000000",
+      "handle_valid": true
+    },
+    {
+      "id": "comctl32_syslink_setfont_fallback_hdc_obj_font",
+      "case": "Comctl32_SysLink_SetFont_Fallback_HdcObjFont",
+      "api": "SYSLINK_SetFont",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 2,
+      "buffer_hex": "01000000010000005400000002000000",
+      "handle_valid": true
+    },
+    {
+      "id": "comctl32_syslink_setfont_fallback_default_gui_font",
+      "case": "Comctl32_SysLink_SetFont_Fallback_DefaultGuiFont",
+      "api": "SYSLINK_SetFont",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 3,
+      "buffer_hex": "01000000010000004d00000003000000",
+      "handle_valid": true
+    },
+    {
+      "id": "comctl32_syslink_setfont_fallback_system_font",
+      "case": "Comctl32_SysLink_SetFont_Fallback_SystemFont",
+      "api": "SYSLINK_SetFont",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 4,
+      "buffer_hex": "01000000010000005300000004000000",
+      "handle_valid": true
+    },
+    {
+      "id": "comctl32_syslink_setfont_fallback_synthesized_tahoma",
+      "case": "Comctl32_SysLink_SetFont_Fallback_SynthesizedTahoma",
+      "api": "SYSLINK_SetFont",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 5,
+      "buffer_hex": "01000000010000002000000005000000",
+      "handle_valid": true
+    },
+    {
+      "id": "comctl32_syslink_wm_setfont_returns_prev_font",
+      "case": "Comctl32_SysLink_WM_SETFONT_ReturnsPrevFont",
+      "api": "SysLinkWindowProc",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 1,
+      "buffer_hex": "01000000010000000100000001000000",
+      "handle_valid": true
+    },
+    {
+      "id": "comctl32_syslink_parse_anchor_href_and_id",
+      "case": "Comctl32_SysLink_ParseAnchor_HrefAndId",
+      "api": "SYSLINK_SetText",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 2,
+      "buffer_hex": "01000000010000000100000001000000",
+      "handle_valid": true
+    },
+    {
+      "id": "comctl32_syslink_lm_setitem_updates_url_and_state",
+      "case": "Comctl32_SysLink_LM_SETITEM_UpdatesUrlAndState",
+      "api": "SYSLINK_SetItem",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 1,
+      "buffer_hex": "01000000010000000100000001000000",
+      "handle_valid": true
+    },
+    {
+      "id": "comctl32_syslink_invalid_item_index_returns_false",
+      "case": "Comctl32_SysLink_InvalidItemIndex_ReturnsFalse",
+      "api": "SYSLINK_GetItem",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 0,
+      "buffer_hex": "01000000000000000000000000000000",
+      "handle_valid": false
+    },
+    {
+      "id": "comctl32_syslink_get_ideal_height_and_size",
+      "case": "Comctl32_SysLink_GetIdealHeightAndSize",
+      "api": "SYSLINK_GetIdealSize",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 16,
+      "buffer_hex": "01000000010000000100000001000000",
+      "handle_valid": true
+    },
+    {
+      "id": "comctl32_universal_libfreetype_provisioned",
+      "case": "Comctl32_Universal_Libfreetype_Provisioned",
+      "api": "ensure_macos_freetype",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 1,
+      "buffer_hex": "00000000010000000100000001000000",
+      "handle_valid": true
+    },
+    {
+      "id": "comctl32_win32u_have_freetype_and_tahoma_font",
+      "case": "Comctl32_Win32u_HaveFreetype_And_TahomaFont",
+      "api": "init_freetype_lib",
+      "comparison_mode": "exact",
+      "status": "0x00000000",
+      "last_error": 0,
+      "out_length": 1,
+      "buffer_hex": "00000000010000000100000001000000",
+      "handle_valid": true
+    }
+  ]
+}
