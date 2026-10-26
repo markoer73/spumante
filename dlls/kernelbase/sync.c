@@ -193,20 +193,38 @@ BOOL WINAPI InitOnceComplete(
     return kb_set_ntstatus(RtlRunOnceComplete(lpInitOnce, dwFlags, lpContext));
 }
 
+typedef struct _KB_INIT_ONCE_THUNK {
+    PINIT_ONCE_FN fn;
+    PVOID param;
+} KB_INIT_ONCE_THUNK;
+
+static DWORD WINAPI kb_init_once_thunk_proc(PRTL_RUN_ONCE once, PVOID param, PVOID *context)
+{
+    KB_INIT_ONCE_THUNK *thunk = (KB_INIT_ONCE_THUNK *)param;
+    if (!thunk || !thunk->fn) {
+        return 0;
+    }
+    return thunk->fn((PINIT_ONCE)once, thunk->param, context) ? 1 : 0;
+}
+
 BOOL WINAPI InitOnceExecuteOnce(
     PINIT_ONCE InitOnce,
     PINIT_ONCE_FN InitFn,
     PVOID Parameter,
     LPVOID *Context)
 {
+    KB_INIT_ONCE_THUNK thunk;
+
     if (kb_is_stub_simulated()) {
         SetLastError(ERROR_INVALID_FUNCTION);
         return FALSE;
     }
+    thunk.fn = InitFn;
+    thunk.param = Parameter;
     return kb_set_ntstatus(RtlRunOnceExecuteOnce(
         InitOnce,
-        (PRTL_RUN_ONCE_INIT_FN)InitFn,
-        Parameter,
+        kb_init_once_thunk_proc,
+        &thunk,
         Context));
 }
 
