@@ -1118,28 +1118,40 @@ static int ensure_rosetta2_for_x86_target(const char *pe_arch, const char *launc
         sw_bin = "/usr/sbin/softwareupdate";
     }}
 
+    const char *consent_env = getenv("WINE_PARITY_ROSETTA_CONSENT");
+    if (consent_env && consent_env[0] != '\\0') {{
+        if (strcasecmp(consent_env, "y") != 0 &&
+            strcasecmp(consent_env, "yes") != 0 &&
+            strcasecmp(consent_env, "1") != 0 &&
+            strcasecmp(consent_env, "true") != 0 &&
+            strcasecmp(consent_env, "agree") != 0) {{
+            fprintf(stderr, "[WineParity] ERROR: Rosetta 2 installation declined by user. Aborting wine-parity execution.\\n");
+            return 86;
+        }}
+    }} else {{
 #ifdef __APPLE__
-    const char *non_interactive = getenv("WINE_PARITY_NONINTERACTIVE_ROSETTA");
-    const char *dry_run_json = getenv("WINE_PARITY_DRY_RUN_JSON");
-    if ((!non_interactive || strcmp(non_interactive, "1") != 0) &&
-        (!dry_run_json || strcmp(dry_run_json, "1") != 0)) {{
-        @autoreleasepool {{
-            NSApplication *app = [NSApplication sharedApplication];
-            [app setActivationPolicy:NSApplicationActivationPolicyAccessory];
-            NSAlert *alert = [[NSAlert alloc] init];
-            [alert setAlertStyle:NSAlertStyleWarning];
-            [alert setMessageText:@"Rosetta 2 Required for Intel Windows Applications"];
-            [alert setInformativeText:@"This Windows executable requires Rosetta 2 to run x86/x86_64 code on Apple Silicon. Would you like WineParity to install Rosetta 2 now?"];
-            [alert addButtonWithTitle:@"Install Rosetta 2"];
-            [alert addButtonWithTitle:@"Cancel"];
-            [app activateIgnoringOtherApps:YES];
-            if ([alert runModal] != NSAlertFirstButtonReturn) {{
-                fprintf(stderr, "[WineParity] ERROR: Rosetta 2 installation cancelled by user.\\n");
-                return 86;
+        const char *non_interactive = getenv("WINE_PARITY_NONINTERACTIVE_ROSETTA");
+        const char *dry_run_json = getenv("WINE_PARITY_DRY_RUN_JSON");
+        if ((!non_interactive || strcmp(non_interactive, "1") != 0) &&
+            (!dry_run_json || strcmp(dry_run_json, "1") != 0)) {{
+            @autoreleasepool {{
+                NSApplication *app = [NSApplication sharedApplication];
+                [app setActivationPolicy:NSApplicationActivationPolicyAccessory];
+                NSAlert *alert = [[NSAlert alloc] init];
+                [alert setAlertStyle:NSAlertStyleWarning];
+                [alert setMessageText:@"Rosetta 2 Required for Intel Windows Applications"];
+                [alert setInformativeText:@"This Windows executable requires Rosetta 2 to run x86/x86_64 code on Apple Silicon. Do you agree to install Rosetta 2 now? If you disagree, WineParity will abort."];
+                [alert addButtonWithTitle:@"Agree & Install Rosetta 2"];
+                [alert addButtonWithTitle:@"Disagree & Abort"];
+                [app activateIgnoringOtherApps:YES];
+                if ([alert runModal] != NSAlertFirstButtonReturn) {{
+                    fprintf(stderr, "[WineParity] ERROR: Rosetta 2 installation declined by user. Aborting wine-parity execution.\\n");
+                    return 86;
+                }}
             }}
         }}
-    }}
 #endif
+    }}
 
     fprintf(stderr, "[WineParity] Apple Silicon detected without Rosetta 2. Running '%s --install-rosetta --agree-to-license'...\\n", sw_bin);
     pid_t pid = fork();

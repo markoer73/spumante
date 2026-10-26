@@ -170,7 +170,26 @@ ensure_rosetta2_installed() {{
         return 0
     fi
     local sw_bin="${{WINE_PARITY_SOFTWAREUPDATE_BIN:-/usr/sbin/softwareupdate}}"
-    echo "[WineParity Installer] Apple Silicon detected without Rosetta 2. Installing Rosetta 2 for x86/x86_64 Windows app support..."
+    local consent="${{WINE_PARITY_ROSETTA_CONSENT:-}}"
+    if [[ -z "$consent" ]] && [[ "${{WINE_PARITY_NONINTERACTIVE_ROSETTA:-0}}" == "1" ]]; then
+        consent="yes"
+    fi
+    echo "[WineParity Installer] Apple Silicon detected without Rosetta 2."
+    echo "[WineParity Installer] Rosetta 2 is required to run 32-bit and 64-bit Intel (x86/x86_64) Windows applications."
+    if [[ -z "$consent" ]]; then
+        if ! read -r -p "[WineParity Installer] Do you agree to install Rosetta 2 now? [y/N]: " consent; then
+            consent="no"
+        fi
+    fi
+    case "$consent" in
+        [yY]|[yY][eE][sS]|1|[tT][rR][uU][eE]|[aA][gG][rR][eE][eE])
+            ;;
+        *)
+            echo "[WineParity Installer] ERROR: Rosetta 2 installation declined by user. Aborting wine-parity installation." >&2
+            exit 86
+            ;;
+    esac
+    echo "[WineParity Installer] Installing Rosetta 2 for x86/x86_64 Windows app support..."
     if "$sw_bin" --install-rosetta --agree-to-license; then
         echo "[WineParity Installer] Rosetta 2 installation succeeded."
         return 0
@@ -196,6 +215,7 @@ if [[ "$DRY_RUN" -eq 1 ]]; then
   "config_file": "$CONFIG_FILE",
   "wineprefix": "$WINEPREFIX_DIR",
   "rosetta2_check_enabled": true,
+  "rosetta2_requires_user_consent": true,
   "rosetta2_installed": $ROSETTA_READY,
   "rosetta2_install_command": "/usr/sbin/softwareupdate --install-rosetta --agree-to-license"
 }}

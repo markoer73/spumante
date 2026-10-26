@@ -2543,7 +2543,7 @@ class TestWineParityArchitecture(unittest.TestCase):
                 direct_doc = json.loads(res_direct.stdout)
                 self.assertTrue(direct_doc["executable_bit_verified"])
 
-            # 5B. Verify 2-layer Rosetta 2 verification & auto-installation in Install WineParity.command and WineParity.app
+            # 5B. Verify 2-layer Rosetta 2 verification & explicit user consent in Install WineParity.command and WineParity.app
             res_inst_dry = subprocess.run(
                 [str(installer_cmd), "--dry-run"],
                 cwd=REPO_ROOT,
@@ -2554,6 +2554,7 @@ class TestWineParityArchitecture(unittest.TestCase):
             self.assertEqual(res_inst_dry.returncode, 0, res_inst_dry.stdout + res_inst_dry.stderr)
             inst_dry_doc = json.loads(res_inst_dry.stdout)
             self.assertTrue(inst_dry_doc["rosetta2_check_enabled"])
+            self.assertTrue(inst_dry_doc["rosetta2_requires_user_consent"])
             self.assertEqual(
                 inst_dry_doc["rosetta2_install_command"],
                 "/usr/sbin/softwareupdate --install-rosetta --agree-to-license",
@@ -2584,13 +2585,92 @@ class TestWineParityArchitecture(unittest.TestCase):
             rosetta_probe_exe.write_bytes(bytes(pe_buf))
             rosetta_probe_exe.chmod(0o755)
 
-            env_rosetta_ok = os.environ.copy()
+            # First verify that if the user DISAGREES ("n" at prompt), Rosetta 2 is NOT installed and wine-parity installation is ABORTED
+            declined_apps = tmp_root / "DeclinedApplications"
+            declined_bin = tmp_root / "DeclinedBin"
+            declined_cfg = tmp_root / "DeclinedConfig" / "config.json"
+            declined_prefix = tmp_root / "DeclinedPrefix"
+
+            env_rosetta_prompt = os.environ.copy()
+            env_rosetta_prompt["WINE_PARITY_CONFIG"] = str(declined_cfg)
+            env_rosetta_prompt["WINEPREFIX"] = str(declined_prefix)
+            env_rosetta_prompt["WINE_PARITY_DRY_RUN_JSON"] = "1"
+            env_rosetta_prompt["WINE_PARITY_REQUIRE_AUTHENTICODE"] = "0"
+            env_rosetta_prompt["WINE_PARITY_SIMULATE_MISSING_ROSETTA"] = "1"
+            env_rosetta_prompt["WINE_PARITY_SOFTWAREUPDATE_BIN"] = str(mock_swupdate_ok)
+            env_rosetta_prompt.pop("WINE_PARITY_NONINTERACTIVE_ROSETTA", None)
+            env_rosetta_prompt.pop("WINE_PARITY_ROSETTA_CONSENT", None)
+
+            res_inst_decline = subprocess.run(
+                [
+                    str(installer_cmd),
+                    "--target-dir",
+                    str(declined_apps),
+                    "--bin-dir",
+                    str(declined_bin),
+                    "--config-file",
+                    str(declined_cfg),
+                    "--wineprefix",
+                    str(declined_prefix),
+                    "--no-open-config",
+                ],
+                cwd=REPO_ROOT,
+                env=env_rosetta_prompt,
+                input="n\n",
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(
+                res_inst_decline.returncode,
+                86,
+                f"Installer must abort with exit code 86 when user declines Rosetta 2:\n{res_inst_decline.stdout}\n{res_inst_decline.stderr}",
+            )
+            self.assertIn("declined by user", res_inst_decline.stderr)
+            self.assertIn("Aborting wine-parity installation", res_inst_decline.stderr)
+            self.assertFalse(
+                rosetta_log.is_file(),
+                "softwareupdate must NOT be invoked when user declines Rosetta 2 installation",
+            )
+            self.assertFalse(
+                (declined_apps / "WineParity.app").exists(),
+                "WineParity.app must NOT be installed when user declines Rosetta 2",
+            )
+            self.assertFalse(
+                (declined_apps / "WineParity Config.app").exists(),
+                "WineParity Config.app must NOT be installed when user declines Rosetta 2",
+            )
+            self.assertFalse(
+                (declined_bin / "wine-parity").exists(),
+                "wine-parity CLI wrapper must NOT be installed when user declines Rosetta 2",
+            )
+            self.assertFalse(
+                declined_cfg.exists(),
+                "config.json must NOT be created when user declines Rosetta 2",
+            )
+
+            # Also verify WineParity.app aborts without running softwareupdate when user declines (WINE_PARITY_ROSETTA_CONSENT=no)
+            env_app_decline = env_rosetta_prompt.copy()
+            env_app_decline["WINE_PARITY_ROSETTA_CONSENT"] = "no"
+            res_app_decline = subprocess.run(
+                [str(installed_launcher), str(rosetta_probe_exe)],
+                cwd=REPO_ROOT,
+                env=env_app_decline,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(res_app_decline.returncode, 86)
+            self.assertIn("declined by user", res_app_decline.stderr)
+            self.assertFalse(
+                rosetta_log.is_file(),
+                "WineParity.app must NOT invoke softwareupdate when user declines Rosetta 2",
+            )
+
+            # Now verify that when the user AGREES ("y" at prompt), Rosetta 2 is installed and wine-parity installation succeeds
+            env_rosetta_ok = env_rosetta_prompt.copy()
             env_rosetta_ok["WINE_PARITY_CONFIG"] = str(target_cfg)
             env_rosetta_ok["WINEPREFIX"] = str(target_prefix)
-            env_rosetta_ok["WINE_PARITY_DRY_RUN_JSON"] = "1"
-            env_rosetta_ok["WINE_PARITY_SIMULATE_MISSING_ROSETTA"] = "1"
-            env_rosetta_ok["WINE_PARITY_SOFTWAREUPDATE_BIN"] = str(mock_swupdate_ok)
-            env_rosetta_ok["WINE_PARITY_NONINTERACTIVE_ROSETTA"] = "1"
 
             res_inst_rosetta = subprocess.run(
                 [
@@ -2607,6 +2687,7 @@ class TestWineParityArchitecture(unittest.TestCase):
                 ],
                 cwd=REPO_ROOT,
                 env=env_rosetta_ok,
+                input="y\n",
                 capture_output=True,
                 text=True,
                 check=False,
@@ -2614,11 +2695,12 @@ class TestWineParityArchitecture(unittest.TestCase):
             self.assertEqual(
                 res_inst_rosetta.returncode,
                 0,
-                f"Installer with auto-rosetta failed:\n{res_inst_rosetta.stdout}\n{res_inst_rosetta.stderr}",
+                f"Installer with user consent for Rosetta 2 failed:\n{res_inst_rosetta.stdout}\n{res_inst_rosetta.stderr}",
             )
-            self.assertTrue(rosetta_log.is_file(), "Installer must invoke softwareupdate when Rosetta 2 is missing")
+            self.assertTrue(rosetta_log.is_file(), "Installer must invoke softwareupdate after user agrees")
             self.assertIn("--install-rosetta --agree-to-license", rosetta_log.read_text(encoding="utf-8"))
 
+            env_rosetta_ok["WINE_PARITY_ROSETTA_CONSENT"] = "yes"
             res_app_rosetta_ok = subprocess.run(
                 [str(installed_launcher), str(rosetta_probe_exe)],
                 cwd=REPO_ROOT,
