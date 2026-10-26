@@ -135,7 +135,7 @@ def build_winetest(dll: str, arch: str = "x86_64") -> dict[str, Any]:
     )
 
     built_artifacts: list[str] = []
-    if dll == "wineusb.sys":
+    if dll in ("wineusb.sys", "winebth.sys"):
         built_artifacts.extend(
             build_and_install_unix_so(dll, c_sources, dep_paths, host_cc, darwin_frameworks)
         )

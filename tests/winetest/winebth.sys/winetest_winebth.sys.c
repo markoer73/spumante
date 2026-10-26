@@ -9,10 +9,15 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <stdbool.h>
+#include <stdio.h>
 #include <string.h>
+#if defined(__APPLE__)
+#include <dlfcn.h>
+#endif
 
 #include "../../include/wine/test.h"
 #include "../../../dlls/winebth.sys/winebth.h"
+#include "../../../dlls/winebth.sys/unixlib.h"
 
 static void test_driver_entry(void)
 {
@@ -226,6 +231,107 @@ static void test_setupdi_service_install(void)
     ok(setupdi.radio_enumerated == 1, "Radio device not enumerated\n");
 }
 
+static void test_unixlib_abi_and_installed_so(void)
+{
+    struct bluetooth_get_event_params ev_params;
+    NTSTATUS status;
+    int i;
+
+    WineBthResetDriverState();
+
+    /* 1. Upstream Wine struct winebluetooth_event ABI size must fit within 320 bytes on 64-bit */
+    if (sizeof(void *) == 8) {
+        ok(sizeof(struct winebluetooth_event) <= 320,
+           "Expected upstream-compatible sizeof(struct winebluetooth_event) <= 320 on 64-bit, got %zu\n",
+           sizeof(struct winebluetooth_event));
+    }
+
+    /* 2. Direct __wine_unix_call_funcs 21-entry table dispatch */
+    ok(unix_funcs_count == 21, "Expected 21 entries in enum bluetoothapis_funcs, got %d\n", (int)unix_funcs_count);
+    for (i = 0; i < (int)unix_funcs_count; i++) {
+        ok(__wine_unix_call_funcs[i] != NULL, "__wine_unix_call_funcs[%d] entry is NULL\n", i);
+    }
+
+    status = __wine_unix_call_funcs[unix_bluetooth_init](NULL);
+    ok(status == STATUS_SUCCESS, "unix_bluetooth_init failed: 0x%08x (0xc00000e5 reproduced)\n", (unsigned int)status);
+
+    memset(&ev_params, 0, sizeof(ev_params));
+    status = __wine_unix_call_funcs[unix_bluetooth_get_event](&ev_params);
+    ok(status == STATUS_SUCCESS, "First unix_bluetooth_get_event failed: 0x%08x\n", (unsigned int)status);
+
+    for (i = 0; i < 8 && status == STATUS_SUCCESS; i++) {
+        memset(&ev_params, 0, sizeof(ev_params));
+        status = __wine_unix_call_funcs[unix_bluetooth_get_event](&ev_params);
+    }
+    ok(status != STATUS_PENDING, "Drained unix_bluetooth_get_event must not spin with STATUS_PENDING: got 0x%08x\n", (unsigned int)status);
+
+    status = __wine_unix_call_funcs[unix_bluetooth_shutdown](NULL);
+    ok(status == STATUS_SUCCESS, "unix_bluetooth_shutdown failed: 0x%08x\n", (unsigned int)status);
+
+#if defined(__APPLE__)
+    /* 3. Verify x86_64-unix/winebth.so and aarch64-unix/winebth.so are compiled and installed */
+    {
+        const char *x86_so = "builds/wine-install-x86/lib/wine/x86_64-unix/winebth.so";
+        const char *arm_so = "builds/wine-install-arm64/lib/wine/aarch64-unix/winebth.so";
+        FILE *fx86 = fopen(x86_so, "rb");
+        FILE *farm = fopen(arm_so, "rb");
+        uint32_t hdr[2] = {0, 0};
+
+        ok(fx86 != NULL, "Missing installed %s\n", x86_so);
+        if (fx86) {
+            size_t n = fread(hdr, sizeof(uint32_t), 2, fx86);
+            fclose(fx86);
+            ok(n == 2 && hdr[0] == 0xFEEDFACFU && hdr[1] == 0x01000007U,
+               "Expected x86_64 Mach-O magic/cputype in %s, got 0x%08x / 0x%08x\n",
+               x86_so, hdr[0], hdr[1]);
+        }
+
+        hdr[0] = 0;
+        hdr[1] = 0;
+        ok(farm != NULL, "Missing installed %s\n", arm_so);
+        if (farm) {
+            size_t n = fread(hdr, sizeof(uint32_t), 2, farm);
+            fclose(farm);
+            ok(n == 2 && hdr[0] == 0xFEEDFACFU && hdr[1] == 0x0100000CU,
+               "Expected arm64 Mach-O magic/cputype in %s, got 0x%08x / 0x%08x\n",
+               arm_so, hdr[0], hdr[1]);
+        }
+
+#if defined(__aarch64__)
+        {
+            void *dl = dlopen(arm_so, RTLD_NOW | RTLD_LOCAL);
+            ok(dl != NULL, "dlopen(%s) failed: %s\n", arm_so, dl ? "" : dlerror());
+            if (dl) {
+                const unixlib_entry_t *funcs = (const unixlib_entry_t *)dlsym(dl, "__wine_unix_call_funcs");
+                ok(funcs != NULL, "dlsym(__wine_unix_call_funcs) missing in %s\n", arm_so);
+                if (funcs && funcs[unix_bluetooth_init]) {
+                    NTSTATUS dl_st = funcs[unix_bluetooth_init](NULL);
+                    ok(dl_st == STATUS_SUCCESS, "installed %s unix_bluetooth_init returned 0x%08x\n", arm_so, (unsigned int)dl_st);
+                    if (funcs[unix_bluetooth_shutdown]) funcs[unix_bluetooth_shutdown](NULL);
+                }
+                dlclose(dl);
+            }
+        }
+#elif defined(__x86_64__)
+        {
+            void *dl = dlopen(x86_so, RTLD_NOW | RTLD_LOCAL);
+            ok(dl != NULL, "dlopen(%s) failed: %s\n", x86_so, dl ? "" : dlerror());
+            if (dl) {
+                const unixlib_entry_t *funcs = (const unixlib_entry_t *)dlsym(dl, "__wine_unix_call_funcs");
+                ok(funcs != NULL, "dlsym(__wine_unix_call_funcs) missing in %s\n", x86_so);
+                if (funcs && funcs[unix_bluetooth_init]) {
+                    NTSTATUS dl_st = funcs[unix_bluetooth_init](NULL);
+                    ok(dl_st == STATUS_SUCCESS, "installed %s unix_bluetooth_init returned 0x%08x\n", x86_so, (unsigned int)dl_st);
+                    if (funcs[unix_bluetooth_shutdown]) funcs[unix_bluetooth_shutdown](NULL);
+                }
+                dlclose(dl);
+            }
+        }
+#endif
+    }
+#endif
+}
+
 START_TEST(winebth)
 {
     test_driver_entry();
@@ -234,4 +340,5 @@ START_TEST(winebth)
     test_query_ids();
     test_ioctls();
     test_setupdi_service_install();
+    test_unixlib_abi_and_installed_so();
 }

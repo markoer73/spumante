@@ -363,10 +363,40 @@ static NTSTATUS unix_bluetooth_get_event_impl(void *args)
         return STATUS_SUCCESS;
     }
 
-    return STATUS_PENDING;
+    return (NTSTATUS)0x8000001AU; /* STATUS_NO_MORE_ENTRIES */
 }
 
-const unixlib_entry_t __wine_unix_call_funcs[] = {
+#ifndef _WIN32
+#define WINE_UNIX_EXPORT __attribute__((visibility("default")))
+#else
+#define WINE_UNIX_EXPORT
+#endif
+
+WINE_UNIX_EXPORT const unixlib_entry_t __wine_unix_call_funcs[] = {
+    unix_bluetooth_init_impl,
+    unix_bluetooth_shutdown_impl,
+    unix_bluetooth_adapter_set_prop_impl,
+    unix_bluetooth_adapter_get_unique_name_impl,
+    unix_bluetooth_adapter_start_discovery_impl,
+    unix_bluetooth_adapter_stop_discovery_impl,
+    unix_bluetooth_adapter_remove_device_impl,
+    unix_bluetooth_adapter_free_impl,
+    unix_bluetooth_adapter_dup_impl,
+    unix_bluetooth_device_free_impl,
+    unix_bluetooth_device_dup_impl,
+    unix_bluetooth_device_disconnect_impl,
+    unix_bluetooth_device_start_pairing_impl,
+    unix_bluetooth_auth_agent_enable_incoming_impl,
+    unix_bluetooth_auth_send_response_impl,
+    unix_bluetooth_gatt_service_free_impl,
+    unix_bluetooth_gatt_characteristic_free_impl,
+    unix_bluetooth_gatt_characteristic_read_impl,
+    unix_bluetooth_gatt_characteristic_value_move_impl,
+    unix_bluetooth_gatt_characteristic_value_free_impl,
+    unix_bluetooth_get_event_impl,
+};
+
+WINE_UNIX_EXPORT const unixlib_entry_t __wine_unix_call_wow64_funcs[] = {
     unix_bluetooth_init_impl,
     unix_bluetooth_shutdown_impl,
     unix_bluetooth_adapter_set_prop_impl,

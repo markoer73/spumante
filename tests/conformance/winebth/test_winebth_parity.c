@@ -8,6 +8,7 @@
 
 #include "../../include/parity_test.h"
 #include "../../../dlls/winebth.sys/winebth.h"
+#include "../../../dlls/winebth.sys/unixlib.h"
 
 static void put_u32_le(uint8_t *dst, uint32_t v)
 {
@@ -605,6 +606,77 @@ int main(void)
             digest,
             status == STATUS_SUCCESS ? sizeof(digest) : 0,
             status == STATUS_SUCCESS ? 1 : 0);
+    }
+
+    /* =========================================================================
+     * Case 13: winebth_unix_call_funcs_and_installed_so
+     * Verify __wine_unix_call_funcs 21-entry table ABI, non-spinning
+     * unix_bluetooth_get_event completion, and installed winebth.so Mach-O
+     * binaries on macOS.
+     * ========================================================================= */
+    {
+        struct bluetooth_get_event_params ev_params;
+        NTSTATUS loop_st = STATUS_PENDING;
+        uint32_t table_valid = 1U;
+        uint32_t event_size_ok = (sizeof(void *) != 8 || sizeof(struct winebluetooth_event) <= 320U) ? 1U : 0U;
+        uint32_t so_installed = 1U;
+        uint8_t digest[16];
+        int i;
+
+        memset(&ev_params, 0, sizeof(ev_params));
+        memset(digest, 0, sizeof(digest));
+        WineBthResetDriverState();
+
+        for (i = 0; i < (int)unix_funcs_count; i++) {
+            if (__wine_unix_call_funcs[i] == NULL) {
+                table_valid = 0U;
+            }
+        }
+
+        status = __wine_unix_call_funcs[unix_bluetooth_init](NULL);
+        if (status == STATUS_SUCCESS) {
+            loop_st = STATUS_SUCCESS;
+            for (i = 0; i < 8 && loop_st == STATUS_SUCCESS; i++) {
+                memset(&ev_params, 0, sizeof(ev_params));
+                loop_st = __wine_unix_call_funcs[unix_bluetooth_get_event](&ev_params);
+            }
+            (void)__wine_unix_call_funcs[unix_bluetooth_shutdown](NULL);
+        }
+
+#if defined(__APPLE__)
+        {
+            FILE *fx86 = fopen("builds/wine-install-x86/lib/wine/x86_64-unix/winebth.so", "rb");
+            FILE *farm = fopen("builds/wine-install-arm64/lib/wine/aarch64-unix/winebth.so", "rb");
+            if (!fx86 || !farm) {
+                so_installed = 0U;
+            }
+            if (fx86) fclose(fx86);
+            if (farm) fclose(farm);
+        }
+#endif
+
+        put_u32_le(digest + 0, (uint32_t)status);
+        put_u32_le(digest + 4, table_valid);
+        put_u32_le(digest + 8, (event_size_ok && loop_st != STATUS_PENDING) ? 1U : 0U);
+        put_u32_le(digest + 12, so_installed);
+
+        ok(status == STATUS_SUCCESS && table_valid == 1U && event_size_ok == 1U &&
+           loop_st != STATUS_PENDING && so_installed == 1U,
+           "unixlib ABI check failed: status=0x%08x table=%u ev_size=%u loop_st=0x%08x so=%u\n",
+           (unsigned int)status, (unsigned int)table_valid, (unsigned int)event_size_ok,
+           (unsigned int)loop_st, (unsigned int)so_installed);
+
+        parity_record_exact(
+            "winebth_unix_call_funcs_and_installed_so",
+            "WineBth_UnixCallFuncs_And_InstalledSo",
+            "__wine_unix_call_funcs",
+            status,
+            GetLastError(),
+            so_installed,
+            digest,
+            sizeof(digest),
+            (status == STATUS_SUCCESS && table_valid == 1U && event_size_ok == 1U &&
+             loop_st != STATUS_PENDING && so_installed == 1U) ? 1 : 0);
     }
 
     parity_end_document();

@@ -52,12 +52,12 @@ def build_and_install_unix_so(
     host_cc: str,
     darwin_frameworks: list[str],
 ) -> list[str]:
-    """Compile and install macOS Mach-O Unix .so libraries (e.g. wineusb.so) for x86_64-unix and aarch64-unix."""
+    """Compile and install macOS Mach-O Unix .so libraries (e.g. wineusb.so, winebth.so) for x86_64-unix and aarch64-unix."""
     built: list[str] = []
-    if sys.platform != "darwin" or dll != "wineusb.sys":
+    if sys.platform != "darwin" or dll not in ("wineusb.sys", "winebth.sys"):
         return built
 
-    so_name = "wineusb.so"
+    so_name = "wineusb.so" if dll == "wineusb.sys" else "winebth.so"
     unix_targets = [
         ("x86_64", "x86_64-unix", "wine-install-x86", "wine-full-x86"),
         ("arm64", "aarch64-unix", "wine-install-arm64", "wine-full-arm64"),
@@ -239,7 +239,7 @@ def surgical_build(
                         install_root.mkdir(parents=True, exist_ok=True)
                         shutil.copy2(pe_dll_out, install_root / f"{dll}.dll")
 
-        if dll == "wineusb.sys":
+        if dll in ("wineusb.sys", "winebth.sys"):
             built_artifacts.extend(
                 build_and_install_unix_so(dll, c_sources, dep_paths, host_cc, darwin_frameworks)
             )

@@ -138,6 +138,7 @@ enum bluetoothapis_funcs {
 typedef NTSTATUS (*unixlib_entry_t)(void *args);
 
 extern const unixlib_entry_t __wine_unix_call_funcs[];
+extern const unixlib_entry_t __wine_unix_call_wow64_funcs[];
 
 NTSTATUS WINAPI __wine_init_unix_call(void);
 NTSTATUS WINAPI wine_unix_call(enum bluetoothapis_funcs func, void *args);
