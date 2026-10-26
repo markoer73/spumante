@@ -67,6 +67,10 @@ compile_commands.json
 *.bak
 *.swp
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
 
 # Python cache
 __pycache__/
