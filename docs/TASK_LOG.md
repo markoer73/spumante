@@ -129,5 +129,6 @@ Detailed implementation and verification log tracking actions performed by AI as
   1. **Upstream Git Reset & Local Ignore Isolation (`.wine-upstream/.git/info/exclude`)**: Reset `.wine-upstream` back by 1 commit (`git reset --hard HEAD~1`), aligning `HEAD` with `origin/master` (`e3c3d34867`) to maintain the read-only upstream invariant, and added macOS file patterns (`.DS_Store`, `.DS_Store?`, `._*`, `.Spotlight-V100`, `.Trashes`) to `.wine-upstream/.git/info/exclude` for clean local ignore without committing or altering upstream tracking.
   2. **Comprehensive macOS Exclusions (`.gitignore`)**: Added `.DS_Store?`, `._*`, `.Spotlight-V100`, and `.Trashes` alongside `.DS_Store` to the repository root `.gitignore` and purged all lingering `.DS_Store` and `._*` desktop metadata files across the workspace.
   Verified via `./scripts/test.sh --lint` and `git status`.
+- **`[ANTIGRAVITY-COMPLETED 2026-10-26]`** - Created a WineHQ-coherent cartoonish Spumante flute logo (`docs/assets/spumante-logo.png`, tilted at a dynamic angle with golden sparkling wine, sloshing meniscus, rising perlage bubbles, and specular glass highlights on a transparent background) and embedded it at the top of `README.md`. Verified via `./scripts/test.sh --lint`.
 
 
