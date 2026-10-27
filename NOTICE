@@ -1,0 +1,41 @@
+Spumante for macOS
+Copyright (c) 2026 The Spumante Authors
+
+=========================================================================
+1. Original Spumante Components — Apache License, Version 2.0 (Apache-2.0)
+=========================================================================
+
+The following standalone components of Spumante are original works of the
+Spumante project and are licensed under the Apache License, Version 2.0
+(SPDX-License-Identifier: Apache-2.0, see `LICENSE`):
+
+  * `src/launcher/` (`Spumante.app`, `Spumante Config.app`):
+    - Native macOS LaunchServices `.exe` / `.msi` launcher (`spumante_app.m`)
+    - macOS Menu Bar Tray App (`NSStatusItem`) & 5-tab AppKit Settings GUI
+    - Pre-execution 3-gate PE security scanner (`spm_scan.c`, `spm_sha256.c`)
+    - Zero-trust macOS Seatbelt (`sandbox-exec`) profile generator &
+      `WINEPREFIX` registry cascade engine (`spm_config.c`)
+    - Built-in app & Windows Console (`wineconsole.exe`) dispatcher (`spm_runtime.c`)
+    - `DYLD_INSERT_LIBRARIES` child-process `+x` guard (`spumante_interpose.c`)
+  * `scripts/` & `scripts/lib/`:
+    - Build, DMG packaging, notarization, differential testing, stub discovery,
+      security scanning, and QEMU Windows VM orchestration scripts.
+  * `specs/` & `docs/`:
+    - Clean-Room Specification Packets, architecture documentation, and the
+      Spumante Application Compatibility Database (`docs/APPDB.md`).
+
+=========================================================================
+2. Wine Runtime & DLL Parity Overlays — LGPL v2.1 or later (LGPL-2.1-or-later)
+=========================================================================
+
+Spumante builds upon and bundles the Wine runtime (https://www.winehq.org/),
+Copyright (c) 1993-2026 the Wine project authors.
+
+  * `dlls/` and `tests/` (and the bundled `wine-install-x86` / `wine-install-arm64`
+    runtimes inside `Spumante.app` and `Spumante-Installer.dmg`) are licensed
+    under the GNU Lesser General Public License v2.1 or later
+    (SPDX-License-Identifier: LGPL-2.1-or-later).
+  * Original Spumante macOS parity additions within `dlls/` and `tests/` are
+    dual-licensed under `Apache-2.0 OR LGPL-2.1-or-later`.
+  * The full text of the GNU Lesser General Public License Version 2.1 is
+    provided in `LICENSE-LGPL-2.1`.

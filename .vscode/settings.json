@@ -1,5 +1,4 @@
 {
-  "window.title": "${dirty}${activeEditorShort}${separator}Spumante (${rootName})",
   "python.testing.unittestEnabled": true,
   "python.testing.pytestEnabled": false,
   "python.testing.unittestArgs": [

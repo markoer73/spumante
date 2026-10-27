@@ -1,0 +1,70 @@
+name: "Bug Report"
+description: "Report a bug or crash when running a Windows .exe or .msi application on macOS with Spumante."
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for reporting an issue with **Spumante**!
+        *Tip: You can auto-fill your macOS version, CPU architecture, and active settings by clicking **"Report a Bug…"** in **`Spumante Config.app`** or running `./scripts/launch.sh --report-bug`.*
+
+  - type: input
+    id: app_name
+    attributes:
+      label: "Windows Application Name & Version"
+      description: "Which Windows program (.exe or .msi) were you running?"
+      placeholder: "e.g. 7-Zip 24.08 (x64), Notepad++, Custom Installer.msi"
+    validations:
+      required: true
+
+  - type: input
+    id: app_url
+    attributes:
+      label: "Download URL or Installer Source (Optional)"
+      description: "If publicly downloadable, provide a link so we can reproduce it in our differential test harness."
+      placeholder: "https://..."
+
+  - type: input
+    id: macos_version
+    attributes:
+      label: "macOS Version"
+      description: "Your macOS release version (auto-filled when launched from Spumante Config.app)."
+      placeholder: "e.g. macOS 15.1 (Sequoia)"
+    validations:
+      required: true
+
+  - type: input
+    id: cpu_arch
+    attributes:
+      label: "Mac CPU Architecture & Execution Mode"
+      description: "Apple Silicon (M1/M2/M3/M4 via Rosetta 2 or ARM64) or Intel x86_64."
+      placeholder: "e.g. arm64 (Apple Silicon)"
+    validations:
+      required: true
+
+  - type: textarea
+    id: spumante_settings
+    attributes:
+      label: "Active Spumante Configuration"
+      description: "Summary of your ~/.config/spumante/config.json settings (auto-filled from Spumante Config.app)."
+      placeholder: "windows_version=win11, retina_mode=true, sandbox=true, outgoing=http_https_only, metal_iosurface=true"
+
+  - type: textarea
+    id: repro_steps
+    attributes:
+      label: "Steps to Reproduce & Observed Behavior"
+      description: "What steps lead to the bug, and what happened vs. what you expected?"
+      placeholder: |
+        1. Run `chmod +x app.exe && open app.exe`
+        2. Click ...
+        3. Observed error / crash: ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: log_output
+    attributes:
+      label: "Terminal / Spumante Log Output (Optional)"
+      description: "Paste any terminal output from running `spumante /path/to/app.exe`."
+      render: shell

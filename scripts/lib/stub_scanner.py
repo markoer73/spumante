@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# SPDX-License-Identifier: LGPL-2.1-or-later
+# SPDX-License-Identifier: Apache-2.0
 """3-layer automated stub discovery scanner for Wine DLLs (bcrypt, kernelbase, mfplat)."""
 
 from __future__ import annotations

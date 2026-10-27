@@ -14,7 +14,30 @@ Rather than attempting an impossible real-time "AI-powered runtime" (which would
 
 ---
 
-## 2. The Core Architecture: Closed-Loop Ground-Truth Harness
+## 2. Developer Prerequisites & Toolchain Setup
+
+Building Spumante from source, packaging the `.dmg` installer, or running the differential test suite requires the following developer tools on macOS:
+
+1. **Xcode Command Line Tools (`clang`, `git`, `make`, `codesign`)**:
+   ```sh
+   xcode-select --install
+   ```
+2. **Python 3 (`python3 >= 3.10`) — developers only**:
+   - **End users never need Python.** Everything inside the `.dmg` (`Spumante.app`, `Spumante Config.app`, `Install Spumante.command`, and the bundled Wine runtime) is native code and shell, with no Python dependency and no absolute build-machine paths.
+   - **Note on macOS Default Install**: On stock macOS (12.3+), `/usr/bin/python3` is only a stub executable that prompts to install the Xcode Command Line Developer Tools (`xcode-select --install`, which provides Python 3.9).
+   - The developer tooling — build, upstream-borrow (`wine_borrow.py`), DMG packaging (`dmg_packager.py`), and test orchestration scripts (`scripts/lib/*.py`) — requires **`python3` (3.10+ recommended)**. Install via Homebrew or [python.org](https://www.python.org/downloads/macos/):
+     ```sh
+     brew install python
+     ```
+3. **Wine & Cross-Compilation Build Dependencies (Homebrew)**:
+   Required for compiling full Wine (`./scripts/build.sh --full-x86` / `--full-arm64`) and cross-compiling Windows `.exe` conformance tests:
+   ```sh
+   brew install mingw-w64 bison flex pkg-config
+   ```
+
+---
+
+## 3. The Core Architecture: Closed-Loop Ground-Truth Harness
 
 ```text
  ┌───────────────────────────────────────────────────────────────┐
@@ -61,7 +84,7 @@ Rather than attempting an impossible real-time "AI-powered runtime" (which would
 
 ---
 
-## 3. Canonical Script Interface & Surgical Single-Target Workflow
+## 4. Canonical Script Interface & Surgical Single-Target Workflow
 
 All host/VM orchestration, compilation, differential testing, stub discovery, and linting are centralized into **four canonical, parametrized shell scripts** in `scripts/` (backed by internal modules in `scripts/lib/`). Full-tree rebuilds are refused by default to prevent rebuilding 1,000+ targets when verifying a single API or test case:
 
@@ -173,9 +196,36 @@ All host/VM orchestration, compilation, differential testing, stub discovery, an
 
 ---
 
-## 4. Seamless macOS `.exe` & `.msi` Execution (`Spumante.app` & POSIX Interposer)
+## 5. Seamless macOS `.exe` & `.msi` Execution (`Spumante.app` & POSIX Interposer)
 
 On macOS, `spumante` provides a zero-dependency native LaunchServices bundle (`builds/Spumante.app`), a Mach-O `execve`/`posix_spawn` interposer (`builds/libspumante_exec.dylib`), and a shell integration script (`builds/spumante-shell.sh`) so users can launch Windows `.exe` and `.msi` files directly by **double-clicking in Finder**, running **`open app.exe`**, or executing **`./app.exe`** in Terminal.
+
+### Native, Portable Runtime (`src/launcher/`)
+
+The entire end-user runtime is native C/Objective-C compiled from `src/launcher/` — there is **no Python dependency** at runtime and **no absolute build-machine path** compiled into any shipped file:
+
+| Module | Responsibility |
+|---|---|
+| `spumante_app.m` | Entry point, CLI dispatcher, AppKit Settings UI, LaunchServices registration, Rosetta 2 consent |
+| `spm_config.c` | `config.json` load/merge/update, non-destructive `user.reg` cascade, Seatbelt profile generation |
+| `spm_scan.c` | 3-gate PE scanner (quarantine, Authenticode, static PE + VirusTotal v3 via the system `curl`) |
+| `spm_runtime.c` | Dry-run trace, `drive_c` `+x` sync, built-in app launcher, GitHub issue URLs, config-UI report |
+| `spm_paths.c` | Bundle-relative resolution of the Wine runtime, built-in apps and sibling bundles |
+| `spm_json.c`, `spm_sha256.c`, `spm_util.c` | Ordered JSON DOM, portable SHA-256, process/filesystem helpers |
+| `spumante_interpose.c` | `__DATA,__interpose` dylib (locates `Spumante.app` at runtime) |
+
+Paths are resolved relative to the running bundle: `Contents/Resources/wine-install-<arch>` (DMG/installed layout) → sibling `Spumante.app` (for `Spumante Config.app`) → `builds/wine-install-<arch>` (developer layout) → LaunchServices lookup. Wine itself is configured with the neutral prefix `/opt/spumante`, installed through `DESTDIR`, and uses `@loader_path`-relative sonames, so the bundled runtime runs from any directory. `./scripts/build.sh --dmg` strips debug information, prunes developer files (`include/`, static import libraries, `winegcc`/`widl`/…), and **refuses to package** if any file still embeds the repository path or the builder's home directory.
+
+Native CLI (also used by `./scripts/launch.sh` and `./scripts/test.sh`):
+
+```sh
+Spumante --scan app.exe [--require-signature] [--vt-api-key KEY]
+Spumante --config-status | --set-config key=value [...]
+Spumante --config-ui [--dry-run]
+Spumante --launch-builtin taskmgr.exe [--dry-run]
+Spumante --sync-drive-c
+Spumante --report-bug | --report-app --app "Name 1.0" --rating Gold [--dry-run]
+```
 
 ### Mandatory `+x` Executable Permission & 3-Gate Pre-Execution Security Guard
 
@@ -243,7 +293,7 @@ DYLD_INSERT_LIBRARIES="$PWD/builds/libspumante_exec.dylib" /path/to/spawner_tool
 
 ---
 
-## 5. User-Level Configuration, Native macOS Settings UI, Registry Cascade & Zero-Trust Containment
+## 6. User-Level Configuration, Native macOS Settings UI, Registry Cascade & Zero-Trust Containment
 
 `spumante` separates **host-side security, sandboxing, and launcher policies** from **guest Windows compatibility settings**, storing user preferences in `~/.config/spumante/config.json` (created automatically with `0600` permissions, or overridden via `SPUMANTE_CONFIG=/path/to/config.json`) and non-destructively cascading Windows environment keys into Wine's native registry hives (`$WINEPREFIX/user.reg` and `$WINEPREFIX/dosdevices/`).
 
@@ -295,7 +345,7 @@ Instead of requiring users to navigate the legacy Windows-style `winecfg` tool f
 
 ### Non-Destructive Wine Registry Cascade & Coexistence with `winecfg`
 
-Whenever settings are saved in the macOS Configuration UI, updated via `./scripts/launch.sh --set-config`, or applied prior to `.exe` launch, `scripts/lib/config_manager.py` performs a surgical merge into `$WINEPREFIX/user.reg`:
+Whenever settings are saved in the macOS Configuration UI, updated via `./scripts/launch.sh --set-config` (or `Spumante --set-config`), or applied prior to `.exe` launch, the native runtime (`src/launcher/spm_config.c`) performs a surgical merge into `$WINEPREFIX/user.reg`:
 
 - Updates **only** the managed keys inside `[Software\\Wine]`, `[Software\\Wine\\Mac Driver]`, `[Software\\Wine\\Direct3D]`, `[Software\\Wine\\DllOverrides]`, and `[Software\\Wine\\AppDefaults\\<app.exe>]`.
 - Preserves all unmanaged keys, custom registry entries, and manual edits made through upstream `winecfg` or `regedit`.
@@ -348,7 +398,7 @@ See [docs/skills/USER_CONFIG_AND_CONTAINMENT.md](docs/skills/USER_CONFIG_AND_CON
 
 ---
 
-## 6. Key Engineering Boundaries
+## 7. Key Engineering Boundaries
 
 - **Clean-Room Reverse Engineering:** AI prompts and implementations strictly use black-box inputs (Microsoft Learn documentation, public Wine headers, and differential test failure logs) with zero exposure to leaked Microsoft source code or proprietary disassemblies.
 - **macOS-First Hardware & Framework Exploitation:** Prioritizes Apple Silicon (`hvf` virtualization, `CommonCrypto` / `Security.framework`, `CoreFoundation`, `VideoToolbox` / `CoreMedia`, Darwin/Mach APIs) before Linux (`kvm`, POSIX/GnuTLS).

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# SPDX-License-Identifier: LGPL-2.1-or-later
+# SPDX-License-Identifier: Apache-2.0
 """WineHQ C99/C11 code style and CommonMark/GFM Markdown compliance linter."""
 
 from __future__ import annotations
@@ -49,6 +49,21 @@ def lint_c_and_h_files() -> list[str]:
                         errors.append(
                             f"{rel}:{idx}: Forbidden raw printf/fprintf in Wine DLL (use TRACE/WARN/FIXME/ERR)"
                         )
+
+    launcher_dir = REPO_ROOT / "src" / "launcher"
+    if launcher_dir.is_dir():
+        for path in sorted(launcher_dir.iterdir()):
+            if path.suffix not in (".c", ".h", ".m"):
+                continue
+            rel = path.relative_to(REPO_ROOT)
+            text = path.read_text(encoding="utf-8", errors="replace")
+            if "SPDX-License-Identifier: Apache-2.0" not in text:
+                errors.append(f"{rel}:1: Missing 'SPDX-License-Identifier: Apache-2.0' header")
+
+    for req_lic in ("LICENSE", "LICENSE-LGPL-2.1", "NOTICE"):
+        if not (REPO_ROOT / req_lic).is_file():
+            errors.append(f"Missing required root license/notice file: {req_lic}")
+
     return errors
 
 

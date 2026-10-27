@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# SPDX-License-Identifier: LGPL-2.1-or-later
+# SPDX-License-Identifier: Apache-2.0
 # Canonical surgical build and upstream borrow entrypoint for Spumante.
 # Refuses full-tree builds unless --all is explicitly provided.
 
@@ -23,6 +23,7 @@ NOTARIZE_DMG=0
 CODESIGN_IDENTITY=""
 NOTARY_PROFILE=""
 BUILD_IDE_TESTS=0
+CLEAN_BUILD=0
 
 usage() {
     cat <<EOF
@@ -33,6 +34,7 @@ Usage: ./scripts/build.sh --dll <dll_name> [--test <test_name>] [--winetest] [--
        ./scripts/build.sh --exe-handler [--dry-run]
        ./scripts/build.sh --dmg|--package-dmg [-nz|--notarize] [--codesign-identity <id>] [--notary-profile <profile>] [--dry-run]
        ./scripts/build.sh --ide-tests [--arch x86_64|arm64]
+       ./scripts/build.sh --clean [--dry-run] [--full-x86|--full-arm64]
 
 Surgical single-target build & upstream Wine borrow script (macOS First, Linux Second).
 Examples:
@@ -125,6 +127,14 @@ while [[ $# -gt 0 ]]; do
             BUILD_IDE_TESTS=1
             shift
             ;;
+        --ensure-upstream)
+            python3 "$REPO_ROOT/scripts/lib/wine_borrow.py" --action ensure-upstream --full-tree
+            exit 0
+            ;;
+        --clean)
+            CLEAN_BUILD=1
+            shift
+            ;;
         -h|--help)
             usage
             exit 0
@@ -136,6 +146,30 @@ while [[ $# -gt 0 ]]; do
             ;;
     esac
 done
+
+# --clean: delete stale compiled objects / build stamps from older builds (keeps the configured tree).
+# On its own it only cleans; combined with --full-x86/--full-arm64 it cleans and then rebuilds everything.
+if [[ "$CLEAN_BUILD" -eq 1 ]]; then
+    CLEAN_ARGS=(--action clean)
+    if [[ "$DRY_RUN" -eq 1 ]]; then
+        CLEAN_ARGS+=(--dry-run)
+    fi
+    python3 "$REPO_ROOT/scripts/lib/wine_borrow.py" "${CLEAN_ARGS[@]}"
+    if [[ "$DRY_RUN" -eq 1 || -z "$FULL_WINE_TARGET" ]]; then
+        exit 0
+    fi
+fi
+
+# Automatically check if upstream Wine (.wine-upstream) is present on disk (e.g., on fresh GitHub clones/downloads), and if not, populate it
+if [[ "$DRY_RUN" -eq 0 && "${SPUMANTE_OFFLINE_UPSTREAM:-0}" != "1" ]]; then
+    if [[ -n "$FULL_WINE_TARGET" && "$SKIP_MONOLITHIC_COMPILE" -eq 0 ]]; then
+        if [[ ! -f "$REPO_ROOT/.wine-upstream/configure" || ! -d "$REPO_ROOT/.wine-upstream/.git" ]]; then
+            python3 "$REPO_ROOT/scripts/lib/wine_borrow.py" --action ensure-upstream --full-tree >/dev/null
+        fi
+    elif [[ ! -d "$REPO_ROOT/.wine-upstream/.git" || ! -d "$REPO_ROOT/.wine-upstream/include" ]]; then
+        python3 "$REPO_ROOT/scripts/lib/wine_borrow.py" --action ensure-upstream ${DLL:+--dll "$DLL"} ${BORROW_DLL:+--dll "$BORROW_DLL"} >/dev/null
+    fi
+fi
 
 if [[ "$BUILD_IDE_TESTS" -eq 1 ]]; then
     python3 "$REPO_ROOT/scripts/lib/ide_test_discovery.py" --action build --arch "$ARCH"

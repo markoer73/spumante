@@ -17,6 +17,10 @@ This document is the authoritative specification for `spumante`'s user-level con
   2. **Security & Verification**: Mandatory `+x` executable check, macOS Quarantine (`com.apple.quarantine`) enforcement, PE Authenticode requirement (`require_authenticode`), and optional VirusTotal v3 scan key.
   3. **Sandbox & Network Firewall**: Sandboxed execution toggle (enabled by default), Drive `Z:` stripping (`strip_z_drive`), sensitive host directory protection (`~/.ssh`, `~/.aws`, `~/.gnupg`, `~/Library/Keychains`), incoming network policy (`deny` by default), and outgoing network policy (`http_https_only` on TCP ports `80`, `443` & DNS port `53` by default).
   4. **Apple Silicon & Hardware Acceleration**: Metal / `IOSurface` swapchains, `VideoToolbox` H.264/HEVC hardware decode, and ARM64EC `WJTC` on-disk JIT cache.
+  5. **Built-in Apps, Interactive Windows Console (`wineconsole.exe`) & Custom-Labeled Favourite Apps (`NSStatusItem` Menu Bar Tray)**:
+     - `Spumante Config.app` runs as an always-available macOS menu bar tray icon (`NSStatusItem` with `Contents/Resources/spumante-logo.png`) that stays open when the Settings window is closed.
+     - Users can configure custom **Favourite Windows Applications** with custom display labels (e.g. `{"label": "Task Manager", "path": "C:/Windows/taskman.exe"}`) in the **Built-in Apps** tab (`favoriteAppLabelField`, `favoriteAppPathField`, `browseFavoriteAppPathAction:`, `saveFavoriteAppEntryAction:`), from the menu bar (`Add Favourite Windows App…`), or via CLI (`--set-config "favorite_apps.add=Task Manager|C:/Windows/taskman.exe"`).
+     - Built-in CLI utilities (`cmd.exe`, `hostname.exe`, `ipconfig.exe`, `systeminfo.exe`, `tasklist.exe`) launched from the menu bar tray or via **Open Console** (`--open-console`) execute inside Wine's native GUI Windows Console terminal (`wineconsole.exe cmd.exe /k <app.exe>`) so the terminal window stays open for inspection.
 
 ### Principle 3: Automatic Non-Destructive Cascading to Wine Registry Hives (`user.reg` & `system.reg`)
 - Saving or applying `config.json` automatically cascades relevant Windows environment settings into `$WINEPREFIX/user.reg`, `$WINEPREFIX/system.reg`, and `$WINEPREFIX/dosdevices/` so users never *need* to open `winecfg`:
@@ -79,6 +83,12 @@ By default, every `.exe` and `.msi` launched via `Spumante.app` or `bin/spumante
     "videotoolbox_hw_decode": true,
     "arm64ec_jit_cache": true
   },
+  "favorite_apps": [
+    {
+      "label": "Task Manager",
+      "path": "C:/Windows/taskman.exe"
+    }
+  ],
   "app_profiles": {}
 }
 ```

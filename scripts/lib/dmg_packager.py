@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# SPDX-License-Identifier: LGPL-2.1-or-later
+# SPDX-License-Identifier: Apache-2.0
 """Turnkey macOS DMG installer packager for Spumante.app and Spumante Config.app."""
 
 from __future__ import annotations
@@ -9,6 +9,7 @@ import json
 import os
 import shutil
 import stat
+import struct
 import subprocess
 import sys
 from pathlib import Path
@@ -30,13 +31,251 @@ from exe_handler import (
 DMG_STAGING_DIR = REPO_ROOT / "builds" / "dmg_staging"
 DMG_OUTPUT_PATH = REPO_ROOT / "builds" / "Spumante-Installer.dmg"
 VOLUME_NAME = "Spumante"
+RUNTIME_CACHE_ROOT = REPO_ROOT / "builds" / "runtime-cache"
+
+# Developer-only payload that must never ship inside the DMG
+RUNTIME_PRUNE_DIRS = ("include", "share/man", "share/applications")
+RUNTIME_DEV_TOOLS = (
+    "function_grep.pl",
+    "widl",
+    "winebuild",
+    "winecpp",
+    "winedump",
+    "wineg++",
+    "winegcc",
+    "winemaker",
+    "wmc",
+    "wrc",
+    "wine-parity",
+)
+MACHO_MAGICS = (b"\xfe\xed\xfa\xce", b"\xfe\xed\xfa\xcf", b"\xce\xfa\xed\xfe", b"\xcf\xfa\xed\xfe", b"\xca\xfe\xba\xbe")
 
 
-def _generate_installer_command_script(repo_root: Path) -> str:
-    """Generate the double-clickable 'Install Spumante.command' macOS installer script."""
-    config_py = repo_root / "scripts" / "lib" / "config_manager.py"
+def _forbidden_path_needles() -> list[bytes]:
+    """Byte strings that must never appear in the DMG payload (build-machine and user specific paths)."""
+    needles = {str(REPO_ROOT).encode(), str(Path.home()).encode(), b"wine-parity"}
+    return sorted(needles, key=len, reverse=True)
+
+
+def scan_portability_violations(root: Path, limit: int = 50) -> list[str]:
+    """Return files under root that embed build-machine/user-specific paths."""
+    needles = _forbidden_path_needles()
+    offenders: list[str] = []
+    for dirpath, _dirs, files in os.walk(root):
+        for fname in files:
+            fpath = Path(dirpath) / fname
+            if fpath.is_symlink() or not fpath.is_file():
+                continue
+            try:
+                blob = fpath.read_bytes()
+            except OSError:
+                continue
+            for needle in needles:
+                if needle in blob:
+                    offenders.append(f"{fpath.relative_to(root)}: {needle.decode(errors='replace')}")
+                    break
+            if len(offenders) >= limit:
+                return offenders
+    return offenders
+
+
+def _clone_tree(src: Path, dst: Path) -> None:
+    """Copy a directory tree, using APFS clones (instant, no extra disk space) when available."""
+    if dst.exists():
+        shutil.rmtree(dst)
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    if sys.platform == "darwin":
+        res = subprocess.run(["cp", "-cR", str(src), str(dst)], capture_output=True, check=False)
+        if res.returncode == 0:
+            return
+        if dst.exists():
+            shutil.rmtree(dst)
+    shutil.copytree(src, dst, symlinks=True)
+
+
+def _runtime_fingerprint(src: Path) -> dict[str, Any]:
+    count = 0
+    newest = 0.0
+    for dirpath, _dirs, files in os.walk(src):
+        for fname in files:
+            try:
+                st = (Path(dirpath) / fname).lstat()
+            except OSError:
+                continue
+            count += 1
+            newest = max(newest, st.st_mtime)
+    return {"file_count": count, "newest_mtime": newest, "schema": 2}
+
+
+def _classify_binary(path: Path) -> tuple[str, int]:
+    """Return ("macho", 0), ("pe", machine) or ("", 0)."""
+    try:
+        with path.open("rb") as f:
+            head = f.read(4096)
+    except OSError:
+        return "", 0
+    if head[:4] in MACHO_MAGICS:
+        return "macho", 0
+    if len(head) >= 0x40 and head[:2] == b"MZ":
+        e_lfanew = struct.unpack_from("<I", head, 0x3C)[0]
+        if e_lfanew + 6 <= len(head) and head[e_lfanew : e_lfanew + 4] == b"PE\x00\x00":
+            return "pe", struct.unpack_from("<H", head, e_lfanew + 4)[0]
+    return "", 0
+
+
+def _run_batched(cmd_prefix: list[str], files: list[Path], batch: int = 200) -> None:
+    for i in range(0, len(files), batch):
+        subprocess.run([*cmd_prefix, *[str(f) for f in files[i : i + batch]]], capture_output=True, check=False)
+
+
+def _pe_strip_tools() -> dict[int, str | None]:
+    llvm_strip = shutil.which("llvm-strip") or str(Path("/opt/homebrew/opt/llvm/bin/llvm-strip"))
+    return {
+        0x8664: shutil.which("x86_64-w64-mingw32-strip"),
+        0x014C: shutil.which("i686-w64-mingw32-strip"),
+        0xAA64: llvm_strip,
+        0xA641: llvm_strip,
+    }
+
+
+def strip_pe_debug_info(files: list[Path]) -> int:
+    """Strip debug sections (absolute build paths) from PE files, preserving Wine's builtin signature."""
+    tools = _pe_strip_tools()
+    by_tool: dict[str, list[Path]] = {}
+    markers: dict[Path, tuple[bytes, bytes]] = {}
+    for fpath in files:
+        kind, machine = _classify_binary(fpath)
+        tool = tools.get(machine) if kind == "pe" else None
+        if not tool or not Path(tool).is_file():
+            continue
+        by_tool.setdefault(tool, []).append(fpath)
+        raw = fpath.read_bytes()
+        markers[fpath] = (raw[0x40:0x60], raw)
+    for tool, batch_files in by_tool.items():
+        _run_batched([tool, "--strip-debug"], batch_files)
+    for fpath, (marker, original) in markers.items():
+        if fpath.read_bytes()[0x40:0x60] != marker:
+            # Never lose Wine's "Wine builtin DLL" signature: restore the unstripped original
+            fpath.write_bytes(original)
+    return len(markers)
+
+
+def _macho_fix_paths(path: Path, runtime_root: Path) -> None:
+    """Rewrite absolute install names / dependencies inside the runtime to relocatable @rpath/@loader_path forms."""
+    res = subprocess.run(["otool", "-L", str(path)], capture_output=True, text=True, check=False)
+    deps = []
+    for line in res.stdout.splitlines()[1:]:
+        dep = line.strip().split(" (", 1)[0]
+        if dep:
+            deps.append(dep)
+    id_res = subprocess.run(["otool", "-D", str(path)], capture_output=True, text=True, check=False)
+    ids = [ln.strip() for ln in id_res.stdout.splitlines()[1:] if ln.strip()]
+    changed = False
+    for dylib_id in set(ids):
+        if dylib_id.startswith("/") and not dylib_id.startswith(("/usr/lib/", "/System/")):
+            subprocess.run(["install_name_tool", "-id", f"@rpath/{path.name}", str(path)], capture_output=True, check=False)
+            changed = True
+    for dep in set(deps):
+        if dep in ids or not dep.startswith("/") or dep.startswith(("/usr/lib/", "/System/")):
+            continue
+        dep_name = Path(dep).name
+        candidates = list(runtime_root.rglob(dep_name))
+        if candidates:
+            rel = os.path.relpath(candidates[0], path.parent)
+            subprocess.run(
+                ["install_name_tool", "-change", dep, f"@loader_path/{rel}", str(path)],
+                capture_output=True,
+                check=False,
+            )
+            changed = True
+    if changed:
+        subprocess.run(["codesign", "--force", "--sign", "-", str(path)], capture_output=True, check=False)
+
+
+def prepare_portable_runtime(target: str) -> Path | None:
+    """Produce a pruned, stripped, relocatable copy of builds/wine-install-<target> for the DMG (cached)."""
+    src = REPO_ROOT / "builds" / f"wine-install-{target}"
+    if not (src / "bin" / "wine").is_file():
+        return None
+    cache = RUNTIME_CACHE_ROOT / f"wine-install-{target}"
+    stamp = RUNTIME_CACHE_ROOT / f"wine-install-{target}.stamp.json"
+    fingerprint = _runtime_fingerprint(src)
+    if cache.is_dir() and stamp.is_file():
+        try:
+            if json.loads(stamp.read_text(encoding="utf-8")) == fingerprint:
+                return cache
+        except (OSError, ValueError):
+            pass
+
+    _clone_tree(src, cache)
+    for rel in RUNTIME_PRUNE_DIRS:
+        shutil.rmtree(cache / rel, ignore_errors=True)
+    for tool in RUNTIME_DEV_TOOLS:
+        tool_path = cache / "bin" / tool
+        if tool_path.is_file() or tool_path.is_symlink():
+            tool_path.unlink()
+    for static_lib in (cache / "lib" / "wine").glob("*/lib*.a"):
+        static_lib.unlink()
+
+    macho_files: list[Path] = []
+    pe_files: list[Path] = []
+    for dirpath, _dirs, files in os.walk(cache):
+        for fname in files:
+            fpath = Path(dirpath) / fname
+            if fpath.is_symlink():
+                continue
+            kind, _machine = _classify_binary(fpath)
+            if kind == "macho":
+                macho_files.append(fpath)
+            elif kind == "pe":
+                pe_files.append(fpath)
+
+    # Strip debug information (it embeds absolute source/object paths of the build machine)
+    strip_pe_debug_info(pe_files)
+    if sys.platform == "darwin":
+        _run_batched(["strip", "-S"], macho_files)
+        for fpath in macho_files:
+            _macho_fix_paths(fpath, cache)
+        _run_batched(["codesign", "--force", "--sign", "-"], macho_files)
+
+    stamp.parent.mkdir(parents=True, exist_ok=True)
+    stamp.write_text(json.dumps(fingerprint), encoding="utf-8")
+    return cache
+
+
+def stage_parity_overlays(resources_dir: Path) -> list[str]:
+    """Bundle loadable Spumante parity DLL overlays (Wine .so/.dll builds) under Resources/parity/<arch>/<dll>."""
+    staged: list[str] = []
+    for arch in ("x86_64", "arm64"):
+        arch_dir = REPO_ROOT / "builds" / arch
+        if not arch_dir.is_dir():
+            continue
+        for dll_dir in sorted(p for p in arch_dir.iterdir() if p.is_dir()):
+            for item in sorted(dll_dir.rglob("*")):
+                if not item.is_file() or item.suffix.lower() not in (".so", ".dll", ".sys", ".drv"):
+                    continue
+                rel = item.relative_to(arch_dir)
+                if any(part.endswith(".dSYM") for part in rel.parts):
+                    continue
+                dest = resources_dir / "parity" / arch / rel
+                dest.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(item, dest)
+                if sys.platform == "darwin" and _classify_binary(dest)[0] == "macho":
+                    subprocess.run(["strip", "-S", str(dest)], capture_output=True, check=False)
+                    _macho_fix_paths(dest, resources_dir)
+                    subprocess.run(["codesign", "--force", "--sign", "-", str(dest)], capture_output=True, check=False)
+                staged.append(str(Path("parity") / arch / rel))
+    return staged
+
+
+def _generate_installer_command_script() -> str:
+    """Generate the double-clickable 'Install Spumante.command' macOS installer script.
+
+    The installer is self-contained: it only uses files next to itself on the disk image and standard macOS
+    tools. Configuration is initialized by the native Spumante Config binary (no scripting runtime needed).
+    """
     return f"""#!/usr/bin/env bash
-# SPDX-License-Identifier: LGPL-2.1-or-later
+# SPDX-License-Identifier: Apache-2.0
 # Double-clickable macOS installer for Spumante.app and Spumante Config.app.
 # Installs the launcher and configuration program, sets up CLI wrappers,
 # registers .exe/.msi LaunchServices associations, initializes config.json (0600)
@@ -45,8 +284,6 @@ def _generate_installer_command_script(repo_root: Path) -> str:
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${{BASH_SOURCE[0]}}")" && pwd)"
-REPO_ROOT="{repo_root}"
-CONFIG_PY="{config_py}"
 
 TARGET_APPS_DIR=""
 TARGET_BIN_DIR=""
@@ -133,11 +370,9 @@ fi
 SRC_LAUNCHER_APP="$SCRIPT_DIR/Spumante.app"
 SRC_CONFIG_APP="$SCRIPT_DIR/Spumante Config.app"
 
-if [[ ! -d "$SRC_LAUNCHER_APP" ]]; then
-    SRC_LAUNCHER_APP="$REPO_ROOT/builds/Spumante.app"
-fi
-if [[ ! -d "$SRC_CONFIG_APP" ]]; then
-    SRC_CONFIG_APP="$REPO_ROOT/builds/SpumanteConfig.app"
+if [[ ! -d "$SRC_LAUNCHER_APP" || ! -d "$SRC_CONFIG_APP" ]]; then
+    echo "[Spumante Installer] ERROR: Spumante.app and Spumante Config.app must be next to this installer." >&2
+    exit 1
 fi
 
 DEST_LAUNCHER_APP="$TARGET_APPS_DIR/Spumante.app"
@@ -238,20 +473,20 @@ mkdir -p "$TARGET_APPS_DIR"
 mkdir -p "$TARGET_BIN_DIR"
 
 rm -rf "$DEST_LAUNCHER_APP" "$DEST_CONFIG_APP"
-cp -R "$SRC_LAUNCHER_APP" "$DEST_LAUNCHER_APP"
-cp -R "$SRC_CONFIG_APP" "$DEST_CONFIG_APP"
+ditto "$SRC_LAUNCHER_APP" "$DEST_LAUNCHER_APP"
+ditto "$SRC_CONFIG_APP" "$DEST_CONFIG_APP"
 chmod +x "$DEST_LAUNCHER_BIN" "$DEST_CONFIG_BIN"
 
 cat > "$TARGET_BIN_DIR/spumante" <<WRAPPER_EOF
 #!/usr/bin/env bash
-# SPDX-License-Identifier: LGPL-2.1-or-later
+# SPDX-License-Identifier: Apache-2.0
 exec "$DEST_LAUNCHER_BIN" "\\$@"
 WRAPPER_EOF
 chmod +x "$TARGET_BIN_DIR/spumante"
 
 cat > "$TARGET_BIN_DIR/spumante-config" <<WRAPPER_CFG_EOF
 #!/usr/bin/env bash
-# SPDX-License-Identifier: LGPL-2.1-or-later
+# SPDX-License-Identifier: Apache-2.0
 exec "$DEST_CONFIG_BIN" "\\$@"
 WRAPPER_CFG_EOF
 chmod +x "$TARGET_BIN_DIR/spumante-config"
@@ -259,11 +494,9 @@ chmod +x "$TARGET_BIN_DIR/spumante-config"
 # Register .exe and .msi file associations with macOS LaunchServices
 "$DEST_LAUNCHER_BIN" --register >/dev/null 2>&1 || true
 
-# Initialize user-level configuration (0600) and cascade to WINEPREFIX registry
-if [[ -f "$CONFIG_PY" ]]; then
-    SPUMANTE_CONFIG="$CONFIG_FILE" WINEPREFIX="$WINEPREFIX_DIR" \\
-        python3 "$CONFIG_PY" --action status >/dev/null
-fi
+# Initialize user-level configuration (0600) and cascade to WINEPREFIX registry (native, no scripting runtime)
+SPUMANTE_CONFIG="$CONFIG_FILE" WINEPREFIX="$WINEPREFIX_DIR" \\
+    "$DEST_CONFIG_BIN" --config-status >/dev/null
 
 echo "[Spumante Installer] Installed:"
 echo "  1. $DEST_LAUNCHER_APP (Automatic .exe / .msi Launcher & Security Scanner)"
@@ -322,6 +555,12 @@ Quick Installation:
   - Option B (Drag & Drop): Drag "Spumante.app" and "Spumante Config.app"
     onto the "Applications" folder shortcut, then open "Spumante Config.app"
     to configure your Spumante environment.
+
+Licensing:
+  - Spumante Launcher, Menu Bar Tray App, Settings UI, Security Scanner &
+    Sandbox Tooling: Apache License, Version 2.0 (see LICENSE and NOTICE).
+  - Bundled Wine Runtime & Wine DLL Parity Overlays: GNU Lesser General
+    Public License v2.1 or later (see LICENSE-LGPL-2.1 and NOTICE).
 """
 
 
@@ -479,7 +718,11 @@ def build_dmg_package(
     stapler_cmd = ["xcrun", "stapler", "staple", str(DMG_OUTPUT_PATH)]
     stapler_validate_cmd = ["xcrun", "stapler", "validate", str(DMG_OUTPUT_PATH)]
     notarization_status = "disabled"
+    dmg_create_errors: list[str] = []
     notary_submission_output: dict[str, Any] = {}
+    bundled_runtimes: list[str] = []
+    bundled_parity: list[str] = []
+    portability_violations: list[str] = []
 
     if not dry_run:
         if DMG_STAGING_DIR.exists():
@@ -488,6 +731,15 @@ def build_dmg_package(
 
         shutil.copytree(APP_BUNDLE_DIR, staged_launcher_app, symlinks=True)
         shutil.copytree(CONFIG_APP_BUNDLE_DIR, staged_config_app, symlinks=True)
+
+        # Bundle the relocatable Wine runtime(s) and parity overlays inside Spumante.app
+        resources_dir = staged_launcher_app / "Contents" / "Resources"
+        for runtime_target in ("x86", "arm64"):
+            runtime_cache = prepare_portable_runtime(runtime_target)
+            if runtime_cache is not None:
+                _clone_tree(runtime_cache, resources_dir / f"wine-install-{runtime_target}")
+                bundled_runtimes.append(f"wine-install-{runtime_target}")
+        bundled_parity = stage_parity_overlays(resources_dir)
 
         # Stage all 14 built-in GUI & CLI .exe programs into "Windows Apps/" inside the DMG
         builtin_map = ensure_builtin_windows_apps(dry_run=False)
@@ -499,17 +751,22 @@ def build_dmg_package(
                 dst_p = staged_windows_apps / app_name
                 shutil.copy2(src_p, dst_p)
                 dst_p.chmod(dst_p.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
-        if (x86_win_dir / "winemine.exe").is_file():
-            dst_wm = staged_windows_apps / "winemine.exe"
-            shutil.copy2(x86_win_dir / "winemine.exe", dst_wm)
-            dst_wm.chmod(dst_wm.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+        for extra_exe in ("winemine.exe", "wineconsole.exe", "conhost.exe"):
+            if (x86_win_dir / extra_exe).is_file():
+                dst_extra = staged_windows_apps / extra_exe
+                shutil.copy2(x86_win_dir / extra_exe, dst_extra)
+                dst_extra.chmod(dst_extra.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
 
-        installer_script.write_text(_generate_installer_command_script(REPO_ROOT), encoding="utf-8")
+        installer_script.write_text(_generate_installer_command_script(), encoding="utf-8")
         installer_script.chmod(
             installer_script.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH
         )
 
         readme_file.write_text(_generate_dmg_readme(), encoding="utf-8")
+        for lic_name in ("LICENSE", "LICENSE-LGPL-2.1", "NOTICE"):
+            lic_src = REPO_ROOT / lic_name
+            if lic_src.is_file():
+                shutil.copy2(lic_src, DMG_STAGING_DIR / lic_name)
 
         if apps_symlink.exists() or apps_symlink.is_symlink():
             apps_symlink.unlink()
@@ -521,6 +778,28 @@ def build_dmg_package(
                 cwd=REPO_ROOT,
                 capture_output=True,
                 check=False,
+            )
+
+        # Built-in Windows programs staged outside the runtime cache also carry debug paths: strip them too
+        staged_pe = [
+            p
+            for apps_dir in (
+                staged_windows_apps,
+                staged_launcher_app / "Contents" / "Resources" / "WindowsApps",
+                staged_config_app / "Contents" / "Resources" / "WindowsApps",
+            )
+            if apps_dir.is_dir()
+            for p in apps_dir.iterdir()
+            if p.is_file() and not p.is_symlink()
+        ]
+        strip_pe_debug_info(staged_pe)
+
+        # Release gate: the DMG must not contain any build-machine or user-specific absolute path
+        portability_violations = scan_portability_violations(DMG_STAGING_DIR)
+        if portability_violations and os.environ.get("SPUMANTE_ALLOW_NONPORTABLE_DMG", "0") != "1":
+            raise RuntimeError(
+                "DMG payload embeds build-machine paths (rebuild Wine with ./scripts/build.sh --full-x86):\n  "
+                + "\n  ".join(portability_violations[:25])
             )
 
         codesign_bin = shutil.which("codesign")
@@ -543,29 +822,40 @@ def build_dmg_package(
         hdiutil = shutil.which("hdiutil")
         created_via_hdiutil = False
         if sys.platform == "darwin" and hdiutil:
-            res = subprocess.run(
-                [
-                    hdiutil,
-                    "create",
-                    "-volname",
-                    VOLUME_NAME,
-                    "-srcfolder",
-                    str(DMG_STAGING_DIR),
-                    "-ov",
-                    "-format",
-                    "UDZO",
-                    str(DMG_OUTPUT_PATH),
-                ],
-                cwd=REPO_ROOT,
-                capture_output=True,
-                text=True,
-                check=False,
-            )
-            if res.returncode == 0 and DMG_OUTPUT_PATH.is_file():
-                created_via_hdiutil = True
+            import time
+
+            create_cmds = [
+                [hdiutil, "create", "-volname", VOLUME_NAME, "-srcfolder", str(DMG_STAGING_DIR), "-ov",
+                 "-format", "UDZO", str(DMG_OUTPUT_PATH)],
+            ]
+            if shutil.which("diskutil"):
+                create_cmds.append(
+                    ["diskutil", "image", "create", "from", "--volumeName", VOLUME_NAME, "--format", "UDZO",
+                     str(DMG_STAGING_DIR), str(DMG_OUTPUT_PATH)]
+                )
+            # Retry: hdiutil can transiently fail ("Resource busy") right after the staging tree is written
+            for attempt in range(3):
+                for cmd in create_cmds:
+                    if DMG_OUTPUT_PATH.exists():
+                        DMG_OUTPUT_PATH.unlink()
+                    res = subprocess.run(cmd, cwd=REPO_ROOT, capture_output=True, text=True, check=False)
+                    if res.returncode == 0 and DMG_OUTPUT_PATH.is_file():
+                        created_via_hdiutil = True
+                        break
+                    dmg_create_errors.append(
+                        f"attempt {attempt + 1} {Path(cmd[0]).name}: rc={res.returncode} {res.stderr.strip()[-300:]}"
+                    )
+                if created_via_hdiutil:
+                    break
+                time.sleep(3)
 
         if not created_via_hdiutil:
             # Deterministic fallback archive when running in a restricted environment without hdiutil device nodes
+            print(
+                "[Spumante] WARNING: could not create a real disk image; writing a tar.gz fallback instead.\n  "
+                + "\n  ".join(dmg_create_errors[-4:]),
+                file=sys.stderr,
+            )
             dmg_format = "UDZO-fallback-tar-gz"
             archive_base = REPO_ROOT / "builds" / "Spumante-Installer-fallback"
             archive_file = shutil.make_archive(
@@ -668,6 +958,7 @@ def build_dmg_package(
         "volume_name": VOLUME_NAME,
         "dmg_path": str(DMG_OUTPUT_PATH),
         "dmg_format": dmg_format,
+        "dmg_create_errors": dmg_create_errors,
         "staging_dir": str(DMG_STAGING_DIR),
         "app_bundle": str(APP_BUNDLE_DIR),
         "app_binary": handler_info["app_binary"],
@@ -683,6 +974,10 @@ def build_dmg_package(
         "bundled_windows_apps": list(ALL_BUILTIN_APPS),
         "installer_script": str(installer_script),
         "readme_path": str(readme_file),
+        "bundled_wine_runtimes": bundled_runtimes,
+        "bundled_parity_overlays": len(bundled_parity),
+        "portability_violations": portability_violations,
+        "requires_python_at_runtime": False,
         "notarize": bool(notarize),
         "dry_run": dry_run,
     }

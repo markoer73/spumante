@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# SPDX-License-Identifier: LGPL-2.1-or-later
+# SPDX-License-Identifier: Apache-2.0
 """Four-gate security scanner: secrets/clean-room, static C/Python SAST, ASan+UBSan, and CI schedule."""
 
 from __future__ import annotations

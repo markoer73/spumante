@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: "Spumante Application Compatibility Database (AppDB)"
+    url: "https://github.com/markoer73/Spumante/blob/main/docs/APPDB.md"
+    about: "Browse the list of tested Windows applications and their Platinum / Gold / Silver / Bronze / Garbage compatibility ratings on macOS."

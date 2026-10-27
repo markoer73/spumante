@@ -8,7 +8,7 @@ description: Manage spumante user-level configuration (~/.config/spumante/config
 ## Overview
 
 Use this skill whenever modifying, extending, or auditing:
-- The user-level configuration system (`~/.config/spumante/config.json` and `scripts/lib/config_manager.py`).
+- The user-level configuration system (`~/.config/spumante/config.json` and the native runtime `src/launcher/spm_config.c`).
 - The native macOS AppKit configuration dialog (`builds/Spumante.app --config-ui` / `./scripts/launch.sh --config-ui`).
 - Registry hive cascading from `config.json` into `$WINEPREFIX/user.reg`, `$WINEPREFIX/system.reg`, and `$WINEPREFIX/dosdevices/`.
 - Runtime zero-trust containment (`sandbox-exec` Seatbelt profiles, `dosdevices/z:` stripping, and incoming/outgoing network rules).

@@ -229,7 +229,28 @@ class TestSpumanteArchitecture(unittest.TestCase):
         self.assertIn("MATCHED (0 discrepancies)", res_green.stdout)
 
     def test_08_lint_and_ci_workflow(self) -> None:
-        """test.sh --lint and .github/workflows/ci.yml must pass all checks."""
+        """test.sh --lint, composite Apache-2.0 + LGPL-2.1-or-later license files, and .github/workflows/ci.yml must pass all checks."""
+        license_path = REPO_ROOT / "LICENSE"
+        lgpl_path = REPO_ROOT / "LICENSE-LGPL-2.1"
+        notice_path = REPO_ROOT / "NOTICE"
+        self.assertTrue(license_path.is_file(), "LICENSE must exist")
+        self.assertTrue(lgpl_path.is_file(), "LICENSE-LGPL-2.1 must exist for Wine runtime & DLL overlays")
+        self.assertTrue(notice_path.is_file(), "NOTICE must exist for composite Apache-2.0 + LGPL-2.1-or-later licensing")
+        self.assertIn("Apache License", license_path.read_text(encoding="utf-8"))
+        self.assertIn("Version 2.0, January 2004", license_path.read_text(encoding="utf-8"))
+        self.assertIn("GNU LESSER GENERAL PUBLIC LICENSE", lgpl_path.read_text(encoding="utf-8"))
+        notice_txt = notice_path.read_text(encoding="utf-8")
+        self.assertIn("Apache-2.0", notice_txt)
+        self.assertIn("LGPL-2.1-or-later", notice_txt)
+
+        for launcher_file in (REPO_ROOT / "src" / "launcher").iterdir():
+            if launcher_file.suffix in (".c", ".h", ".m"):
+                self.assertIn(
+                    "SPDX-License-Identifier: Apache-2.0",
+                    launcher_file.read_text(encoding="utf-8"),
+                    f"{launcher_file.name} must carry SPDX-License-Identifier: Apache-2.0",
+                )
+
         ci_path = REPO_ROOT / ".github" / "workflows" / "ci.yml"
         self.assertTrue(ci_path.is_file(), ".github/workflows/ci.yml must exist")
         ci_text = ci_path.read_text(encoding="utf-8")
@@ -746,9 +767,12 @@ class TestSpumanteArchitecture(unittest.TestCase):
         # running execute_full_wine_build WITHOUT --skip-monolithic-compile detects up-to-date state
         # and avoids re-running configure or full make.
         from scripts.lib.wine_borrow import (
+            clean_build_objects,
             compute_parity_dll_hashes,
+            ensure_upstream_wine_populated,
             execute_full_wine_build,
             load_manifest,
+            relocate_build_tree_if_needed,
             write_monolithic_build_stamp,
         )
         import tempfile
@@ -757,10 +781,44 @@ class TestSpumanteArchitecture(unittest.TestCase):
             tmp_path = Path(tmpdir)
             fake_build_dir = tmp_path / "wine-full-x86"
             fake_install_dir = tmp_path / "wine-install-x86"
-            (fake_build_dir).mkdir(parents=True, exist_ok=True)
+            sparse_dir = REPO_ROOT / ".wine-upstream"
+            (fake_build_dir / "include").mkdir(parents=True, exist_ok=True)
+            (fake_build_dir / "dlls" / "ntdll" / "unix").mkdir(parents=True, exist_ok=True)
             (fake_install_dir / "bin").mkdir(parents=True, exist_ok=True)
-            (fake_build_dir / "Makefile").write_text("# Fake Wine Makefile\n", encoding="utf-8")
-            (fake_build_dir / "config.status").write_text("# --enable-archs=i386,x86_64\n", encoding="utf-8")
+
+            # Seed fake Makefile, config.status, and config.h with a stale "/Users/mermini/wine-parity" directory path
+            stale_root = "/Users/mermini/wine-parity"
+            (fake_build_dir / "Makefile").write_text(
+                f"prefix = {stale_root}/builds/wine-install-x86\n"
+                f"srcdir = {stale_root}/.wine-upstream\n"
+                f"config.status: {stale_root}/.wine-upstream/configure\n",
+                encoding="utf-8",
+            )
+            (fake_build_dir / "config.status").write_text(
+                f"# Configured by {stale_root}/.wine-upstream/configure --prefix={stale_root}/builds/wine-install-x86 --enable-archs=i386,x86_64\n",
+                encoding="utf-8",
+            )
+            (fake_build_dir / "include" / "config.h").write_text(
+                f'#define SONAME_LIBFREETYPE "{stale_root}/builds/wine-install-x86/lib/libfreetype.6.dylib"\n',
+                encoding="utf-8",
+            )
+            stale_loader_o = fake_build_dir / "dlls" / "ntdll" / "unix" / "loader.o"
+            stale_loader_o.write_bytes(b"stale_loader_obj")
+
+            relocated = relocate_build_tree_if_needed(
+                build_dir=fake_build_dir,
+                sparse_dir=sparse_dir,
+                install_dir=fake_install_dir,
+            )
+            self.assertTrue(relocated, "Expected relocate_build_tree_if_needed to detect and rewrite stale repo root paths")
+            relocated_mk = (fake_build_dir / "Makefile").read_text(encoding="utf-8")
+            self.assertNotIn("wine-parity", relocated_mk)
+            self.assertIn(f"srcdir = {sparse_dir}", relocated_mk)
+            self.assertIn("prefix = /opt/spumante", relocated_mk,
+                          "Wine must be configured with the neutral, machine-independent prefix")
+            self.assertNotIn(str(fake_install_dir), relocated_mk)
+            self.assertFalse(stale_loader_o.exists(), "Path-embedding object file loader.o must be invalidated on relocation")
+
             fake_wine64 = fake_install_dir / "bin" / "wine64"
             fake_wine64.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
             fake_wine64.chmod(0o755)
@@ -786,6 +844,69 @@ class TestSpumanteArchitecture(unittest.TestCase):
             self.assertFalse(inc_result["configure_executed"])
             self.assertFalse(inc_result["make_executed"])
             self.assertEqual(inc_result["changed_dlls"], [])
+
+            # 4B. ./scripts/build.sh --clean removes stale objects and build stamps but keeps the configured tree
+            stale_obj = fake_build_dir / "dlls" / "ntdll" / "unix" / "stale.o"
+            stale_obj.parent.mkdir(parents=True, exist_ok=True)
+            stale_obj.write_bytes(b"old object")
+            (fake_build_dir / ".spumante-pathmap").write_text("old profile\n", encoding="utf-8")
+            clean_report = clean_build_objects(build_dirs=[fake_build_dir])
+            self.assertFalse(stale_obj.exists(), "--clean must delete compiled object files")
+            self.assertFalse((fake_build_dir / ".spumante-stamp.json").exists(), "--clean must drop the build stamp")
+            self.assertFalse((fake_build_dir / ".spumante-pathmap").exists())
+            self.assertTrue((fake_build_dir / "Makefile").is_file(), "--clean must keep the configured Makefile")
+            self.assertGreaterEqual(clean_report["objects_removed"], 1)
+            res_clean_dry = subprocess.run(
+                [str(build_sh), "--clean", "--dry-run"], cwd=REPO_ROOT, capture_output=True, text=True, check=False
+            )
+            self.assertEqual(res_clean_dry.returncode, 0, res_clean_dry.stdout + res_clean_dry.stderr)
+            self.assertEqual(json.loads(res_clean_dry.stdout)["action"], "clean")
+
+            # 5. Verify automatic .wine-upstream population when checking out from GitHub into a clean workspace
+            mock_upstream_origin = tmp_path / "mock_wine_origin"
+            (mock_upstream_origin / "include").mkdir(parents=True, exist_ok=True)
+            (mock_upstream_origin / "server").mkdir(parents=True, exist_ok=True)
+            (mock_upstream_origin / "dlls" / "bcrypt").mkdir(parents=True, exist_ok=True)
+            (mock_upstream_origin / "configure").write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+            (mock_upstream_origin / "configure").chmod(0o755)
+            (mock_upstream_origin / "include" / "windef.h").write_text("/* windef */\n", encoding="utf-8")
+            (mock_upstream_origin / "server" / "request.c").write_text("/* server */\n", encoding="utf-8")
+            (mock_upstream_origin / "dlls" / "bcrypt" / "bcrypt_main.c").write_text("/* bcrypt */\n", encoding="utf-8")
+            subprocess.run(["git", "init", "-b", "master"], cwd=mock_upstream_origin, check=True, capture_output=True)
+            subprocess.run(["git", "config", "user.email", "test@spumante.local"], cwd=mock_upstream_origin, check=True, capture_output=True)
+            subprocess.run(["git", "config", "user.name", "Spumante Test"], cwd=mock_upstream_origin, check=True, capture_output=True)
+            subprocess.run(["git", "add", "."], cwd=mock_upstream_origin, check=True, capture_output=True)
+            subprocess.run(["git", "commit", "-m", "Initial mock upstream Wine"], cwd=mock_upstream_origin, check=True, capture_output=True)
+
+            fresh_sparse_dir = tmp_path / "fresh_checkout_wine_upstream"
+            self.assertFalse(fresh_sparse_dir.exists())
+            pop_res = ensure_upstream_wine_populated(
+                full_tree=True,
+                sparse_dir_override=fresh_sparse_dir,
+                remote_override=str(mock_upstream_origin),
+            )
+            self.assertTrue(pop_res["populated"])
+            self.assertTrue(pop_res["newly_cloned"])
+            self.assertTrue((fresh_sparse_dir / "configure").is_file())
+            self.assertTrue((fresh_sparse_dir / "server" / "request.c").is_file())
+            push_url_res = subprocess.run(
+                ["git", "-C", str(fresh_sparse_dir), "remote", "get-url", "--push", "origin"],
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            self.assertEqual(push_url_res.stdout.strip(), "DISABLE_PUSH_READ_ONLY_UPSTREAM")
+
+        # 6. Verify real builds/wine-full-x86 Makefile/config.status/config.h have zero stale wine-parity references
+        real_x86_build = REPO_ROOT / "builds" / "wine-full-x86"
+        for check_rel in ("Makefile", "config.status", "include/config.h"):
+            fcheck = real_x86_build / check_rel
+            if fcheck.is_file():
+                self.assertNotIn(
+                    "/Users/mermini/wine-parity",
+                    fcheck.read_text(encoding="utf-8", errors="replace"),
+                    f"Stale /Users/mermini/wine-parity path found in {fcheck}",
+                )
 
     def test_16_winemac_drv_iosurface_swapchain_multimon_and_xproc_parity(self) -> None:
         """Verify dlls/winemac.drv IOSurface child CAMetalLayer swapchains, multi-monitor ChangeDisplaySettingsEx, and cross-process DCs/layered windows."""
@@ -2151,7 +2272,8 @@ class TestSpumanteArchitecture(unittest.TestCase):
 
             subprocess.run([str(build_sh), "--exe-handler"], cwd=REPO_ROOT, check=True, capture_output=True)
 
-            app_m_file = REPO_ROOT / "builds" / "exe_handler_src" / "spumante_app.m"
+            app_m_file = REPO_ROOT / "src" / "launcher" / "spumante_app.m"
+            self.assertTrue(app_m_file.is_file(), "Native settings UI source must live in src/launcher/spumante_app.m")
             if app_m_file.is_file():
                 objc_src = app_m_file.read_text(encoding="utf-8")
                 self.assertIn("virustotalEnableCheck", objc_src)
@@ -2184,6 +2306,169 @@ class TestSpumanteArchitecture(unittest.TestCase):
             self.assertTrue(vt_ui["show_hide_key_toggle"])
             self.assertTrue(vt_ui["virustotal_enabled"])
             self.assertTrue(vt_ui["virustotal_api_key_configured"])
+
+            # 5B. Verify GitHub YAML Issue Forms, WineHQ-style docs/APPDB.md, and one-click "Report a Bug" / "Submit Tested App" in Spumante Config.app & CLI
+            issue_ctrl = ui_info.get("issue_reporting_controls", {})
+            self.assertTrue(issue_ctrl.get("report_bug_button"), "Spumante Config.app must expose Report a Bug button")
+            self.assertTrue(issue_ctrl.get("submit_tested_app_button"), "Spumante Config.app must expose Submit Tested App button")
+
+            # 5C. Verify macOS Menu Bar Tray (NSStatusItem) with Spumante glass logo & Labeled Favourite Windows Apps
+            tray_info = ui_info.get("menu_bar_tray", {})
+            self.assertTrue(tray_info.get("enabled"), "Spumante Config.app must run as a macOS menu bar tray app")
+            self.assertEqual(tray_info.get("status_item_class"), "NSStatusItem")
+            self.assertEqual(tray_info.get("icon_resource"), "spumante-logo.png")
+            self.assertTrue(Path(tray_info.get("icon_path", "")).is_file(), "Spumante glass icon must be bundled in Resources/spumante-logo.png")
+            self.assertTrue(tray_info.get("stays_open_in_background"))
+            self.assertTrue(tray_info.get("supports_favorite_apps"))
+            self.assertTrue(tray_info.get("supports_custom_favorite_labels"), "Favourite apps must support custom display labels")
+            fav_ctrls = tray_info.get("favorite_app_controls", {})
+            self.assertTrue(fav_ctrls.get("label_text_field"), "Settings GUI must expose a label text field for favourite apps")
+            self.assertTrue(fav_ctrls.get("path_text_field"), "Settings GUI must expose a path text field for favourite apps")
+            self.assertTrue(fav_ctrls.get("browse_button"), "Settings GUI must expose a Browse button for favourite apps")
+            self.assertTrue(fav_ctrls.get("save_add_update_button"), "Settings GUI must expose an Add/Update button for favourite apps")
+            self.assertIn("taskmgr.exe", tray_info.get("quick_launch_utilities", []))
+            self.assertIn("wineconsole.exe", tray_info.get("quick_launch_utilities", []))
+            self.assertEqual(tray_info.get("cli_console_host"), "wineconsole.exe")
+
+            if app_m_file.is_file():
+                objc_src = app_m_file.read_text(encoding="utf-8")
+                self.assertIn("favoriteAppLabelField", objc_src)
+                self.assertIn("favoriteAppPathField", objc_src)
+                self.assertIn("browseFavoriteAppPathAction:", objc_src)
+                self.assertIn("saveFavoriteAppEntryAction:", objc_src)
+                self.assertIn("wineconsole.exe", objc_src)
+                self.assertIn("launchSelectedCliAppInConsole:", objc_src)
+
+            # Verify CLI built-in apps launched with --open-console use wineconsole.exe + cmd.exe /k <app>
+            res_cli_console = subprocess.run(
+                [str(launch_sh), "--launch-builtin", "ipconfig.exe", "--open-console", "--dry-run"],
+                cwd=REPO_ROOT,
+                env=env,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(res_cli_console.returncode, 0, res_cli_console.stdout + res_cli_console.stderr)
+            cli_console_doc = json.loads(res_cli_console.stdout)
+            self.assertEqual(cli_console_doc["action"], "launch-builtin-app")
+            self.assertEqual(cli_console_doc["app_name"], "ipconfig.exe")
+            self.assertTrue(cli_console_doc["open_in_console"])
+            self.assertEqual(cli_console_doc["console_host"], "wineconsole.exe")
+            self.assertTrue(cli_console_doc["console_host_path"].endswith("wineconsole.exe"))
+            self.assertEqual(cli_console_doc["args"], ["cmd.exe", "/k", "ipconfig.exe"])
+
+            # Add a favourite app with an explicit custom label (e.g. taskman.exe -> "Task Manager")
+            res_fav_labeled = subprocess.run(
+                [str(launch_sh), "--set-config", "favorite_apps.add=Task Manager|C:/Windows/taskman.exe"],
+                cwd=REPO_ROOT,
+                env=env,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(res_fav_labeled.returncode, 0, res_fav_labeled.stdout + res_fav_labeled.stderr)
+            self.assertIn(
+                {"label": "Task Manager", "path": "C:/Windows/taskman.exe"},
+                json.loads(res_fav_labeled.stdout)["config"]["favorite_apps"],
+            )
+
+            # Update the label of an existing favourite app in-place without duplicating it
+            res_fav_relabel = subprocess.run(
+                [str(launch_sh), "--set-config", "favorite_apps.add=Windows Task Manager|C:/Windows/taskman.exe"],
+                cwd=REPO_ROOT,
+                env=env,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(res_fav_relabel.returncode, 0, res_fav_relabel.stdout + res_fav_relabel.stderr)
+            fav_after_relabel = json.loads(res_fav_relabel.stdout)["config"]["favorite_apps"]
+            self.assertEqual(len(fav_after_relabel), 1)
+            self.assertEqual(
+                fav_after_relabel[0],
+                {"label": "Windows Task Manager", "path": "C:/Windows/taskman.exe"},
+            )
+
+            # Adding without an explicit label defaults the label to the executable's filename
+            res_fav_add = subprocess.run(
+                [str(launch_sh), "--set-config", "favorite_apps.add=C:/Program Files/7-Zip/7zFM.exe"],
+                cwd=REPO_ROOT,
+                env=env,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(res_fav_add.returncode, 0, res_fav_add.stdout + res_fav_add.stderr)
+            self.assertIn(
+                {"label": "7zFM.exe", "path": "C:/Program Files/7-Zip/7zFM.exe"},
+                json.loads(res_fav_add.stdout)["config"]["favorite_apps"],
+            )
+            res_fav_rem = subprocess.run(
+                [
+                    str(launch_sh),
+                    "--set-config",
+                    "favorite_apps.remove=C:/Windows/taskman.exe",
+                    "--set-config",
+                    "favorite_apps.remove=C:/Program Files/7-Zip/7zFM.exe",
+                ],
+                cwd=REPO_ROOT,
+                env=env,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(res_fav_rem.returncode, 0, res_fav_rem.stdout + res_fav_rem.stderr)
+            self.assertEqual(json.loads(res_fav_rem.stdout)["config"]["favorite_apps"], [])
+
+            bug_yml = REPO_ROOT / ".github" / "ISSUE_TEMPLATE" / "bug_report.yml"
+            appdb_yml = REPO_ROOT / ".github" / "ISSUE_TEMPLATE" / "app_compatibility.yml"
+            cfg_yml = REPO_ROOT / ".github" / "ISSUE_TEMPLATE" / "config.yml"
+            appdb_md = REPO_ROOT / "docs" / "APPDB.md"
+            self.assertTrue(bug_yml.is_file(), "Missing .github/ISSUE_TEMPLATE/bug_report.yml")
+            self.assertTrue(appdb_yml.is_file(), "Missing .github/ISSUE_TEMPLATE/app_compatibility.yml")
+            self.assertTrue(cfg_yml.is_file(), "Missing .github/ISSUE_TEMPLATE/config.yml")
+            self.assertTrue(appdb_md.is_file(), "Missing docs/APPDB.md")
+
+            appdb_txt = appdb_md.read_text(encoding="utf-8")
+            for tier in ("Platinum", "Gold", "Silver", "Bronze", "Garbage"):
+                self.assertIn(tier, appdb_txt)
+            self.assertIn("7-Zip", appdb_txt)
+            self.assertIn("PuTTY", appdb_txt)
+
+            res_rep_bug = subprocess.run(
+                [str(launch_sh), "--report-bug", "--app", "7-Zip 24.08", "--dry-run"],
+                cwd=REPO_ROOT,
+                env=env,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(res_rep_bug.returncode, 0, res_rep_bug.stdout + res_rep_bug.stderr)
+            bug_doc = json.loads(res_rep_bug.stdout)
+            self.assertEqual(bug_doc["action"], "report-issue")
+            self.assertEqual(bug_doc["kind"], "bug")
+            self.assertEqual(bug_doc["template"], "bug_report.yml")
+            self.assertIn("https://github.com/markoer73/Spumante/issues/new?template=bug_report.yml", bug_doc["url"])
+            self.assertIn("macos_version=", bug_doc["url"])
+            self.assertIn("cpu_arch=", bug_doc["url"])
+            self.assertIn("spumante_settings=", bug_doc["url"])
+            self.assertIn("win10", bug_doc["prefilled_fields"]["spumante_settings"])
+
+            res_rep_app = subprocess.run(
+                [str(launch_sh), "--report-app", "--app", "7-Zip 24.08", "--rating", "Platinum", "--dry-run"],
+                cwd=REPO_ROOT,
+                env=env,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(res_rep_app.returncode, 0, res_rep_app.stdout + res_rep_app.stderr)
+            app_rep_doc = json.loads(res_rep_app.stdout)
+            self.assertEqual(app_rep_doc["action"], "report-issue")
+            self.assertEqual(app_rep_doc["kind"], "appdb")
+            self.assertEqual(app_rep_doc["template"], "app_compatibility.yml")
+            self.assertIn("https://github.com/markoer73/Spumante/issues/new?template=app_compatibility.yml", app_rep_doc["url"])
+            self.assertIn("rating=Platinum", app_rep_doc["url"])
 
             # Clear the dummy VT key before running the offline sandboxed .exe dispatch check
             subprocess.run(
@@ -3209,6 +3494,181 @@ class TestSpumanteArchitecture(unittest.TestCase):
             txt = doc_file.read_text(encoding="utf-8")
             self.assertIn("TestMate", txt, f"Missing TestMate visibility constraint in {doc_file}")
             self.assertIn("Antigravity IDE", txt, f"Missing Antigravity IDE visibility constraint in {doc_file}")
+
+
+    def test_33_portable_python_free_dmg_runtime(self) -> None:
+        """The DMG payload must run from any location without python3 and contain no build-machine/user paths."""
+        import hashlib
+        import struct
+        import sys
+
+        if sys.platform != "darwin":
+            self.skipTest("DMG packaging and bundled Wine runtime are macOS-only")
+
+        build_sh = REPO_ROOT / "scripts" / "build.sh"
+        res_dmg = subprocess.run([str(build_sh), "--dmg"], cwd=REPO_ROOT, capture_output=True, text=True, check=False)
+        self.assertEqual(res_dmg.returncode, 0, res_dmg.stdout[-4000:] + res_dmg.stderr[-4000:])
+        dmg_report = json.loads(res_dmg.stdout[res_dmg.stdout.index("{\n  \"action\": \"build-dmg-installer\""):])
+        staging_dir = Path(dmg_report["staging_dir"])
+
+        # 1. Native runtime sources live in the repository (not generated with baked-in paths)
+        src_dir = REPO_ROOT / "src" / "launcher"
+        for name in ("spumante_app.m", "spm_json.c", "spm_config.c", "spm_scan.c", "spm_runtime.c", "spm_paths.c"):
+            self.assertTrue((src_dir / name).is_file(), f"Missing native runtime source src/launcher/{name}")
+        self.assertFalse((REPO_ROOT / "scripts" / "lib" / "config_manager.py").exists(),
+                         "Runtime config logic must be native; scripts/lib/config_manager.py must be removed")
+
+        # 2. Bundled Wine runtime is inside Spumante.app
+        staged_app = staging_dir / "Spumante.app"
+        bundled_runtime = staged_app / "Contents" / "Resources" / "wine-install-x86"
+        self.assertTrue((bundled_runtime / "bin" / "wine").is_file(), "Wine runtime must be bundled inside Spumante.app")
+        self.assertTrue((bundled_runtime / "bin" / "spumante").is_file())
+        self.assertTrue((bundled_runtime / "lib" / "wine" / "x86_64-unix" / "ntdll.so").is_file())
+        self.assertFalse((bundled_runtime / "include").exists(), "Developer headers must not be shipped in the DMG")
+
+        # 3. No build-machine / user-specific absolute paths anywhere in the DMG payload
+        forbidden = {str(Path.home()).encode(), str(REPO_ROOT).encode(), b"/Users/mermini", b"wine-parity"}
+        offenders: list[str] = []
+        for root, _dirs, files in os.walk(staging_dir):
+            for fname in files:
+                fpath = Path(root) / fname
+                if fpath.is_symlink():
+                    continue
+                blob = fpath.read_bytes()
+                for needle in forbidden:
+                    if needle in blob:
+                        offenders.append(f"{fpath.relative_to(staging_dir)} contains {needle.decode()}")
+                        break
+        self.assertEqual(offenders[:25], [], f"{len(offenders)} DMG files embed build-machine paths")
+
+        # 4. Spumante-owned runtime entrypoints must not reference python
+        owned = [
+            staged_app / "Contents" / "MacOS" / "Spumante",
+            staging_dir / "Spumante Config.app" / "Contents" / "MacOS" / "SpumanteConfig",
+            staging_dir / "Install Spumante.command",
+            bundled_runtime / "bin" / "spumante",
+        ]
+        for fpath in owned:
+            self.assertNotIn(b"python", fpath.read_bytes().lower(), f"{fpath.name} must not depend on python")
+
+        # 5. Install from a relocated copy with a python3 tripwire on PATH
+        with tempfile.TemporaryDirectory(prefix="spumante portable ") as tmp:
+            tmp_root = Path(tmp)
+            shim_dir = tmp_root / "shim"
+            shim_dir.mkdir()
+            tripwire = tmp_root / "python_was_called"
+            for shim_name in ("python3", "python"):
+                shim = shim_dir / shim_name
+                shim.write_text(f'#!/bin/sh\necho "$0 $@" >> "{tripwire}"\nexit 127\n', encoding="utf-8")
+                shim.chmod(0o755)
+
+            relocated = tmp_root / "Mounted Volume"
+            subprocess.run(["cp", "-cR", str(staging_dir), str(relocated)], check=True)
+            target_apps = tmp_root / "Applications"
+            target_bin = tmp_root / "bin"
+            cfg_file = tmp_root / "config" / "config.json"
+            prefix_dir = tmp_root / "prefix"
+
+            env = {
+                "HOME": str(tmp_root / "home"),
+                "PATH": f"{shim_dir}:/usr/bin:/bin:/usr/sbin:/sbin",
+                "SPUMANTE_CONFIG": str(cfg_file),
+                "WINEPREFIX": str(prefix_dir),
+                "SPUMANTE_NONINTERACTIVE_ROSETTA": "1",
+            }
+            (tmp_root / "home").mkdir()
+
+            res_inst = subprocess.run(
+                [str(relocated / "Install Spumante.command"), "--target-dir", str(target_apps), "--bin-dir", str(target_bin),
+                 "--config-file", str(cfg_file), "--wineprefix", str(prefix_dir), "--no-open-config"],
+                cwd=tmp_root, env=env, capture_output=True, text=True, check=False,
+            )
+            self.assertEqual(res_inst.returncode, 0, res_inst.stdout + res_inst.stderr)
+            self.assertTrue(cfg_file.is_file(), "Installer must initialize config.json natively")
+
+            app_bin = target_apps / "Spumante.app" / "Contents" / "MacOS" / "Spumante"
+            cfg_bin = target_apps / "Spumante Config.app" / "Contents" / "MacOS" / "SpumanteConfig"
+
+            def run_json(cmd: list[str], extra_env: dict[str, str] | None = None, expect_rc: int = 0) -> dict:
+                run_env = dict(env, **(extra_env or {}))
+                res = subprocess.run(cmd, cwd=tmp_root, env=run_env, capture_output=True, text=True, check=False, timeout=600)
+                self.assertEqual(res.returncode, expect_rc, f"{cmd}:\n{res.stdout}\n{res.stderr}")
+                return json.loads(res.stdout)
+
+            status = run_json([str(app_bin), "--config-status"])
+            self.assertEqual(status["action"], "config-status")
+            self.assertEqual(Path(status["config_path"]).resolve(), cfg_file.resolve())
+            self.assertIn("(deny network-inbound)", status["seatbelt_profile_preview"])
+
+            set_doc = run_json([str(app_bin), "--set-config", "wine_environment.windows_version=win10",
+                                "--set-config", "network.outgoing=dns_only"])
+            self.assertEqual(set_doc["config"]["wine_environment"]["windows_version"], "win10")
+            self.assertEqual(set_doc["config"]["network"]["allowed_outgoing_ports"], [53])
+            self.assertIn('"Version"="win10"', (prefix_dir / "user.reg").read_text(encoding="utf-8"))
+
+            pe_buf = bytearray(1024)
+            pe_buf[0:2] = b"MZ"
+            struct.pack_into("<I", pe_buf, 0x3C, 0x40)
+            pe_buf[0x40:0x44] = b"PE\x00\x00"
+            struct.pack_into("<H", pe_buf, 0x44, 0x8664)
+            struct.pack_into("<H", pe_buf, 0x46, 1)
+            struct.pack_into("<H", pe_buf, 0x54, 240)
+            struct.pack_into("<H", pe_buf, 0x58, 0x020B)
+            struct.pack_into("<H", pe_buf, 0x58 + 70, 0x4160)
+            sec_off = 0x58 + 240
+            pe_buf[sec_off:sec_off + 8] = b".text\x00\x00\x00"
+            struct.pack_into("<I", pe_buf, sec_off + 16, 256)
+            struct.pack_into("<I", pe_buf, sec_off + 20, 512)
+            struct.pack_into("<I", pe_buf, sec_off + 36, 0x60000020)
+            clean_exe = tmp_root / "clean app.exe"
+            clean_exe.write_bytes(bytes(pe_buf))
+            clean_exe.chmod(0o755)
+
+            scan = run_json([str(app_bin), "--scan", str(clean_exe)])
+            self.assertTrue(scan["passed"])
+            self.assertEqual(scan["file_sha256"], hashlib.sha256(bytes(pe_buf)).hexdigest())
+            self.assertTrue(scan["gates"]["gate3_static_pe_and_virustotal"]["dll_characteristics"]["nx_compat_dep"])
+
+            wx_buf = bytearray(pe_buf)
+            struct.pack_into("<I", wx_buf, sec_off + 36, 0xE0000020)
+            wx_exe = tmp_root / "wx.exe"
+            wx_exe.write_bytes(bytes(wx_buf))
+            wx_exe.chmod(0o755)
+            wx_scan = run_json([str(app_bin), "--scan", str(wx_exe)], expect_rc=126)
+            self.assertIn(".text", wx_scan["gates"]["gate3_static_pe_and_virustotal"]["wx_sections"])
+
+            trace = run_json([str(app_bin), str(clean_exe), "--windowed"], {"SPUMANTE_DRY_RUN_JSON": "1"})
+            self.assertTrue(trace["executable_bit_verified"])
+            target_apps_real = str(target_apps.resolve())
+            self.assertTrue(trace["selected_launcher"].startswith(target_apps_real),
+                            f"Launcher must come from the installed bundle, got {trace['selected_launcher']}")
+            self.assertEqual(trace["args"], ["--windowed"])
+
+            ui = run_json([str(cfg_bin), "--config-ui", "--dry-run"])
+            self.assertEqual(ui["action"], "config-ui")
+            self.assertTrue(ui["issue_reporting_controls"]["appdb_doc_url"].startswith("https://github.com/"))
+            self.assertNotIn(str(REPO_ROOT), json.dumps(ui))
+
+            rep = run_json([str(cfg_bin), "--report-app", "--app", "PuTTY 0.81", "--rating", "Gold", "--dry-run"])
+            self.assertEqual(rep["kind"], "appdb")
+            self.assertIn("rating=Gold", rep["url"])
+
+            lb = run_json([str(cfg_bin), "--launch-builtin", "hostname.exe", "--dry-run"])
+            self.assertTrue(lb["exe_path"].startswith(target_apps_real), lb["exe_path"])
+            self.assertTrue(lb["launcher"].startswith(target_apps_real), lb["launcher"])
+
+            # Real execution of a bundled Wine CLI program from the relocated install proves the runtime is relocatable
+            real = run_json([str(cfg_bin), "--launch-builtin", "hostname.exe"])
+            self.assertEqual(real["returncode"], 0, real)
+            self.assertTrue(real["stdout"].strip(), real)
+
+            sync = run_json([str(app_bin), "--sync-drive-c"])
+            self.assertEqual(sync["action"], "sync-drive-c")
+
+            wineserver_bin = target_apps / "Spumante.app" / "Contents" / "Resources" / "wine-install-x86" / "bin" / "wineserver"
+            subprocess.run([str(wineserver_bin), "-k"], cwd=tmp_root, env=env, capture_output=True, check=False)
+
+            self.assertFalse(tripwire.exists(), f"python was invoked at runtime: {tripwire.read_text() if tripwire.exists() else ''}")
 
 
 if __name__ == "__main__":

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# SPDX-License-Identifier: LGPL-2.1-or-later
+# SPDX-License-Identifier: Apache-2.0
 """Upstream Wine winetest & A/B (Spumante vs. old .wine-upstream) anti-regression runner."""
 
 from __future__ import annotations

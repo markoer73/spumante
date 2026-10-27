@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# SPDX-License-Identifier: LGPL-2.1-or-later
+# SPDX-License-Identifier: Apache-2.0
 """Surgical single-target build and differential test runner (macOS First, Linux Second)."""
 
 from __future__ import annotations
@@ -85,10 +85,16 @@ def build_and_install_unix_so(
                 "-framework",
                 "CoreFoundation",
                 "-pthread",
+                "-install_name",
+                f"@rpath/{so_name}",
                 "-o",
                 str(so_out),
             ]
             subprocess.run(cmd_so, check=True)
+        # Never embed the absolute build path as the Mach-O install name (keeps the runtime relocatable)
+        from scripts.lib.wine_borrow import _fix_dylib_install_name
+
+        _fix_dylib_install_name(so_out)
         shutil.copy2(so_out, arch_build_dir / so_name)
         built.append(str(so_out.relative_to(REPO_ROOT)))
 

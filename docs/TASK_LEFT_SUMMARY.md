@@ -8,4 +8,5 @@ Executive summary of all remaining open tasks in `docs/TASK_QUEUE.md`.
 
 ## Remaining Open Tasks
 
-_All currently queued tasks have been completed._
+_All tasks in `docs/TASK_QUEUE.md` are currently completed._
+

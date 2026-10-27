@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# SPDX-License-Identifier: LGPL-2.1-or-later
+# SPDX-License-Identifier: Apache-2.0
 # Canonical VM and guest agent launch/snapshot entrypoint for Spumante.
 
 set -euo pipefail
@@ -10,9 +10,7 @@ SNAPSHOT="clean_ready"
 ACTION="launch"
 DRY_RUN=0
 DISK_ARGS=()
-EXE_HANDLER_ACTION=""
-CONFIG_ACTION=""
-CONFIG_UPDATES=()
+NATIVE_ARGS=()
 
 usage() {
     cat <<EOF
@@ -20,6 +18,8 @@ Usage: ./scripts/launch.sh [--arch arm64|x86_64] [--snapshot <name>] [--disk <qc
        ./scripts/launch.sh --register-exe-handler [--dry-run]
        ./scripts/launch.sh --exe-handler-status
        ./scripts/launch.sh --sync-drive-c
+       ./scripts/launch.sh --report-bug [--app "<Name & Version>"] [--dry-run]
+       ./scripts/launch.sh --report-app [--app "<Name & Version>"] [--rating Platinum|Gold|Silver|Bronze|Garbage] [--dry-run]
        ./scripts/launch.sh --config-status
        ./scripts/launch.sh --set-config <key=value> [--set-config <key=value> ...]
        ./scripts/launch.sh --config-ui [--dry-run]
@@ -50,28 +50,51 @@ while [[ $# -gt 0 ]]; do
             shift
             ;;
         --register-exe-handler)
-            EXE_HANDLER_ACTION="register"
+            NATIVE_ARGS+=(--register)
             shift
             ;;
         --exe-handler-status)
-            EXE_HANDLER_ACTION="status"
+            NATIVE_ARGS+=(--status)
             shift
             ;;
         --sync-drive-c|--sync-drive-c-exec)
-            EXE_HANDLER_ACTION="sync-drive-c"
+            NATIVE_ARGS+=(--sync-drive-c)
             shift
             ;;
+        --report-bug)
+            NATIVE_ARGS+=(--report-bug)
+            shift
+            ;;
+        --report-app|--report-appdb)
+            NATIVE_ARGS+=(--report-app)
+            shift
+            ;;
+        --app)
+            NATIVE_ARGS+=(--app "${2:-}")
+            shift 2
+            ;;
+        --rating)
+            NATIVE_ARGS+=(--rating "${2:-Platinum}")
+            shift 2
+            ;;
         --config-status)
-            CONFIG_ACTION="status"
+            NATIVE_ARGS+=(--config-status)
             shift
             ;;
         --set-config)
-            CONFIG_ACTION="set"
-            CONFIG_UPDATES+=(--set "${2:-}")
+            NATIVE_ARGS+=(--set-config "${2:-}")
             shift 2
             ;;
         --config-ui)
-            EXE_HANDLER_ACTION="config-ui"
+            NATIVE_ARGS+=(--config-ui)
+            shift
+            ;;
+        --launch-builtin)
+            NATIVE_ARGS+=(--launch-builtin "${2:-}")
+            shift 2
+            ;;
+        --open-console)
+            NATIVE_ARGS+=(--open-console)
             shift
             ;;
         --dry-run)
@@ -90,22 +113,14 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-if [[ -n "$CONFIG_ACTION" ]]; then
-    if [[ "${#CONFIG_UPDATES[@]}" -gt 0 ]]; then
-        python3 "$REPO_ROOT/scripts/lib/config_manager.py" --action "$CONFIG_ACTION" "${CONFIG_UPDATES[@]}"
-    else
-        python3 "$REPO_ROOT/scripts/lib/config_manager.py" --action "$CONFIG_ACTION"
-    fi
-    exit 0
-fi
-
-if [[ -n "$EXE_HANDLER_ACTION" ]]; then
-    EXE_ARGS=(--action "$EXE_HANDLER_ACTION")
+if [[ "${#NATIVE_ARGS[@]}" -gt 0 ]]; then
+    # Config, registry cascade, sandbox, drive_c sync, issue reporting and LaunchServices registration are all
+    # handled by the native Spumante binary (src/launcher); build it on demand.
+    python3 "$REPO_ROOT/scripts/lib/exe_handler.py" --action ensure-native >/dev/null
     if [[ "$DRY_RUN" -eq 1 ]]; then
-        EXE_ARGS+=(--dry-run)
+        NATIVE_ARGS+=(--dry-run)
     fi
-    python3 "$REPO_ROOT/scripts/lib/exe_handler.py" "${EXE_ARGS[@]}"
-    exit 0
+    exec "$REPO_ROOT/builds/Spumante.app/Contents/MacOS/Spumante" "${NATIVE_ARGS[@]}"
 fi
 
 EXTRA_FLAGS=()

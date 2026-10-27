@@ -1,0 +1,75 @@
+name: "Tested Windows Application Report (Spumante AppDB)"
+description: "Submit a compatibility report for a Windows application tested on macOS (Platinum / Gold / Silver / Bronze / Garbage)."
+title: "[AppDB]: "
+labels: ["appdb"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Help grow the **[Spumante Application Compatibility Database (AppDB)](https://github.com/markoer73/Spumante/blob/main/docs/APPDB.md)**!
+        *Tip: Click **"Submit Tested App (AppDB)…"** in **`Spumante Config.app`** or run `./scripts/launch.sh --report-app` to pre-fill your system details.*
+
+  - type: input
+    id: app_name
+    attributes:
+      label: "Windows Application Name & Version"
+      description: "Name, version, and binary architecture (x64, x86, ARM64) of the tested Windows application."
+      placeholder: "e.g. 7-Zip 24.08 (x64)"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: rating
+    attributes:
+      label: "Compatibility Rating (WineHQ AppDB Scale)"
+      description: "How well does the application install and run under Spumante on macOS?"
+      options:
+        - "Platinum"
+        - "Gold"
+        - "Silver"
+        - "Bronze"
+        - "Garbage"
+      default: 0
+    validations:
+      required: true
+
+  - type: input
+    id: app_url
+    attributes:
+      label: "Official Website or Download URL (Optional)"
+      placeholder: "https://..."
+
+  - type: input
+    id: macos_version
+    attributes:
+      label: "Tested on macOS Version"
+      placeholder: "e.g. macOS 15.1"
+    validations:
+      required: true
+
+  - type: input
+    id: cpu_arch
+    attributes:
+      label: "Mac CPU Architecture"
+      placeholder: "e.g. arm64 (Apple Silicon)"
+    validations:
+      required: true
+
+  - type: textarea
+    id: spumante_settings
+    attributes:
+      label: "Active Spumante Configuration"
+      description: "Configuration settings used during testing (auto-filled from Spumante Config.app)."
+      placeholder: "windows_version=win11, retina_mode=true, sandbox=true, outgoing=http_https_only"
+
+  - type: textarea
+    id: test_notes
+    attributes:
+      label: "What Works, What Doesn't & Any Special Tweaks"
+      description: "Describe your test results, features verified, and any custom settings or workarounds used."
+      placeholder: |
+        - Installer: Works out-of-the-box (`chmod +x` auto-synced to `drive_c`).
+        - GUI / Rendering: Native Retina HiDPI and Metal swapchains work smoothly.
+        - Notes: ...
+    validations:
+      required: true

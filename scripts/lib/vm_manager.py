@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# SPDX-License-Identifier: LGPL-2.1-or-later
+# SPDX-License-Identifier: Apache-2.0
 """Headless QEMU Windows 10/11 VM orchestrator (macOS hvf/tcg first, Linux kvm second)."""
 
 from __future__ import annotations

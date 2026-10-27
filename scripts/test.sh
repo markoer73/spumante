@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# SPDX-License-Identifier: LGPL-2.1-or-later
+# SPDX-License-Identifier: Apache-2.0
 # Canonical surgical test, stub discovery, upstream alignment check, security scanner, and linter entrypoint.
 
 set -euo pipefail
@@ -148,14 +148,16 @@ if [[ "$RUN_LINT" -eq 1 ]]; then
 fi
 
 if [[ -n "$SCAN_EXE" ]]; then
-    SCAN_ARGS=(--action scan --exe "$SCAN_EXE")
+    # The 3-gate scanner is native (src/launcher/spm_scan.c); build the launcher on demand
+    python3 "$REPO_ROOT/scripts/lib/exe_handler.py" --action ensure-native >/dev/null
+    SCAN_ARGS=(--scan "$SCAN_EXE")
     if [[ "$REQUIRE_SIGNATURE" -eq 1 ]]; then
         SCAN_ARGS+=(--require-signature)
     fi
     if [[ -n "$VT_API_KEY_ARG" ]]; then
         SCAN_ARGS+=(--vt-api-key "$VT_API_KEY_ARG")
     fi
-    python3 "$REPO_ROOT/scripts/lib/exe_handler.py" "${SCAN_ARGS[@]}"
+    "$REPO_ROOT/builds/Spumante.app/Contents/MacOS/Spumante" "${SCAN_ARGS[@]}"
     exit $?
 fi
 
