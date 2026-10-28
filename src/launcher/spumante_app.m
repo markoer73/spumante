@@ -312,6 +312,11 @@ static int dispatch_windows_binary(const char *target_path, int extra_argc, char
     {
         char *cfg_path = spm_config_path();
         spm_json *cfg = spm_config_load(cfg_path, 1);
+        char *pfx = spm_config_prefix_path(cfg);
+        if (pfx) {
+            setenv("WINEPREFIX", pfx, 1);
+            free(pfx);
+        }
         spm_json_free(spm_config_cascade(cfg, NULL));
         seatbelt_profile = spm_seatbelt_write(cfg, spm_basename(resolved_path));
 #ifdef __APPLE__
@@ -691,9 +696,18 @@ static id spm_json_to_ns(const spm_json *doc)
     [NSApp activateIgnoringOtherApps:YES];
 }
 
+- (void)stopAllWineProcessesAction:(id)sender
+{
+    (void)sender;
+    spm_json_free(spm_session_stop(NULL, 0));
+    if (self.handlerStatusLabel)
+        [self.handlerStatusLabel setStringValue:@"Stopped all Wine processes and background session."];
+}
+
 - (void)quitTrayApp:(id)sender
 {
     (void)sender;
+    spm_json_free(spm_session_stop(NULL, 0));
     [NSApp terminate:nil];
 }
 
@@ -1046,6 +1060,11 @@ static id spm_json_to_ns(const spm_json *doc)
     NSMenuItem *appdbItem = [[NSMenuItem alloc] initWithTitle:@"Submit Tested App (AppDB)…" action:@selector(submitTestedAppAction:) keyEquivalent:@""];
     [appdbItem setTarget:self];
     [menu addItem:appdbItem];
+    [menu addItem:[NSMenuItem separatorItem]];
+
+    NSMenuItem *stopItem = [[NSMenuItem alloc] initWithTitle:@"Stop All Wine Processes" action:@selector(stopAllWineProcessesAction:) keyEquivalent:@""];
+    [stopItem setTarget:self];
+    [menu addItem:stopItem];
     [menu addItem:[NSMenuItem separatorItem]];
 
     NSMenuItem *quitItem = [[NSMenuItem alloc] initWithTitle:@"Quit Spumante" action:@selector(quitTrayApp:) keyEquivalent:@"q"];
@@ -1612,6 +1631,51 @@ int main(int argc, char **argv)
                     updates[n_updates++] = argv[++j];
             emit_json(spm_config_status(updates, n_updates, arg_value(argc, argv, "--exe")));
             free(updates);
+            return 0;
+        }
+        if (strcmp(argv[i], "--session-status") == 0) {
+            emit_json(spm_session_status(NULL));
+            return 0;
+        }
+        if (strcmp(argv[i], "--session-start") == 0) {
+            emit_json(spm_session_start(NULL, dry_run));
+            return 0;
+        }
+        if (strcmp(argv[i], "--session-stop") == 0) {
+            emit_json(spm_session_stop(NULL, dry_run));
+            return 0;
+        }
+        if (strcmp(argv[i], "--init-prefix") == 0) {
+            emit_json(spm_init_prefix(NULL, dry_run));
+            return 0;
+        }
+        if (strcmp(argv[i], "--login-agent-status") == 0) {
+            emit_json(spm_login_agent_status());
+            return 0;
+        }
+        if (strcmp(argv[i], "--install-login-agent") == 0) {
+            emit_json(spm_login_agent_install(spm_self_exe()));
+            return 0;
+        }
+        if (strcmp(argv[i], "--uninstall-login-agent") == 0) {
+            emit_json(spm_login_agent_uninstall());
+            return 0;
+        }
+        if (strcmp(argv[i], "--tray") == 0) {
+            if (dry_run) {
+                emit_json(spm_tray_report(1));
+                return 0;
+            }
+#ifdef __APPLE__
+            @autoreleasepool {
+                NSApplication *app = [NSApplication sharedApplication];
+                [app setActivationPolicy:NSApplicationActivationPolicyAccessory];
+                SpumanteSettingsController *ctrl = [[SpumanteSettingsController alloc] init];
+                [ctrl setupStatusBarItem];
+                spm_json_free(spm_session_start(NULL, 0));
+                [app run];
+            }
+#endif
             return 0;
         }
     }

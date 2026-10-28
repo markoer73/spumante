@@ -53,7 +53,7 @@ By default, every `.exe` and `.msi` launched via `Spumante.app` or `bin/spumante
     "virtual_desktop": false,
     "virtual_desktop_resolution": "1920x1080",
     "prefix_mode": "shared",
-    "default_prefix": "~/.spumante-prefix",
+    "default_prefix": "~/.spumante",
     "dll_overrides": {}
   },
   "security": {

@@ -8,9 +8,13 @@
 
 #include <dirent.h>
 #include <limits.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>
+#include <sys/socket.h>
+#include <sys/stat.h>
+#include <sys/un.h>
 #include <unistd.h>
 
 #ifdef __APPLE__
@@ -222,4 +226,47 @@ char *spm_find_windows_app(const char *exe_name)
         }
     }
     return found;
+}
+
+char *spm_wineserver_socket_path(const char *prefix)
+{
+    if (!prefix || !prefix[0])
+        return NULL;
+    struct stat st;
+    if (stat(prefix, &st) != 0)
+        return NULL;
+    return spm_asprintf("/tmp/.wine-%u/server-%llx-%llx/socket",
+                        (unsigned int)getuid(),
+                        (unsigned long long)(uint64_t)st.st_dev,
+                        (unsigned long long)(uint64_t)st.st_ino);
+}
+
+int spm_wineserver_is_running(const char *socket_path)
+{
+    if (!socket_path || !socket_path[0])
+        return 0;
+    struct stat st;
+    if (stat(socket_path, &st) != 0)
+        return 0;
+    int fd = socket(AF_UNIX, SOCK_STREAM, 0);
+    if (fd < 0)
+        return 0;
+    struct sockaddr_un addr;
+    memset(&addr, 0, sizeof(addr));
+    addr.sun_family = AF_UNIX;
+    strncpy(addr.sun_path, socket_path, sizeof(addr.sun_path) - 1);
+    int rc = connect(fd, (struct sockaddr *)&addr, sizeof(addr));
+    close(fd);
+    return (rc == 0) ? 1 : 0;
+}
+
+char *spm_login_agent_plist_path(void)
+{
+    const char *custom_dir = getenv("SPUMANTE_LAUNCH_AGENTS_DIR");
+    if (custom_dir && custom_dir[0])
+        return spm_path_join(custom_dir, "org.spumante.tray.plist");
+    char *agents_dir = spm_path_join(spm_home_dir(), "Library/LaunchAgents");
+    char *p = spm_path_join(agents_dir, "org.spumante.tray.plist");
+    free(agents_dir);
+    return p;
 }

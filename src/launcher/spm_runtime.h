@@ -24,6 +24,22 @@ spm_json *spm_launch_builtin_console(const char *app_name, int extra_argc, char 
 spm_json *spm_issue_report(const char *kind, const char *app_name, const char *rating, int dry_run);
 spm_json *spm_config_ui_report(void);
 
+/* Persistent Wine session management (wineserver -p) */
+spm_json *spm_session_status(const char *prefix_override);
+spm_json *spm_session_start(const char *prefix_override, int dry_run);
+spm_json *spm_session_stop(const char *prefix_override, int dry_run);
+
+/* Prefix initialization (spumante wineboot --init && wineserver -w) */
+spm_json *spm_init_prefix(const char *prefix_override, int dry_run);
+
+/* macOS launchd Login Agent (org.spumante.tray.plist) */
+spm_json *spm_login_agent_status(void);
+spm_json *spm_login_agent_install(const char *app_bin);
+spm_json *spm_login_agent_uninstall(void);
+
+/* Tray mode dry-run / execution report */
+spm_json *spm_tray_report(int dry_run);
+
 /* Spawn argv detached (new session, stdio -> /dev/null). Returns pid or -1. */
 int spm_spawn_detached(char *const argv[], char *const envp[], const char *cwd);
 

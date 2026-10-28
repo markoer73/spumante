@@ -82,7 +82,7 @@ Open **`Spumante Config.app`** from `/Applications` (or run `spumante-config` in
 > **Security Notice — Why `chmod +x` Is Required for Downloaded `.exe` and `.msi` Files:**
 > By default, macOS does not consider Windows `.exe` and `.msi` files to be native executable applications and saves downloaded files without the POSIX executable flag (`+x`). As a deliberate security measure—preventing untrusted or accidentally clicked Windows binaries from running without your explicit authorization—Spumante requires the executable bit (`chmod +x`) and no macOS download quarantine attribute before launching external `.exe` or `.msi` files.
 >
-> **Automatic Post-Installer Sync (`drive_c`):** Whenever a Windows installer (such as the 7-Zip installer) finishes running under Spumante, Spumante **automatically sets `chmod +x`** on all newly installed `.exe` and `.msi` programs inside `$WINEPREFIX/drive_c/` (`~/.wine/drive_c/`). You can also trigger this at any time by clicking **"Sync Installed drive_c Apps (+x)"** in the **General** tab of **`Spumante Config.app`** or running `spumante --sync-drive-c` (`./scripts/launch.sh --sync-drive-c`).
+> **Automatic Post-Installer Sync (`drive_c`):** Whenever a Windows installer (such as the 7-Zip installer) finishes running under Spumante, Spumante **automatically sets `chmod +x`** on all newly installed `.exe` and `.msi` programs inside `$WINEPREFIX/drive_c/` (`~/.spumante/drive_c/`). You can also trigger this at any time by clicking **"Sync Installed drive_c Apps (+x)"** in the **General** tab of **`Spumante Config.app`** or running `spumante --sync-drive-c` (`./scripts/launch.sh --sync-drive-c`).
 
 ```sh
 # 1. Authorize a downloaded .exe or .msi file to run
@@ -132,7 +132,7 @@ open /tmp/7z-x64.exe
 Once the installer finishes, Spumante automatically marks `7zFM.exe` in `drive_c` as executable—launch the 7-Zip GUI directly:
 
 ```sh
-open "$HOME/.wine/drive_c/Program Files/7-Zip/7zFM.exe"
+open "$HOME/.spumante/drive_c/Program Files/7-Zip/7zFM.exe"
 ```
 
 #### Example 2: PuTTY (Standalone Portable `.exe` — Zero Install)

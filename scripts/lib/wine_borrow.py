@@ -938,6 +938,7 @@ for _sp_dll in {dll_names}; do
         fi
     done
 done
+export WINEPREFIX="${{WINEPREFIX:-$HOME/.spumante}}"
 export WINEDLLPATH="${{_sp_dll_path}}${{WINEDLLPATH:+:$WINEDLLPATH}}"
 export WINEDLLOVERRIDES="{dll_overrides}${{WINEDLLOVERRIDES:+;$WINEDLLOVERRIDES}}"
 export MVK_CONFIG_LOG_LEVEL="${{MVK_CONFIG_LOG_LEVEL:-1}}"

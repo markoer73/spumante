@@ -21,6 +21,8 @@ import unittest
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
+if str(REPO_ROOT / "scripts" / "lib") not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT / "scripts" / "lib"))
 EXE_HANDLER = REPO_ROOT / "scripts" / "lib" / "exe_handler.py"
 
 

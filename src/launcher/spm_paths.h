@@ -37,4 +37,11 @@ char *spm_launcher_app_bundle(void);
 /* Locate a bundled built-in Windows program by file name (case-insensitive). Caller frees; NULL if absent. */
 char *spm_find_windows_app(const char *exe_name);
 
+/* Wineserver Unix domain socket path for a prefix directory. Caller frees; NULL if stat fails. */
+char *spm_wineserver_socket_path(const char *prefix);
+/* Check if a wineserver process is live and accepting connections on the socket. */
+int spm_wineserver_is_running(const char *socket_path);
+/* Path to the macOS LaunchAgent plist (org.spumante.tray.plist). Caller frees. */
+char *spm_login_agent_plist_path(void);
+
 #endif /* SPUMANTE_SPM_PATHS_H */

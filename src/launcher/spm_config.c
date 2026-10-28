@@ -34,7 +34,7 @@ spm_json *spm_config_defaults(void)
     spm_json_set_bool(env, "virtual_desktop", 0);
     spm_json_set_str(env, "virtual_desktop_resolution", "1920x1080");
     spm_json_set_str(env, "prefix_mode", "shared");
-    spm_json_set_str(env, "default_prefix", "~/.spumante-prefix");
+    spm_json_set_str(env, "default_prefix", "~/.spumante");
     spm_json_set(env, "dll_overrides", spm_json_object());
     spm_json_set(cfg, "wine_environment", env);
 
@@ -138,6 +138,16 @@ spm_json *spm_config_load(const char *path, int create_if_missing)
     if (parsed && parsed->type == SPM_JOBJ)
         spm_deep_merge(cfg, parsed);
     spm_json_free(parsed);
+
+    /* Migrate legacy default_prefix: ~/.spumante-prefix -> ~/.spumante */
+    const char *p = spm_json_str(spm_json_path(cfg, "wine_environment.default_prefix"), "");
+    if (strcmp(p, "~/.spumante-prefix") == 0) {
+        spm_json *env = (spm_json *)spm_json_path(cfg, "wine_environment");
+        if (env)
+            spm_json_set_str(env, "default_prefix", "~/.spumante");
+        if (path)
+            spm_config_save(cfg, path);
+    }
     return cfg;
 }
 
@@ -383,7 +393,9 @@ char *spm_config_prefix_path(const spm_json *cfg)
     const char *env_prefix = getenv("WINEPREFIX");
     if (env_prefix && env_prefix[0])
         return spm_abs_path(env_prefix);
-    const char *def = spm_json_str(spm_json_path(cfg, "wine_environment.default_prefix"), "~/.spumante-prefix");
+    const char *def = spm_json_str(spm_json_path(cfg, "wine_environment.default_prefix"), "~/.spumante");
+    if (strcmp(def, "~/.spumante-prefix") == 0)
+        def = "~/.spumante";
     return spm_abs_path(def);
 }
 
@@ -528,6 +540,7 @@ static int spm_path_present(const char *path)
 spm_json *spm_config_cascade(const spm_json *cfg, const char *prefix)
 {
     char *target_prefix = prefix ? spm_strdup(prefix) : spm_config_prefix_path(cfg);
+    spm_json *info = spm_json_object();
     char *dosdevices = spm_path_join(target_prefix, "dosdevices");
     spm_mkdir_p(dosdevices, 0755);
     {
@@ -593,76 +606,82 @@ spm_json *spm_config_cascade(const spm_json *cfg, const char *prefix)
     free(system_reg);
 
     char *user_reg = spm_path_join(target_prefix, "user.reg");
-    char *reg = NULL;
-    if (spm_is_file(user_reg)) {
-        size_t len = 0;
-        reg = (char *)spm_read_file(user_reg, &len);
-    }
-    if (!reg)
-        reg = spm_strdup("WINE REGISTRY Version 2\n;; All keys relative to \\\\User\\\\S-1-5-21-0-0-0-1000\n\n");
+    char *sock_path = spm_wineserver_socket_path(target_prefix);
+    int session_running = spm_wineserver_is_running(sock_path);
+    free(sock_path);
+    spm_json_set_bool(info, "registry_deferred_session_running", session_running);
 
-    const char *win_ver = spm_json_str(spm_json_path(cfg, "wine_environment.windows_version"), "win11");
-    int retina = spm_json_truthy(spm_json_path(cfg, "wine_environment.retina_mode"), 1);
-    char *ver_val = spm_asprintf("\"%s\"", win_ver);
-    reg = spm_upsert1(reg, "Software\\\\Wine", "Version", ver_val);
-    free(ver_val);
-    reg = spm_upsert1(reg, "Software\\\\Wine\\\\Mac Driver", "RetinaMode", retina ? "\"y\"" : "\"n\"");
-    reg = spm_upsert1(reg, "Software\\\\Wine\\\\Direct3D", "csmt", "dword:00000003");
+    if (!session_running) {
+        char *reg = NULL;
+        if (spm_is_file(user_reg)) {
+            size_t len = 0;
+            reg = (char *)spm_read_file(user_reg, &len);
+        }
+        if (!reg)
+            reg = spm_strdup("WINE REGISTRY Version 2\n;; All keys relative to \\\\User\\\\S-1-5-21-0-0-0-1000\n\n");
 
-    /* DllOverrides */
-    const char *ov_keys[64];
-    char *ov_vals[64];
-    int n_ov = 0;
-    if (spm_json_truthy(spm_json_path(cfg, "sandbox.disable_winemenubuilder"), 1)) {
-        ov_keys[n_ov] = "winemenubuilder.exe";
-        ov_vals[n_ov++] = spm_strdup("\"\"");
-    }
-    const spm_json *dll_ov = spm_json_path(cfg, "wine_environment.dll_overrides");
-    if (dll_ov && dll_ov->type == SPM_JOBJ) {
-        for (size_t i = 0; i < dll_ov->count && n_ov < 64; i++) {
-            const char *val = spm_json_str(dll_ov->items[i], "");
-            int replaced = 0;
-            for (int j = 0; j < n_ov; j++) {
-                if (strcmp(ov_keys[j], dll_ov->keys[i]) == 0) {
-                    free(ov_vals[j]);
-                    ov_vals[j] = spm_asprintf("\"%s\"", val);
-                    replaced = 1;
+        const char *win_ver = spm_json_str(spm_json_path(cfg, "wine_environment.windows_version"), "win11");
+        int retina = spm_json_truthy(spm_json_path(cfg, "wine_environment.retina_mode"), 1);
+        char *ver_val = spm_asprintf("\"%s\"", win_ver);
+        reg = spm_upsert1(reg, "Software\\\\Wine", "Version", ver_val);
+        free(ver_val);
+        reg = spm_upsert1(reg, "Software\\\\Wine\\\\Mac Driver", "RetinaMode", retina ? "\"y\"" : "\"n\"");
+        reg = spm_upsert1(reg, "Software\\\\Wine\\\\Direct3D", "csmt", "dword:00000003");
+
+        /* DllOverrides */
+        const char *ov_keys[64];
+        char *ov_vals[64];
+        int n_ov = 0;
+        if (spm_json_truthy(spm_json_path(cfg, "sandbox.disable_winemenubuilder"), 1)) {
+            ov_keys[n_ov] = "winemenubuilder.exe";
+            ov_vals[n_ov++] = spm_strdup("\"\"");
+        }
+        const spm_json *dll_ov = spm_json_path(cfg, "wine_environment.dll_overrides");
+        if (dll_ov && dll_ov->type == SPM_JOBJ) {
+            for (size_t i = 0; i < dll_ov->count && n_ov < 64; i++) {
+                const char *val = spm_json_str(dll_ov->items[i], "");
+                int replaced = 0;
+                for (int j = 0; j < n_ov; j++) {
+                    if (strcmp(ov_keys[j], dll_ov->keys[i]) == 0) {
+                        free(ov_vals[j]);
+                        ov_vals[j] = spm_asprintf("\"%s\"", val);
+                        replaced = 1;
+                    }
+                }
+                if (!replaced) {
+                    ov_keys[n_ov] = dll_ov->keys[i];
+                    ov_vals[n_ov++] = spm_asprintf("\"%s\"", val);
                 }
             }
-            if (!replaced) {
-                ov_keys[n_ov] = dll_ov->keys[i];
-                ov_vals[n_ov++] = spm_asprintf("\"%s\"", val);
+        }
+        if (n_ov) {
+            char *updated = spm_upsert_reg_section(reg, "Software\\\\Wine\\\\DllOverrides", ov_keys,
+                                                   (const char *const *)ov_vals, n_ov);
+            free(reg);
+            reg = updated;
+        }
+        for (int i = 0; i < n_ov; i++)
+            free(ov_vals[i]);
+
+        const spm_json *profiles = spm_json_get(cfg, "app_profiles");
+        if (profiles && profiles->type == SPM_JOBJ) {
+            for (size_t i = 0; i < profiles->count; i++) {
+                const spm_json *prof = profiles->items[i];
+                const spm_json *pv = spm_json_get(prof, "windows_version");
+                if (prof->type != SPM_JOBJ || !pv)
+                    continue;
+                char *section = spm_asprintf("Software\\\\Wine\\\\AppDefaults\\\\%s", profiles->keys[i]);
+                char *val = pv->type == SPM_JSTR ? spm_asprintf("\"%s\"", pv->str) : spm_asprintf("\"%lld\"", spm_json_num(pv, 0));
+                reg = spm_upsert1(reg, section, "Version", val);
+                free(section);
+                free(val);
             }
         }
-    }
-    if (n_ov) {
-        char *updated = spm_upsert_reg_section(reg, "Software\\\\Wine\\\\DllOverrides", ov_keys,
-                                               (const char *const *)ov_vals, n_ov);
+
+        spm_write_file(user_reg, reg, strlen(reg), 0644);
         free(reg);
-        reg = updated;
-    }
-    for (int i = 0; i < n_ov; i++)
-        free(ov_vals[i]);
-
-    const spm_json *profiles = spm_json_get(cfg, "app_profiles");
-    if (profiles && profiles->type == SPM_JOBJ) {
-        for (size_t i = 0; i < profiles->count; i++) {
-            const spm_json *prof = profiles->items[i];
-            const spm_json *pv = spm_json_get(prof, "windows_version");
-            if (prof->type != SPM_JOBJ || !pv)
-                continue;
-            char *section = spm_asprintf("Software\\\\Wine\\\\AppDefaults\\\\%s", profiles->keys[i]);
-            char *val = pv->type == SPM_JSTR ? spm_asprintf("\"%s\"", pv->str) : spm_asprintf("\"%lld\"", spm_json_num(pv, 0));
-            reg = spm_upsert1(reg, section, "Version", val);
-            free(section);
-            free(val);
-        }
     }
 
-    spm_write_file(user_reg, reg, strlen(reg), 0644);
-    free(reg);
-
-    spm_json *info = spm_json_object();
     spm_json_set_str(info, "prefix_dir", target_prefix);
     spm_json_set_str(info, "user_reg", user_reg);
     spm_json_set_bool(info, "z_drive_stripped", z_stripped);

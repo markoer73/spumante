@@ -79,13 +79,10 @@ spm_json *spm_sync_drive_c(const char *prefix_override)
     char *prefix = NULL;
     if (prefix_override && prefix_override[0])
         prefix = spm_abs_path(prefix_override);
-    else if (getenv("WINEPREFIX") && getenv("WINEPREFIX")[0])
-        prefix = spm_expand_user(getenv("WINEPREFIX"));
     else {
         char *cfg_path = spm_config_path();
-        spm_json *cfg = spm_config_load(cfg_path, 0);
-        const char *cfg_prefix = spm_json_str(spm_json_path(cfg, "wine_environment.wineprefix"), "");
-        prefix = cfg_prefix[0] ? spm_expand_user(cfg_prefix) : spm_asprintf("%s/.wine", spm_home_dir());
+        spm_json *cfg = spm_config_load(cfg_path, 1);
+        prefix = spm_config_prefix_path(cfg);
         spm_json_free(cfg);
         free(cfg_path);
     }
@@ -123,6 +120,9 @@ spm_json *spm_runtime_trace(const char *resolved_exe, const char *pe_arch, const
 
     spm_json *t = spm_json_object();
     spm_json_set_str(t, "target", resolved_exe);
+    char *prefix = spm_config_prefix_path(cfg);
+    spm_json_set_str(t, "wineprefix", prefix);
+    free(prefix);
     spm_json_set_bool(t, "executable_bit_verified", 1);
     spm_json_set_bool(t, "rosetta2_verified", 1);
     spm_json_set_bool(t, "security_gates_verified", 1);
@@ -265,20 +265,8 @@ spm_json *spm_launch_builtin_console(const char *app_name, int extra_argc, char 
     spm_json *cfg = spm_config_load(cfg_path, 1);
     free(cfg_path);
     char *prefix = spm_config_prefix_path(cfg);
-    char *wineprefix_override = NULL;
-    const char *env_prefix = getenv("WINEPREFIX");
+    char *wineprefix_override = spm_asprintf("WINEPREFIX=%s", prefix);
     char *sys_reg = spm_path_join(prefix, "system.reg");
-    char *home_wine = spm_asprintf("%s/.wine", spm_home_dir());
-    char *home_sys_reg = spm_path_join(home_wine, "system.reg");
-    if (!(env_prefix && env_prefix[0]) && !spm_is_file(sys_reg) && spm_is_file(home_sys_reg)) {
-        free(prefix);
-        prefix = spm_strdup(home_wine);
-        wineprefix_override = spm_asprintf("WINEPREFIX=%s", home_wine);
-        free(sys_reg);
-        sys_reg = spm_path_join(prefix, "system.reg");
-    }
-    free(home_sys_reg);
-    free(home_wine);
 
     /* Ensure C: and Z: mappings exist for built-in app execution, and keep .update-timestamp synced with wine.inf */
     if (!dry_run) {
@@ -328,6 +316,7 @@ spm_json *spm_launch_builtin_console(const char *app_name, int extra_argc, char 
 
     spm_json *r = spm_json_object();
     spm_json_set_str(r, "action", "launch-builtin-app");
+    spm_json_set_str(r, "wineprefix", prefix);
     spm_json_set_str(r, "app_name", normalized);
     spm_json_set_str(r, "category", is_cli ? "cli" : "gui");
     spm_json_set_str(r, "exe_path", exe_path ? exe_path : "");
@@ -646,10 +635,320 @@ spm_json *spm_config_ui_report(void)
     spm_json_set(tray, "quick_launch_utilities", quick);
     spm_json_set(r, "menu_bar_tray", tray);
 
+    spm_json_set(r, "login_agent", spm_login_agent_status());
+    spm_json_set(r, "session", spm_session_status(NULL));
+
     spm_json_set_bool(r, "cascades_to_wine_registry", 1);
     spm_json_set_str(r, "config_path", spm_json_str(spm_json_get(status, "config_path"), ""));
     spm_json_set(r, "config", spm_json_clone(cfg));
     spm_json_set_str(r, "seatbelt_profile_path", spm_json_str(spm_json_get(status, "seatbelt_profile_path"), ""));
     spm_json_free(status);
+    return r;
+}
+
+/* --------------------------------- persistent session, login agent and tray */
+
+spm_json *spm_session_status(const char *prefix_override)
+{
+    char *prefix = NULL;
+    if (prefix_override && prefix_override[0])
+        prefix = spm_abs_path(prefix_override);
+    else {
+        char *cfg_path = spm_config_path();
+        spm_json *cfg = spm_config_load(cfg_path, 0);
+        free(cfg_path);
+        prefix = spm_config_prefix_path(cfg);
+        spm_json_free(cfg);
+    }
+    char *sock_path = spm_wineserver_socket_path(prefix);
+    int running = spm_wineserver_is_running(sock_path);
+
+    spm_json *r = spm_json_object();
+    spm_json_set_str(r, "action", "session-status");
+    spm_json_set_str(r, "wineprefix", prefix ? prefix : "");
+    if (sock_path)
+        spm_json_set_str(r, "server_socket", sock_path);
+    spm_json_set_bool(r, "running", running);
+
+    free(sock_path);
+    free(prefix);
+    return r;
+}
+
+spm_json *spm_session_start(const char *prefix_override, int dry_run)
+{
+    char *prefix = NULL;
+    if (prefix_override && prefix_override[0])
+        prefix = spm_abs_path(prefix_override);
+    else {
+        char *cfg_path = spm_config_path();
+        spm_json *cfg = spm_config_load(cfg_path, 0);
+        free(cfg_path);
+        prefix = spm_config_prefix_path(cfg);
+        spm_json_free(cfg);
+    }
+    char *sock_path = spm_wineserver_socket_path(prefix);
+    int running = spm_wineserver_is_running(sock_path);
+
+    spm_json *r = spm_json_object();
+    spm_json_set_str(r, "action", "session-start");
+    spm_json_set_str(r, "wineprefix", prefix ? prefix : "");
+    if (sock_path)
+        spm_json_set_str(r, "server_socket", sock_path);
+
+    if (running) {
+        spm_json_set_str(r, "status", "already_running");
+        spm_json_set_bool(r, "running", 1);
+        free(sock_path);
+        free(prefix);
+        return r;
+    }
+
+    char *rt = spm_runtime_dir("x86");
+    char *wineserver_bin = rt ? spm_path_join(rt, "bin/wineserver") : spm_strdup("/opt/spumante/bin/wineserver");
+    char *spumante_bin = rt ? spm_path_join(rt, "bin/spumante") : spm_strdup("/opt/spumante/bin/spumante");
+    free(rt);
+
+    spm_json *cmds = spm_json_array();
+    spm_json *c0 = spm_json_array();
+    spm_json_append(c0, spm_json_string(wineserver_bin));
+    spm_json_append(c0, spm_json_string("-p"));
+    spm_json_append(cmds, c0);
+
+    spm_json *c1 = spm_json_array();
+    spm_json_append(c1, spm_json_string(spumante_bin));
+    spm_json_append(c1, spm_json_string("wineboot"));
+    spm_json_append(cmds, c1);
+
+    spm_json_set(r, "commands", cmds);
+    spm_json_set_bool(r, "dry_run", dry_run);
+
+    if (!dry_run) {
+        char *wprefix_env = spm_asprintf("WINEPREFIX=%s", prefix);
+        const char *ov[] = { wprefix_env, "SPUMANTE_INTERPOSE_BYPASS=1", NULL };
+        char **envp = spm_env_with(ov, 2);
+
+        char *argv0[] = { wineserver_bin, "-p", NULL };
+        int rc0 = 0;
+        spm_run_capture(argv0, envp, prefix, NULL, 30, NULL, &rc0);
+
+        char *argv1[] = { spumante_bin, "wineboot", NULL };
+        int rc1 = 0;
+        spm_run_capture(argv1, envp, prefix, NULL, 60, NULL, &rc1);
+
+        spm_env_free(envp);
+        free(wprefix_env);
+        spm_json_set_str(r, "status", (rc0 == 0 && rc1 == 0) ? "started" : "error_launch_failed");
+    } else {
+        spm_json_set_str(r, "status", "dry_run_ready");
+    }
+
+    free(wineserver_bin);
+    free(spumante_bin);
+    free(sock_path);
+    free(prefix);
+    return r;
+}
+
+spm_json *spm_session_stop(const char *prefix_override, int dry_run)
+{
+    char *prefix = NULL;
+    if (prefix_override && prefix_override[0])
+        prefix = spm_abs_path(prefix_override);
+    else {
+        char *cfg_path = spm_config_path();
+        spm_json *cfg = spm_config_load(cfg_path, 0);
+        free(cfg_path);
+        prefix = spm_config_prefix_path(cfg);
+        spm_json_free(cfg);
+    }
+
+    char *rt = spm_runtime_dir("x86");
+    char *wineserver_bin = rt ? spm_path_join(rt, "bin/wineserver") : spm_strdup("/opt/spumante/bin/wineserver");
+    free(rt);
+
+    spm_json *r = spm_json_object();
+    spm_json_set_str(r, "action", "session-stop");
+    spm_json_set_str(r, "wineprefix", prefix ? prefix : "");
+    spm_json_set_bool(r, "dry_run", dry_run);
+
+    spm_json *cmds = spm_json_array();
+    spm_json *c0 = spm_json_array();
+    spm_json_append(c0, spm_json_string(wineserver_bin));
+    spm_json_append(c0, spm_json_string("-k"));
+    spm_json_append(cmds, c0);
+    spm_json_set(r, "commands", cmds);
+
+    if (!dry_run) {
+        char *wprefix_env = spm_asprintf("WINEPREFIX=%s", prefix);
+        const char *ov[] = { wprefix_env, "SPUMANTE_INTERPOSE_BYPASS=1", NULL };
+        char **envp = spm_env_with(ov, 2);
+
+        char *argv0[] = { wineserver_bin, "-k", NULL };
+        int rc0 = 0;
+        spm_run_capture(argv0, envp, prefix, NULL, 30, NULL, &rc0);
+
+        spm_env_free(envp);
+        free(wprefix_env);
+        spm_json_set_str(r, "status", (rc0 == 0) ? "stopped" : "error_stop_failed");
+    } else {
+        spm_json_set_str(r, "status", "dry_run_ready");
+    }
+
+    free(wineserver_bin);
+    free(prefix);
+    return r;
+}
+
+spm_json *spm_init_prefix(const char *prefix_override, int dry_run)
+{
+    char *prefix = NULL;
+    if (prefix_override && prefix_override[0])
+        prefix = spm_abs_path(prefix_override);
+    else {
+        char *cfg_path = spm_config_path();
+        spm_json *cfg = spm_config_load(cfg_path, 0);
+        free(cfg_path);
+        prefix = spm_config_prefix_path(cfg);
+        spm_json_free(cfg);
+    }
+
+    char *rt = spm_runtime_dir("x86");
+    char *spumante_bin = rt ? spm_path_join(rt, "bin/spumante") : spm_strdup("/opt/spumante/bin/spumante");
+    char *wineserver_bin = rt ? spm_path_join(rt, "bin/wineserver") : spm_strdup("/opt/spumante/bin/wineserver");
+    free(rt);
+
+    spm_json *r = spm_json_object();
+    spm_json_set_str(r, "action", "init-prefix");
+    spm_json_set_str(r, "wineprefix", prefix ? prefix : "");
+    spm_json_set_bool(r, "dry_run", dry_run);
+
+    spm_json *cmds = spm_json_array();
+    spm_json *c0 = spm_json_array();
+    spm_json_append(c0, spm_json_string(spumante_bin));
+    spm_json_append(c0, spm_json_string("wineboot"));
+    spm_json_append(c0, spm_json_string("--init"));
+    spm_json_append(cmds, c0);
+
+    spm_json *c1 = spm_json_array();
+    spm_json_append(c1, spm_json_string(wineserver_bin));
+    spm_json_append(c1, spm_json_string("-w"));
+    spm_json_append(cmds, c1);
+    spm_json_set(r, "commands", cmds);
+
+    if (!dry_run) {
+        char *wprefix_env = spm_asprintf("WINEPREFIX=%s", prefix);
+        const char *ov[] = { wprefix_env, "SPUMANTE_INTERPOSE_BYPASS=1", NULL };
+        char **envp = spm_env_with(ov, 2);
+
+        char *argv0[] = { spumante_bin, "wineboot", "--init", NULL };
+        int rc0 = 0;
+        spm_run_capture(argv0, envp, prefix, NULL, 120, NULL, &rc0);
+
+        char *argv1[] = { wineserver_bin, "-w", NULL };
+        int rc1 = 0;
+        spm_run_capture(argv1, envp, prefix, NULL, 60, NULL, &rc1);
+
+        spm_env_free(envp);
+        free(wprefix_env);
+        spm_json_set_str(r, "status", (rc0 == 0 && rc1 == 0) ? "initialized" : "error_init_failed");
+    } else {
+        spm_json_set_str(r, "status", "dry_run_ready");
+    }
+
+    free(spumante_bin);
+    free(wineserver_bin);
+    free(prefix);
+    return r;
+}
+
+spm_json *spm_login_agent_status(void)
+{
+    char *plist = spm_login_agent_plist_path();
+    int installed = spm_is_file(plist);
+    spm_json *r = spm_json_object();
+    spm_json_set_str(r, "action", "login-agent-status");
+    spm_json_set_bool(r, "installed", installed);
+    spm_json_set_str(r, "plist_path", plist ? plist : "");
+    free(plist);
+    return r;
+}
+
+spm_json *spm_login_agent_install(const char *app_bin)
+{
+    char *plist = spm_login_agent_plist_path();
+    char *dir = spm_dirname(plist);
+    spm_mkdir_p(dir, 0755);
+    free(dir);
+
+    const char *bin = (app_bin && app_bin[0]) ? app_bin : spm_self_exe();
+    char *content = spm_asprintf(
+        "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
+        "<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">\n"
+        "<plist version=\"1.0\">\n"
+        "<dict>\n"
+        "\t<key>Label</key>\n"
+        "\t<string>org.spumante.tray</string>\n"
+        "\t<key>LimitLoadToSessionType</key>\n"
+        "\t<string>Aqua</string>\n"
+        "\t<key>ProcessType</key>\n"
+        "\t<string>Interactive</string>\n"
+        "\t<key>ProgramArguments</key>\n"
+        "\t<array>\n"
+        "\t\t<string>%s</string>\n"
+        "\t\t<string>--tray</string>\n"
+        "\t</array>\n"
+        "\t<key>RunAtLoad</key>\n"
+        "\t<true/>\n"
+        "\t<key>KeepAlive</key>\n"
+        "\t<false/>\n"
+        "</dict>\n"
+        "</plist>\n",
+        bin);
+    spm_write_file(plist, content, strlen(content), 0644);
+    free(content);
+
+    const char *skip = getenv("SPUMANTE_SKIP_LAUNCHCTL");
+    if (!(skip && strcmp(skip, "1") == 0)) {
+        char *cmd = spm_asprintf("launchctl load \"%s\" 2>/dev/null", plist);
+        system(cmd);
+        free(cmd);
+    }
+
+    spm_json *r = spm_json_object();
+    spm_json_set_str(r, "action", "install-login-agent");
+    spm_json_set_bool(r, "installed", 1);
+    spm_json_set_str(r, "plist_path", plist ? plist : "");
+    free(plist);
+    return r;
+}
+
+spm_json *spm_login_agent_uninstall(void)
+{
+    char *plist = spm_login_agent_plist_path();
+    if (spm_is_file(plist)) {
+        const char *skip = getenv("SPUMANTE_SKIP_LAUNCHCTL");
+        if (!(skip && strcmp(skip, "1") == 0)) {
+            char *cmd = spm_asprintf("launchctl unload \"%s\" 2>/dev/null", plist);
+            system(cmd);
+            free(cmd);
+        }
+        unlink(plist);
+    }
+    spm_json *r = spm_json_object();
+    spm_json_set_str(r, "action", "uninstall-login-agent");
+    spm_json_set_bool(r, "installed", 0);
+    spm_json_set_str(r, "plist_path", plist ? plist : "");
+    free(plist);
+    return r;
+}
+
+spm_json *spm_tray_report(int dry_run)
+{
+    spm_json *r = spm_json_object();
+    spm_json_set_str(r, "action", "tray");
+    spm_json_set_bool(r, "starts_session", 1);
+    spm_json_set_bool(r, "stops_session_on_quit", 1);
+    spm_json_set_bool(r, "dry_run", dry_run);
     return r;
 }
