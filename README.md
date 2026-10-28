@@ -2,7 +2,7 @@
   <img src="docs/assets/spumante-logo.png" alt="Spumante Logo" width="180" />
 </p>
 
-# Spumante for macOS (`spumante`)
+# Spumante for macOS
 
 Run Windows `.exe` and `.msi` applications directly on macOS (Apple Silicon & Intel) with native Metal graphics, Retina High-DPI, a native macOS Settings app, and built-in zero-trust security & sandboxing.
 
