@@ -36,7 +36,15 @@ No Python, Xcode, or Homebrew needed: the disk image is self-contained (native a
 
 *(Alternatively, drag `Spumante.app` and `Spumante Config.app` into the `Applications` folder inside the DMG.)*
 
-### Option B: Build from Scratch (2 Commands)
+### Option B: Install via Homebrew Cask
+
+Once a GitHub Release is published (see [`docs/RELEASE_AND_LAUNCH.md`](docs/RELEASE_AND_LAUNCH.md)), you can install `Spumante.app`, `Spumante Config.app`, and the `spumante` / `spumante-config` CLI tools via Homebrew:
+
+```sh
+brew install --cask markoer73/spumante/spumante
+```
+
+### Option C: Build from Scratch (2 Commands)
 
 If you cloned this repository and want to build the entire runtime and `.dmg` installer from source (requires Xcode Command Line Tools, `python3`, and Homebrew build dependencies — see [DEVELOPER_GUIDE.md](DEVELOPER_GUIDE.md#2-developer-prerequisites--toolchain-setup)):
 
@@ -171,4 +179,5 @@ For contributor workflows, the closed-loop Windows VM differential testing harne
 - **[Application Compatibility Database (`docs/APPDB.md`)](docs/APPDB.md)**
 - **[System Architecture (`docs/skills/ARCHITECTURE.md`)](docs/skills/ARCHITECTURE.md)**
 - **[User Config & Containment Spec (`docs/skills/USER_CONFIG_AND_CONTAINMENT.md`)](docs/skills/USER_CONFIG_AND_CONTAINMENT.md)**
+- **[Release, Homebrew Cask & Launch Kit (`docs/RELEASE_AND_LAUNCH.md`)](docs/RELEASE_AND_LAUNCH.md)**
 - **[Project Blueprint (`PROJECT_BLUEPRINT.md`)](PROJECT_BLUEPRINT.md)**

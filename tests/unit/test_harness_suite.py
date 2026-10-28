@@ -251,6 +251,20 @@ class TestSpumanteArchitecture(unittest.TestCase):
                     f"{launcher_file.name} must carry SPDX-License-Identifier: Apache-2.0",
                 )
 
+        cask_path = REPO_ROOT / "packaging" / "homebrew" / "Casks" / "spumante.rb"
+        launch_doc = REPO_ROOT / "docs" / "RELEASE_AND_LAUNCH.md"
+        self.assertTrue(cask_path.is_file(), "Missing Homebrew Cask formula at packaging/homebrew/Casks/spumante.rb")
+        self.assertTrue(launch_doc.is_file(), "Missing release & launch kit at docs/RELEASE_AND_LAUNCH.md")
+        cask_txt = cask_path.read_text(encoding="utf-8")
+        self.assertIn('cask "spumante"', cask_txt)
+        self.assertIn('app "Spumante.app"', cask_txt)
+        self.assertIn('app "Spumante Config.app"', cask_txt)
+        self.assertIn('target: "spumante"', cask_txt)
+        self.assertIn('target: "spumante-config"', cask_txt)
+        launch_txt = launch_doc.read_text(encoding="utf-8")
+        self.assertIn("Show HN:", launch_txt)
+        self.assertIn("brew install --cask markoer73/spumante/spumante", launch_txt)
+
         ci_path = REPO_ROOT / ".github" / "workflows" / "ci.yml"
         self.assertTrue(ci_path.is_file(), ".github/workflows/ci.yml must exist")
         ci_text = ci_path.read_text(encoding="utf-8")

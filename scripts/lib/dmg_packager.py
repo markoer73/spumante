@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import shutil
@@ -30,6 +31,9 @@ from exe_handler import (
 
 DMG_STAGING_DIR = REPO_ROOT / "builds" / "dmg_staging"
 DMG_OUTPUT_PATH = REPO_ROOT / "builds" / "Spumante-Installer.dmg"
+DMG_SHA256_PATH = REPO_ROOT / "builds" / "Spumante-Installer.dmg.sha256"
+GENERATED_CASK_PATH = REPO_ROOT / "builds" / "spumante.rb"
+REPO_CASK_PATH = REPO_ROOT / "packaging" / "homebrew" / "Casks" / "spumante.rb"
 VOLUME_NAME = "Spumante"
 RUNTIME_CACHE_ROOT = REPO_ROOT / "builds" / "runtime-cache"
 
@@ -953,10 +957,27 @@ def build_dmg_package(
     elif notarize:
         notarization_status = "dry_run_ready"
 
+    dmg_sha256 = ""
+    if not dry_run and DMG_OUTPUT_PATH.is_file():
+        h = hashlib.sha256()
+        with DMG_OUTPUT_PATH.open("rb") as f:
+            for chunk in iter(lambda: f.read(1024 * 1024), b""):
+                h.update(chunk)
+        dmg_sha256 = h.hexdigest()
+        DMG_SHA256_PATH.write_text(f"{dmg_sha256}  {DMG_OUTPUT_PATH.name}\n", encoding="utf-8")
+        if REPO_CASK_PATH.is_file():
+            cask_template = REPO_CASK_PATH.read_text(encoding="utf-8")
+            stamped_cask = cask_template.replace("sha256 :no_check", f'sha256 "{dmg_sha256}"')
+            GENERATED_CASK_PATH.write_text(stamped_cask, encoding="utf-8")
+
     report: dict[str, Any] = {
         "action": "build-dmg-installer",
         "volume_name": VOLUME_NAME,
         "dmg_path": str(DMG_OUTPUT_PATH),
+        "dmg_sha256": dmg_sha256,
+        "dmg_sha256_path": str(DMG_SHA256_PATH),
+        "homebrew_cask_path": str(REPO_CASK_PATH),
+        "generated_cask_path": str(GENERATED_CASK_PATH),
         "dmg_format": dmg_format,
         "dmg_create_errors": dmg_create_errors,
         "staging_dir": str(DMG_STAGING_DIR),
