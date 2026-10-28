@@ -27,16 +27,32 @@ CLEAN_BUILD=0
 
 usage() {
     cat <<EOF
-Usage: ./scripts/build.sh --dll <dll_name> [--test <test_name>] [--winetest] [--arch x86_64|arm64] [--export-patch] [--all]
-       ./scripts/build.sh --borrow <dll_name> [--upstream-ref <sha_or_tag>] [--dry-run]
-       ./scripts/build.sh --full-x86|--x86 [--dry-run] [--skip-monolithic-compile]
-       ./scripts/build.sh --full-arm64|--arm64 [--dry-run] [--skip-monolithic-compile]
-       ./scripts/build.sh --exe-handler [--dry-run]
-       ./scripts/build.sh --dmg|--package-dmg [-nz|--notarize] [--codesign-identity <id>] [--notary-profile <profile>] [--dry-run]
-       ./scripts/build.sh --ide-tests [--arch x86_64|arm64]
-       ./scripts/build.sh --clean [--dry-run] [--full-x86|--full-arm64]
+Usage: ./scripts/build.sh [options]
 
 Surgical single-target build & upstream Wine borrow script (macOS First, Linux Second).
+
+Options:
+  --dll <name>             Target Wine DLL to surgically build (e.g. bcrypt, kernelbase, mfplat)
+  --test <name>            Target conformance test to compile alongside DLL
+  --winetest               Build upstream Wine winetest suite for --dll
+  --arch <x86_64|arm64>    Target architecture (default: x86_64)
+  --borrow <dll>           Borrow DLL and tests from upstream Wine using blobless sparse cache
+  --upstream-ref <ref>     Specific upstream Wine commit SHA or tag to borrow from
+  --export-patch           Export unified diff patch into patches/0001-<dll>-clean-room-parity.patch
+  --all                    Build all parity DLLs and conformance test suites
+  --full-x86|--x86         Turnkey build: all parity DLLs + upstream Wine x86_64/i386 + launcher
+  --full-arm64|--arm64     Turnkey build: all parity DLLs + upstream Wine arm64ec/i386 + launcher
+  --skip-monolithic-compile Skip upstream Wine compile in full builds (only build parity overlays & launcher)
+  --exe-handler            Build macOS Spumante.app, POSIX interposer dylib, and shell runner
+  --dmg|--package-dmg      Build turnkey macOS DMG installer package (builds/Spumante-Installer.dmg)
+  -nz|--notarize           Code-sign with Apple Developer ID, submit to Apple Notary Service, and staple
+  --codesign-identity <id> Apple Developer ID Application codesign identity (or env CODESIGN_IDENTITY)
+  --notary-profile <prof>  xcrun notarytool keychain credentials profile (or env NOTARY_PROFILE)
+  --ide-tests              Build and verify test discoverability in Antigravity IDE / TestMate
+  --clean                  Remove stale compiled objects, stamps, and host tools
+  --dry-run                Print planned actions and build commands without executing them
+  -h, --help               Display this help message
+
 Examples:
   ./scripts/build.sh --dll bcrypt --test test_symmetric_key
   ./scripts/build.sh --dll bcrypt --winetest
@@ -45,6 +61,9 @@ Examples:
   ./scripts/build.sh --dll bcrypt --export-patch
   ./scripts/build.sh --full-x86
   ./scripts/build.sh --full-arm64
+  ./scripts/build.sh --dmg
+  ./scripts/build.sh --dmg -nz
+  ./scripts/build.sh --clean
 EOF
 }
 

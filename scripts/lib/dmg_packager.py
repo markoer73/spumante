@@ -9,12 +9,19 @@ import hashlib
 import json
 import os
 import shutil
+import signal
 import stat
 import struct
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 from typing import Any
+
+try:
+    signal.signal(signal.SIGCHLD, signal.SIG_DFL)
+except (AttributeError, ValueError):
+    pass
 
 from exe_handler import (
     ALL_BUILTIN_APPS,
@@ -86,14 +93,14 @@ def scan_portability_violations(root: Path, limit: int = 50) -> list[str]:
 def _clone_tree(src: Path, dst: Path) -> None:
     """Copy a directory tree, using APFS clones (instant, no extra disk space) when available."""
     if dst.exists():
-        shutil.rmtree(dst)
+        shutil.rmtree(dst, ignore_errors=True)
     dst.parent.mkdir(parents=True, exist_ok=True)
     if sys.platform == "darwin":
         res = subprocess.run(["cp", "-cR", str(src), str(dst)], capture_output=True, check=False)
         if res.returncode == 0:
             return
         if dst.exists():
-            shutil.rmtree(dst)
+            shutil.rmtree(dst, ignore_errors=True)
     shutil.copytree(src, dst, symlinks=True)
 
 
@@ -148,19 +155,29 @@ def strip_pe_debug_info(files: list[Path]) -> int:
     by_tool: dict[str, list[Path]] = {}
     markers: dict[Path, tuple[bytes, bytes]] = {}
     for fpath in files:
-        kind, machine = _classify_binary(fpath)
-        tool = tools.get(machine) if kind == "pe" else None
-        if not tool or not Path(tool).is_file():
+        if not fpath.is_file() or fpath.is_symlink():
             continue
-        by_tool.setdefault(tool, []).append(fpath)
-        raw = fpath.read_bytes()
-        markers[fpath] = (raw[0x40:0x60], raw)
+        try:
+            kind, machine = _classify_binary(fpath)
+            tool = tools.get(machine) if kind == "pe" else None
+            if not tool or not Path(tool).is_file():
+                continue
+            raw = fpath.read_bytes()
+            if len(raw) < 0x60:
+                continue
+            markers[fpath] = (raw[0x40:0x60], raw)
+            by_tool.setdefault(tool, []).append(fpath)
+        except OSError:
+            continue
     for tool, batch_files in by_tool.items():
         _run_batched([tool, "--strip-debug"], batch_files)
     for fpath, (marker, original) in markers.items():
-        if fpath.read_bytes()[0x40:0x60] != marker:
-            # Never lose Wine's "Wine builtin DLL" signature: restore the unstripped original
-            fpath.write_bytes(original)
+        try:
+            if not fpath.is_file() or fpath.read_bytes()[0x40:0x60] != marker:
+                # Never lose Wine's "Wine builtin DLL" signature: restore the unstripped original
+                fpath.write_bytes(original)
+        except OSError:
+            pass
     return len(markers)
 
 
@@ -292,7 +309,11 @@ SCRIPT_DIR="$(cd "$(dirname "${{BASH_SOURCE[0]}}")" && pwd)"
 TARGET_APPS_DIR=""
 TARGET_BIN_DIR=""
 CONFIG_FILE="${{SPUMANTE_CONFIG:-$HOME/.config/spumante/config.json}}"
-WINEPREFIX_DIR="${{WINEPREFIX:-$HOME/.wine}}"
+WINEPREFIX_DIR="${{WINEPREFIX:-$HOME/.spumante}}"
+LAUNCH_AGENTS_DIR="${{SPUMANTE_LAUNCH_AGENTS_DIR:-$HOME/Library/LaunchAgents}}"
+LOGIN_AGENT_PLIST="$LAUNCH_AGENTS_DIR/org.spumante.tray.plist"
+LOGIN_AGENT=1
+PREFIX_INIT=1
 USER_INSTALL=0
 OPEN_CONFIG=1
 DRY_RUN=0
@@ -305,7 +326,11 @@ Options:
   --target-dir <dir>    Target Applications directory (default: /Applications or ~/Applications)
   --bin-dir <dir>       Directory for CLI wrappers 'spumante' and 'spumante-config'
   --config-file <path>  Path to user config.json (default: ~/.config/spumante/config.json)
-  --wineprefix <dir>    Path to Wine prefix for registry cascade (default: ~/.wine)
+  --wineprefix <dir>    Path to Wine prefix for registry cascade (default: ~/.spumante)
+  --install-login-agent Install Spumante menu bar tray as a macOS login agent (default: yes)
+  --no-login-agent      Do not install the login agent
+  --init-prefix         Initialize the Wine prefix during installation (default: yes)
+  --skip-prefix-init    Skip initializing the Wine prefix
   --user                Install into ~/Applications and ~/.local/bin without sudo
   --no-open-config      Do not automatically launch Spumante Config.app after install
   --dry-run             Print planned installation steps without modifying the system
@@ -330,6 +355,22 @@ while [[ $# -gt 0 ]]; do
         --wineprefix)
             WINEPREFIX_DIR="${{2:-}}"
             shift 2
+            ;;
+        --install-login-agent)
+            LOGIN_AGENT=1
+            shift
+            ;;
+        --no-login-agent)
+            LOGIN_AGENT=0
+            shift
+            ;;
+        --init-prefix)
+            PREFIX_INIT=1
+            shift
+            ;;
+        --skip-prefix-init)
+            PREFIX_INIT=0
+            shift
             ;;
         --user)
             USER_INSTALL=1
@@ -443,6 +484,14 @@ if [[ "$DRY_RUN" -eq 1 ]]; then
     if is_rosetta2_installed; then
         ROSETTA_READY="true"
     fi
+    PREFIX_INIT_JSON="false"
+    if [[ "$PREFIX_INIT" -eq 1 ]]; then
+        PREFIX_INIT_JSON="true"
+    fi
+    LOGIN_AGENT_JSON="false"
+    if [[ "$LOGIN_AGENT" -eq 1 ]]; then
+        LOGIN_AGENT_JSON="true"
+    fi
     cat <<EOF
 {{
   "action": "install-spumante",
@@ -453,6 +502,9 @@ if [[ "$DRY_RUN" -eq 1 ]]; then
   "target_bin_dir": "$TARGET_BIN_DIR",
   "config_file": "$CONFIG_FILE",
   "wineprefix": "$WINEPREFIX_DIR",
+  "prefix_init": $PREFIX_INIT_JSON,
+  "login_agent_offered": $LOGIN_AGENT_JSON,
+  "login_agent_plist": "$LOGIN_AGENT_PLIST",
   "rosetta2_check_enabled": true,
   "rosetta2_requires_user_consent": true,
   "rosetta2_installed": $ROSETTA_READY,
@@ -501,6 +553,45 @@ chmod +x "$TARGET_BIN_DIR/spumante-config"
 # Initialize user-level configuration (0600) and cascade to WINEPREFIX registry (native, no scripting runtime)
 SPUMANTE_CONFIG="$CONFIG_FILE" WINEPREFIX="$WINEPREFIX_DIR" \\
     "$DEST_CONFIG_BIN" --config-status >/dev/null
+
+# Initialize dedicated Spumante Wine prefix
+if [[ "$PREFIX_INIT" -eq 1 ]]; then
+    if [ ! -f "$WINEPREFIX_DIR/system.reg" ]; then
+        _sp_pfx_consent="${{SPUMANTE_PREFIX_INIT_CONSENT:-}}"
+        if [ -z "$_sp_pfx_consent" ] && [ -t 0 ]; then
+            _sp_pfx_consent="yes"
+        fi
+        case "${{_sp_pfx_consent:-no}}" in
+            [yY]|[yY][eE][sS]|1|[tT][rR][uU][eE]|[aA][gG][rR][eE][eE])
+                echo "[Spumante Installer] Initializing Spumante Wine prefix ($WINEPREFIX_DIR)..."
+                SPUMANTE_CONFIG="$CONFIG_FILE" WINEPREFIX="$WINEPREFIX_DIR" \\
+                    "$DEST_CONFIG_BIN" --init-prefix >/dev/null 2>&1 || true
+                ;;
+            *)
+                ;;
+        esac
+    fi
+fi
+
+# Optional login agent for persistent menu bar session
+if [[ "$LOGIN_AGENT" -eq 1 ]]; then
+    _sp_agent_consent="${{SPUMANTE_LOGIN_AGENT_CONSENT:-}}"
+    if [ -z "$_sp_agent_consent" ] && [ -t 0 ]; then
+        if ! read -r -p "[Spumante Installer] Start Spumante at login to keep the Wine session warm? [Y/n]: " _sp_agent_consent; then
+            _sp_agent_consent="yes"
+        fi
+    fi
+    case "${{_sp_agent_consent:-yes}}" in
+        [yY]|[yY][eE][sS]|1|[tT][rR][uU][eE]|[aA][gG][rR][eE][eE])
+            echo "[Spumante Installer] Installing Spumante menu bar login agent ($LOGIN_AGENT_PLIST)..."
+            SPUMANTE_CONFIG="$CONFIG_FILE" WINEPREFIX="$WINEPREFIX_DIR" \\
+                "$DEST_CONFIG_BIN" --install-login-agent >/dev/null 2>&1 || true
+            ;;
+        *)
+            echo "[Spumante Installer] Skipping login agent installation."
+            ;;
+    esac
+fi
 
 echo "[Spumante Installer] Installed:"
 echo "  1. $DEST_LAUNCHER_APP (Automatic .exe / .msi Launcher & Security Scanner)"
@@ -772,10 +863,6 @@ def build_dmg_package(
             if lic_src.is_file():
                 shutil.copy2(lic_src, DMG_STAGING_DIR / lic_name)
 
-        if apps_symlink.exists() or apps_symlink.is_symlink():
-            apps_symlink.unlink()
-        apps_symlink.symlink_to("/Applications")
-
         if sys.platform == "darwin" and shutil.which("xattr"):
             subprocess.run(
                 ["xattr", "-cr", str(DMG_STAGING_DIR)],
@@ -783,6 +870,10 @@ def build_dmg_package(
                 capture_output=True,
                 check=False,
             )
+
+        if apps_symlink.exists() or apps_symlink.is_symlink():
+            apps_symlink.unlink()
+        apps_symlink.symlink_to("/Applications")
 
         # Built-in Windows programs staged outside the runtime cache also carry debug paths: strip them too
         staged_pe = [
@@ -823,35 +914,79 @@ def build_dmg_package(
         if DMG_OUTPUT_PATH.exists():
             DMG_OUTPUT_PATH.unlink()
 
+        diskutil = shutil.which("diskutil")
         hdiutil = shutil.which("hdiutil")
         created_via_hdiutil = False
-        if sys.platform == "darwin" and hdiutil:
+        if sys.platform == "darwin" and (diskutil or hdiutil):
             import time
 
-            create_cmds = [
-                [hdiutil, "create", "-volname", VOLUME_NAME, "-srcfolder", str(DMG_STAGING_DIR), "-ov",
-                 "-format", "UDZO", str(DMG_OUTPUT_PATH)],
-            ]
-            if shutil.which("diskutil"):
-                create_cmds.append(
-                    ["diskutil", "image", "create", "from", "--volumeName", VOLUME_NAME, "--format", "UDZO",
-                     str(DMG_STAGING_DIR), str(DMG_OUTPUT_PATH)]
-                )
-            # Retry: hdiutil can transiently fail ("Resource busy") right after the staging tree is written
-            for attempt in range(3):
-                for cmd in create_cmds:
+            # Write to a clean temporary file in builds/ first, then atomically move to DMG_OUTPUT_PATH.
+            # -noanyowners prevents ownership mismatch / permission errors on staged files.
+            # Flush filesystem caches and allow security daemons to settle after staging/codesigning
+            subprocess.run(["sync"], check=False)
+            time.sleep(1)
+
+            temp_dmg = DMG_OUTPUT_PATH.parent / f".tmp_spumante_build_{os.getpid()}.dmg"
+
+            if diskutil:
+                cmd = [
+                    diskutil,
+                    "image",
+                    "create",
+                    "from",
+                    "--volumeName",
+                    VOLUME_NAME,
+                    "--format",
+                    "UDZO",
+                    str(DMG_STAGING_DIR),
+                    str(temp_dmg),
+                ]
+                res = subprocess.run(cmd, cwd=REPO_ROOT, capture_output=True, text=True, check=False)
+                if res.returncode == 0 and temp_dmg.is_file():
                     if DMG_OUTPUT_PATH.exists():
                         DMG_OUTPUT_PATH.unlink()
+                    shutil.move(str(temp_dmg), str(DMG_OUTPUT_PATH))
+                    created_via_hdiutil = True
+                    dmg_create_errors.clear()
+
+            if not created_via_hdiutil and hdiutil:
+                cmd = [
+                    hdiutil,
+                    "create",
+                    "-volname",
+                    VOLUME_NAME,
+                    "-srcfolder",
+                    str(DMG_STAGING_DIR),
+                    "-ov",
+                    "-format",
+                    "UDZO",
+                    "-noanyowners",
+                    str(temp_dmg),
+                ]
+                for attempt in range(4):
+                    if temp_dmg.exists():
+                        try:
+                            temp_dmg.unlink()
+                        except OSError:
+                            pass
                     res = subprocess.run(cmd, cwd=REPO_ROOT, capture_output=True, text=True, check=False)
-                    if res.returncode == 0 and DMG_OUTPUT_PATH.is_file():
+                    if res.returncode == 0 and temp_dmg.is_file():
+                        if DMG_OUTPUT_PATH.exists():
+                            DMG_OUTPUT_PATH.unlink()
+                        shutil.move(str(temp_dmg), str(DMG_OUTPUT_PATH))
                         created_via_hdiutil = True
+                        dmg_create_errors.clear()
                         break
                     dmg_create_errors.append(
-                        f"attempt {attempt + 1} {Path(cmd[0]).name}: rc={res.returncode} {res.stderr.strip()[-300:]}"
+                        f"attempt {attempt + 1} hdiutil: rc={res.returncode} {res.stderr.strip()[-300:]}"
                     )
-                if created_via_hdiutil:
-                    break
-                time.sleep(3)
+                    time.sleep(2)
+
+            if temp_dmg.exists():
+                try:
+                    temp_dmg.unlink()
+                except OSError:
+                    pass
 
         if not created_via_hdiutil:
             # Deterministic fallback archive when running in a restricted environment without hdiutil device nodes
