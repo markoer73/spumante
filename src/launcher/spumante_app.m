@@ -25,6 +25,7 @@
 #include "spm_json.h"
 #include "spm_paths.h"
 #include "spm_runtime.h"
+#include "spumante_installer.h"
 #include "spm_scan.h"
 #include "spm_util.h"
 
@@ -575,6 +576,19 @@ static id spm_json_to_ns(const spm_json *doc)
     }
 }
 
+- (void)uninstallAction:(id)sender
+{
+    (void)sender;
+    char *launcher_bin = spm_launcher_app_binary();
+    if (!launcher_bin)
+        return;
+    NSTask *task = [[NSTask alloc] init];
+    [task setLaunchPath:[NSString stringWithUTF8String:launcher_bin]];
+    [task setArguments:@[@"--uninstall"]];
+    free(launcher_bin);
+    [task launchAndReturnError:nil];
+}
+
 - (NSDictionary *)loadCurrentConfigDict
 {
     char *cfg_path = spm_config_path();
@@ -789,14 +803,29 @@ static id spm_json_to_ns(const spm_json *doc)
     if (stat(cpath, &st) == 0 && (st.st_mode & S_IXUSR) == 0) {
         chmod(cpath, st.st_mode | S_IXUSR | S_IXGRP | S_IXOTH);
     }
-    pid_t pid = fork();
-    if (pid == 0) {
-        int rc = dispatch_windows_binary(cpath, 0, NULL);
-        _exit(rc);
+
+    char *launcher_bin = spm_launcher_app_binary();
+    if (!launcher_bin) {
+        if (self.builtinStatusLabel) {
+            [self.builtinStatusLabel setStringValue:@"Error: Spumante launcher binary not found."];
+        }
+        return;
     }
-    if (self.builtinStatusLabel && pid > 0) {
-        NSString *disp = (label && [label length] > 0) ? label : [path lastPathComponent];
-        [self.builtinStatusLabel setStringValue:[NSString stringWithFormat:@"Launched Favourite Windows App: %@ (%@, PID %d)", disp, [path lastPathComponent], (int)pid]];
+
+    NSTask *task = [[NSTask alloc] init];
+    [task setLaunchPath:[NSString stringWithUTF8String:launcher_bin]];
+    [task setArguments:@[path]];
+    free(launcher_bin);
+
+    NSError *err = nil;
+    BOOL launched = [task launchAndReturnError:&err];
+    if (self.builtinStatusLabel) {
+        if (launched) {
+            NSString *disp = (label && [label length] > 0) ? label : [path lastPathComponent];
+            [self.builtinStatusLabel setStringValue:[NSString stringWithFormat:@"Launched Favourite Windows App: %@ (%@, PID %d)", disp, [path lastPathComponent], (int)[task processIdentifier]]];
+        } else {
+            [self.builtinStatusLabel setStringValue:[NSString stringWithFormat:@"Failed to launch: %@", err ? [err localizedDescription] : @"unknown error"]];
+        }
     }
 }
 
@@ -1239,6 +1268,11 @@ static id spm_json_to_ns(const spm_json *doc)
     [self.handlerStatusLabel setFont:[NSFont systemFontOfSize:11.0]];
     [self.handlerStatusLabel setTextColor:[NSColor secondaryLabelColor]];
     [genView addSubview:self.handlerStatusLabel];
+
+    NSButton *uninstallBtn = [NSButton buttonWithTitle:@"Uninstall Spumante…" target:self action:@selector(uninstallAction:)];
+    [uninstallBtn setFrame:NSMakeRect(20, 36, 180, 30)];
+    [genView addSubview:uninstallBtn];
+
     [genTab setView:genView];
     [tabView addTabViewItem:genTab];
 
@@ -1681,6 +1715,10 @@ int main(int argc, char **argv)
     }
 
     if (argc >= 2) {
+        if (strcmp(argv[1], "--install") == 0 || strcmp(argv[1], "--installer") == 0)
+            return handle_installer_ui(argc - 1, argv + 1, dry_run);
+        if (strcmp(argv[1], "--uninstall") == 0 || strcmp(argv[1], "--uninstaller") == 0)
+            return handle_uninstaller_ui(argc - 1, argv + 1, dry_run);
         if (strcmp(argv[1], "--register") == 0)
             return handle_register(dry_run);
         if (strcmp(argv[1], "--unregister") == 0)
@@ -1692,6 +1730,17 @@ int main(int argc, char **argv)
     }
 
     if (argc >= 1 && argv[0] != NULL) {
+        const char *base = spm_basename(argv[0]);
+        if (strcasecmp(base, "UninstallSpumante") == 0 ||
+            strcasecmp(base, "Uninstall Spumante") == 0 ||
+            strcasecmp(base, "spumante-uninstall") == 0) {
+            return handle_uninstaller_ui(argc, argv, dry_run);
+        }
+        if (strcasecmp(base, "InstallSpumante") == 0 ||
+            strcasecmp(base, "Install Spumante") == 0 ||
+            strcasecmp(base, "spumante-install") == 0) {
+            return handle_installer_ui(argc, argv, dry_run);
+        }
         if (has_suffix_ci(argv[0], "SpumanteConfig") ||
             has_suffix_ci(argv[0], "spumante-config")) {
             return handle_config_ui(dry_run);

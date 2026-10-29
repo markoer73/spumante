@@ -27,6 +27,7 @@ except (AttributeError, ValueError):
 
 from exe_handler import (
     ALL_BUILTIN_APPS,
+    APP_BINARY,
     APP_BUNDLE_DIR,
     BUILTIN_CLI_APPS,
     BUILTIN_GUI_APPS,
@@ -36,6 +37,7 @@ from exe_handler import (
     REPO_ROOT,
     build_macos_exe_handler,
     ensure_builtin_windows_apps,
+    ensure_native_launcher,
 )
 
 DMG_STAGING_DIR = REPO_ROOT / "builds" / "dmg_staging"
@@ -814,20 +816,21 @@ Contents of this Disk Image:
          VideoToolbox hardware H.264/HEVC decode, and ARM64EC WJTC JIT cache.
 
   3. Install Spumante.app
-     - Double-click this to install Spumante (code-signed & notarized, so it
-       launches normally even from a downloaded disk image).
+     - Double-click this to install Spumante (native AppKit Cocoa installer,
+       code-signed & notarized, so it launches normally from the disk image).
      - Installs both apps into /Applications (or ~/Applications), adds the
        'spumante' and 'spumante-config' CLI commands, prepares the dedicated
        ~/.spumante Wine prefix, registers .exe / .msi files, and optionally
        starts the menu bar tray at login for fast app launches.
 
-  4. Install Spumante.command
-     - Terminal / advanced variant of the same installer, with flags such as
-       --user, --skip-prefix-init and --no-login-agent.
-     - If macOS refuses to open it with a double-click ("cannot be opened
-       because the developer cannot be verified"), right-click it and choose
-       "Open", or run:
-         xattr -dr com.apple.quarantine "/Volumes/Spumante"
+  4. Uninstall Spumante.app
+     - Double-click this to completely remove Spumante from your Mac:
+       stops running Wine sessions, unloads the login agent, removes
+       applications and CLI symlinks, and optionally purges user settings.
+
+  5. Install Spumante.command & Uninstall Spumante.command
+     - Terminal / CLI variants for scripted or unattended execution
+       (e.g. ./Install\ Spumante.command --unattended).
 
 Quick Installation:
   - Option A (Recommended): Double-click "Install Spumante.app".
@@ -835,6 +838,9 @@ Quick Installation:
     onto the "Applications" folder shortcut, then open "Spumante Config.app"
     to configure your Spumante environment.
   - Option C (Terminal): ./Install\\ Spumante.command --no-open-config
+
+Uninstallation:
+  - Double-click "Uninstall Spumante.app" or run ./Uninstall\\ Spumante.command.
 
 Licensing:
   - Spumante Launcher, Menu Bar Tray App, Settings UI, Security Scanner &
@@ -936,8 +942,25 @@ exit 0
 """
 
 
-def _write_installer_app(bundle_dir: Path, icon_src: Path | None) -> Path:
-    """Create the `Install Spumante.app` bundle used as the double-clickable installer."""
+def _generate_uninstaller_command_script() -> str:
+    """Generate the terminal Uninstall Spumante.command script for CLI / unattended uninstallation."""
+    return r"""#!/bin/bash
+# SPDX-License-Identifier: Apache-2.0
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+UNINSTALLER="$SCRIPT_DIR/Uninstall Spumante.app/Contents/MacOS/UninstallSpumante"
+if [ -x "$UNINSTALLER" ]; then
+    exec "$UNINSTALLER" "$@"
+fi
+if [ -x "/Applications/Spumante.app/Contents/MacOS/Spumante" ]; then
+    exec "/Applications/Spumante.app/Contents/MacOS/Spumante" --uninstall "$@"
+fi
+echo "[Spumante Uninstaller] ERROR: Uninstaller executable could not be found." >&2
+exit 1
+"""
+
+
+def _write_installer_app(bundle_dir: Path, icon_src: Path | None, dry_run: bool = False) -> Path:
+    """Create the native `Install Spumante.app` bundle used as the double-clickable installer."""
     if bundle_dir.exists():
         shutil.rmtree(bundle_dir, ignore_errors=True)
     macos_dir = bundle_dir / "Contents" / "MacOS"
@@ -946,7 +969,11 @@ def _write_installer_app(bundle_dir: Path, icon_src: Path | None) -> Path:
     resources_dir.mkdir(parents=True)
 
     executable = macos_dir / "InstallSpumante"
-    executable.write_text(_generate_installer_app_script(), encoding="utf-8")
+    native_bin = ensure_native_launcher() if not dry_run else APP_BINARY
+    if native_bin.is_file():
+        shutil.copy2(native_bin, executable)
+    else:
+        executable.write_text(_generate_installer_app_script(), encoding="utf-8")
     executable.chmod(0o755)
 
     # Self-contained payload: the app still works if the neighbouring .command cannot be executed.
@@ -993,6 +1020,65 @@ def _write_installer_app(bundle_dir: Path, icon_src: Path | None) -> Path:
         encoding="utf-8",
     )
     (bundle_dir / "Contents" / "PkgInfo").write_text("APPLSPMI", encoding="utf-8")
+    return bundle_dir
+
+
+def _write_uninstaller_app(bundle_dir: Path, icon_src: Path | None, dry_run: bool = False) -> Path:
+    """Create the native `Uninstall Spumante.app` bundle used as the double-clickable uninstaller."""
+    if bundle_dir.exists():
+        shutil.rmtree(bundle_dir, ignore_errors=True)
+    macos_dir = bundle_dir / "Contents" / "MacOS"
+    resources_dir = bundle_dir / "Contents" / "Resources"
+    macos_dir.mkdir(parents=True)
+    resources_dir.mkdir(parents=True)
+
+    executable = macos_dir / "UninstallSpumante"
+    native_bin = ensure_native_launcher() if not dry_run else APP_BINARY
+    if native_bin.is_file():
+        shutil.copy2(native_bin, executable)
+    else:
+        executable.write_text("#!/bin/bash\nexit 0\n", encoding="utf-8")
+    executable.chmod(0o755)
+
+    icon_name = ""
+    if icon_src is not None and icon_src.is_file():
+        shutil.copy2(icon_src, resources_dir / "spumante.icns")
+        icon_name = "<key>CFBundleIconFile</key><string>spumante</string>"
+
+    (bundle_dir / "Contents" / "Info.plist").write_text(
+        f"""<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleDevelopmentRegion</key>
+    <string>en</string>
+    <key>CFBundleDisplayName</key>
+    <string>Uninstall Spumante</string>
+    <key>CFBundleExecutable</key>
+    <string>UninstallSpumante</string>
+    <key>CFBundleIdentifier</key>
+    <string>org.spumante.uninstaller</string>
+    {icon_name}
+    <key>CFBundleInfoDictionaryVersion</key>
+    <string>6.0</string>
+    <key>CFBundleName</key>
+    <string>Uninstall Spumante</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    <key>CFBundleShortVersionString</key>
+    <string>1.0.0</string>
+    <key>CFBundleVersion</key>
+    <string>1</string>
+    <key>LSMinimumSystemVersion</key>
+    <string>11.0</string>
+    <key>NSHighResolutionCapable</key>
+    <true/>
+</dict>
+</plist>
+""",
+        encoding="utf-8",
+    )
+    (bundle_dir / "Contents" / "PkgInfo").write_text("APPLSPMU", encoding="utf-8")
     return bundle_dir
 
 
@@ -1071,6 +1157,9 @@ def build_dmg_package(
     staged_config_app = DMG_STAGING_DIR / "Spumante Config.app"
     staged_windows_apps = DMG_STAGING_DIR / "Windows Apps"
     installer_script = DMG_STAGING_DIR / "Install Spumante.command"
+    uninstaller_script = DMG_STAGING_DIR / "Uninstall Spumante.command"
+    installer_app = DMG_STAGING_DIR / "Install Spumante.app"
+    uninstaller_app = DMG_STAGING_DIR / "Uninstall Spumante.app"
     apps_symlink = DMG_STAGING_DIR / "Applications"
     readme_file = DMG_STAGING_DIR / "README.txt"
     dmg_format = "ULMO"
@@ -1100,7 +1189,8 @@ def build_dmg_package(
     signed_targets = [
         str(staged_launcher_app),
         str(staged_config_app),
-        str(DMG_STAGING_DIR / "Install Spumante.app"),
+        str(installer_app),
+        str(uninstaller_app),
         str(DMG_OUTPUT_PATH),
     ]
     if not explicit_profile and asc_creds is not None:
@@ -1194,12 +1284,15 @@ def build_dmg_package(
         installer_script.chmod(
             installer_script.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH
         )
+        uninstaller_script.write_text(_generate_uninstaller_command_script(), encoding="utf-8")
+        uninstaller_script.chmod(
+            uninstaller_script.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH
+        )
 
-        # Double-clickable, code-signed installer bundle (macOS blocks plain .command scripts from
-        # downloaded disk images, but launches a notarized .app normally).
-        installer_app = DMG_STAGING_DIR / "Install Spumante.app"
+        # Native AppKit Installer & Uninstaller bundles (code-signed & notarized).
         icon_for_installer = REPO_ROOT / "packaging" / "assets" / "spumante.icns"
-        _write_installer_app(installer_app, icon_for_installer if icon_for_installer.is_file() else None)
+        _write_installer_app(installer_app, icon_for_installer if icon_for_installer.is_file() else None, dry_run=dry_run)
+        _write_uninstaller_app(uninstaller_app, icon_for_installer if icon_for_installer.is_file() else None, dry_run=dry_run)
 
         readme_file.write_text(_generate_dmg_readme(), encoding="utf-8")
         shutil.copy2(REPO_ROOT / "LICENSE", DMG_STAGING_DIR / "LICENSE")
@@ -1286,7 +1379,8 @@ def build_dmg_package(
             for bundle_target in (
                 staged_config_app,
                 staged_launcher_app,
-                DMG_STAGING_DIR / "Install Spumante.app",
+                installer_app,
+                uninstaller_app,
             ):
                 subprocess.run(
                     [*cs_base, "--sign", sign_token, str(bundle_target)],
@@ -1540,7 +1634,9 @@ def build_dmg_package(
         "bundled_cli_apps": list(BUILTIN_CLI_APPS),
         "bundled_windows_apps": list(ALL_BUILTIN_APPS),
         "installer_script": str(installer_script),
-        "installer_app": str(DMG_STAGING_DIR / "Install Spumante.app"),
+        "installer_app": str(installer_app),
+        "uninstaller_script": str(uninstaller_script),
+        "uninstaller_app": str(uninstaller_app),
         "readme_path": str(readme_file),
         "bundled_wine_runtimes": bundled_runtimes,
         "bundled_parity_overlays": len(bundled_parity),

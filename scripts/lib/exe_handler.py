@@ -33,6 +33,7 @@ SRC_BUILD_DIR = REPO_ROOT / "builds" / "exe_handler_src"
 NATIVE_SRC_DIR = REPO_ROOT / "src" / "launcher"
 NATIVE_SOURCES = [
     "spumante_app.m",
+    "spumante_installer.m",
     "spm_util.c",
     "spm_json.c",
     "spm_sha256.c",

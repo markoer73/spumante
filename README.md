@@ -71,6 +71,14 @@ You can install `Spumante.app`, `Spumante Config.app`, and the `spumante` / `spu
 brew install --cask markoer73/spumante/spumante
 ```
 
+### Uninstallation
+
+To completely remove Spumante from your Mac:
+- **From the Disk Image**: Double-click **`Uninstall Spumante.app`** (or run `./Uninstall\ Spumante.command`).
+- **From Spumante Settings**: Open **`Spumante Config.app`** → **General** tab → click **`Uninstall Spumante…`**.
+- **From Terminal**: Run `spumante --uninstall` (pass `--purge-data` to also delete `~/.spumante` and `~/.config/spumante`).
+- **Via Homebrew**: Run `brew uninstall --cask spumante` (or `brew zap spumante` to also purge user data).
+
 ### Option C: Build from Scratch (2 Commands)
 
 If you cloned this repository and want to build the entire runtime and `.dmg` installer from source (requires Xcode Command Line Tools, `python3`, and Homebrew build dependencies — see [DEVELOPER_GUIDE.md](DEVELOPER_GUIDE.md#2-developer-prerequisites--toolchain-setup)):
