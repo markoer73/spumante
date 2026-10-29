@@ -7,4 +7,3 @@ Executive summary of all remaining open tasks in `docs/TASK_QUEUE.md`.
 ---
 
 ## Remaining Open Tasks
-

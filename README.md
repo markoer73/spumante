@@ -6,8 +6,16 @@
 
 Run Windows `.exe` and `.msi` applications directly on macOS (Apple Silicon & Intel) with native Metal graphics, Retina High-DPI, a native macOS Settings app, and built-in zero-trust security & sandboxing.
 
-> **Built on Top of [Wine](https://www.winehq.org/) — Licensing & Why Spumante Does Not Contribute Upstream:**
-> Spumante is built on top of the [Wine](https://www.winehq.org/) project ([source repository](https://gitlab.winehq.org/wine/wine)). All original Spumante components (`src/launcher/`, `Spumante.app`, `Spumante Config.app`, `scripts/`, `specs/`, `docs/`) are licensed under the **Apache License 2.0** ([`LICENSE`](LICENSE), [`NOTICE`](NOTICE)), while the bundled Wine runtime and modified Wine DLL overlays (`dlls/`, `tests/`) remain under the **GNU Lesser General Public License v2.1 or later (`LGPL-2.1-or-later`)** ([`LICENSE-LGPL-2.1`](LICENSE-LGPL-2.1)). We use and import upstream Wine code and fully respect its LGPL-2.1-or-later license, but we do **not** directly contribute back to upstream Wine because Wine maintains an antiquated policy towards LLM-generated code. Instead, we maintain our enhancements and patches cleanly on top of upstream Wine to keep them clearly distinguished.
+> **License — Apache-2.0, plus Wine's LGPL for the bundled runtime:**
+> Spumante is released under the **Apache License 2.0** ([`LICENSE`](LICENSE), [`NOTICE`](NOTICE)).
+> It is built on top of the [Wine](https://www.winehq.org/) project ([source repository](https://gitlab.winehq.org/wine/wine)),
+> and the code Spumante derives from Wine (`dlls/`, `tests/`, and the bundled Wine runtime inside the app)
+> stays under Wine's **GNU Lesser General Public License v2.1 or later** — a requirement of Wine itself,
+> not a choice we can make ([`third_party/wine/LICENSE-LGPL-2.1`](third_party/wine/LICENSE-LGPL-2.1), [`third_party/README.md`](third_party/README.md)).
+> Everything else — `src/launcher/`, the apps, `scripts/`, `specs/`, `docs/` and this harness — is Apache-2.0.
+>
+> We do **not** contribute back to upstream Wine because Wine maintains an antiquated policy towards LLM-generated code;
+> instead we maintain our enhancements as clean, reviewable overlays on top of upstream Wine.
 >
 > Because we do not restrict our vision and actively leverage LLMs, we can provide much better, quicker, and complete support for features lacking in upstream Wine on macOS.
 

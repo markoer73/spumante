@@ -60,9 +60,9 @@ def lint_c_and_h_files() -> list[str]:
             if "SPDX-License-Identifier: Apache-2.0" not in text:
                 errors.append(f"{rel}:1: Missing 'SPDX-License-Identifier: Apache-2.0' header")
 
-    for req_lic in ("LICENSE", "LICENSE-LGPL-2.1", "NOTICE"):
+    for req_lic in ("LICENSE", "NOTICE", "third_party/wine/LICENSE-LGPL-2.1"):
         if not (REPO_ROOT / req_lic).is_file():
-            errors.append(f"Missing required root license/notice file: {req_lic}")
+            errors.append(f"Missing required license/notice file: {req_lic}")
 
     return errors
 

@@ -174,22 +174,3 @@
       of your accepting any such warranty or additional liability.
 
    END OF TERMS AND CONDITIONS
-
-   -------------------------------------------------------------------------
-   COMPOSITE LICENSING & WINE (LGPL-2.1-OR-LATER) SCOPE
-   -------------------------------------------------------------------------
-   1. Original Spumante Components (Apache-2.0):
-      All standalone Spumante components — including the native macOS
-      launcher and menu bar / settings UI (src/launcher/, Spumante.app,
-      Spumante Config.app), the 3-gate PE security scanner, the macOS
-      Seatbelt sandbox generator, build/packaging/VM harness scripts
-      (scripts/), Clean-Room Spec Packets (specs/), and documentation
-      (docs/) — are licensed under the Apache License, Version 2.0 above.
-
-   2. Wine DLL Parity Overlays & Bundled Wine Runtime (LGPL-2.1-or-later):
-      Files in dlls/ and tests/ derived from or interfacing with the Wine
-      project (https://www.winehq.org/), as well as the bundled Wine
-      runtime inside Spumante.app / Spumante-Installer.dmg, are licensed
-      under the GNU Lesser General Public License v2.1 or later
-      (SPDX-License-Identifier: LGPL-2.1-or-later). See LICENSE-LGPL-2.1
-      and NOTICE for the full text and attribution details.

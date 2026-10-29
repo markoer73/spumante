@@ -8,6 +8,7 @@ import argparse
 import hashlib
 import json
 import os
+import re
 import shutil
 import signal
 import stat
@@ -769,7 +770,8 @@ Licensing:
   - Spumante Launcher, Menu Bar Tray App, Settings UI, Security Scanner &
     Sandbox Tooling: Apache License, Version 2.0 (see LICENSE and NOTICE).
   - Bundled Wine Runtime & Wine DLL Parity Overlays: GNU Lesser General
-    Public License v2.1 or later (see LICENSE-LGPL-2.1 and NOTICE).
+    Public License v2.1 or later, as required by Wine
+    (see Wine-LGPL-2.1.txt and NOTICE).
 """
 
 
@@ -1101,10 +1103,11 @@ def build_dmg_package(
         _write_installer_app(installer_app, icon_for_installer if icon_for_installer.is_file() else None)
 
         readme_file.write_text(_generate_dmg_readme(), encoding="utf-8")
-        for lic_name in ("LICENSE", "LICENSE-LGPL-2.1", "NOTICE"):
-            lic_src = REPO_ROOT / lic_name
-            if lic_src.is_file():
-                shutil.copy2(lic_src, DMG_STAGING_DIR / lic_name)
+        shutil.copy2(REPO_ROOT / "LICENSE", DMG_STAGING_DIR / "LICENSE")
+        shutil.copy2(REPO_ROOT / "NOTICE", DMG_STAGING_DIR / "NOTICE")
+        wine_lgpl = REPO_ROOT / "third_party" / "wine" / "LICENSE-LGPL-2.1"
+        if wine_lgpl.is_file():
+            shutil.copy2(wine_lgpl, DMG_STAGING_DIR / "Wine-LGPL-2.1.txt")
 
         # Prosecco volume icon shown in Finder for the mounted Spumante disk image
         volume_icon_src = REPO_ROOT / "packaging" / "assets" / "spumante.icns"
@@ -1113,7 +1116,7 @@ def build_dmg_package(
 
         # Keep the disk image window focused on the apps: hide licence boilerplate (still readable)
         if sys.platform == "darwin" and shutil.which("chflags"):
-            for hidden_name in ("LICENSE", "LICENSE-LGPL-2.1", "NOTICE"):
+            for hidden_name in ("LICENSE", "NOTICE", "Wine-LGPL-2.1.txt"):
                 hidden_path = DMG_STAGING_DIR / hidden_name
                 if hidden_path.is_file():
                     subprocess.run(
@@ -1404,7 +1407,14 @@ def build_dmg_package(
         DMG_SHA256_PATH.write_text(f"{dmg_sha256}  {DMG_OUTPUT_PATH.name}\n", encoding="utf-8")
         if REPO_CASK_PATH.is_file():
             cask_template = REPO_CASK_PATH.read_text(encoding="utf-8")
-            stamped_cask = cask_template.replace("sha256 :no_check", f'sha256 "{dmg_sha256}"')
+            # Restamp either the untouched template (:no_check) or a previously stamped checksum,
+            # so rebuilding after an earlier release never ships a stale SHA-256.
+            stamped_cask = re.sub(
+                r'sha256\s+(?::no_check|"[0-9a-fA-F]{64}")',
+                f'sha256 "{dmg_sha256}"',
+                cask_template,
+                count=1,
+            )
             GENERATED_CASK_PATH.write_text(stamped_cask, encoding="utf-8")
 
     report: dict[str, Any] = {

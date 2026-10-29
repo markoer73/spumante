@@ -231,10 +231,13 @@ class TestSpumanteArchitecture(unittest.TestCase):
     def test_08_lint_and_ci_workflow(self) -> None:
         """test.sh --lint, composite Apache-2.0 + LGPL-2.1-or-later license files, and .github/workflows/ci.yml must pass all checks."""
         license_path = REPO_ROOT / "LICENSE"
-        lgpl_path = REPO_ROOT / "LICENSE-LGPL-2.1"
+        lgpl_path = REPO_ROOT / "third_party" / "wine" / "LICENSE-LGPL-2.1"
         notice_path = REPO_ROOT / "NOTICE"
         self.assertTrue(license_path.is_file(), "LICENSE must exist")
-        self.assertTrue(lgpl_path.is_file(), "LICENSE-LGPL-2.1 must exist for Wine runtime & DLL overlays")
+        self.assertTrue(
+            lgpl_path.is_file(),
+            "third_party/wine/LICENSE-LGPL-2.1 must exist for Wine runtime & DLL overlays",
+        )
         self.assertTrue(notice_path.is_file(), "NOTICE must exist for composite Apache-2.0 + LGPL-2.1-or-later licensing")
         self.assertIn("Apache License", license_path.read_text(encoding="utf-8"))
         self.assertIn("Version 2.0, January 2004", license_path.read_text(encoding="utf-8"))

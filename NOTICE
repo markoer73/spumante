@@ -1,6 +1,10 @@
 Spumante for macOS
 Copyright (c) 2026 The Spumante Authors
 
+Spumante is licensed under the Apache License, Version 2.0. The only exception is
+Wine-derived code (`dlls/`, `tests/` and the bundled Wine runtime), which stays
+under Wine's LGPL-2.1-or-later license as described in section 2 below.
+
 =========================================================================
 1. Original Spumante Components — Apache License, Version 2.0 (Apache-2.0)
 =========================================================================
@@ -38,4 +42,4 @@ Copyright (c) 1993-2026 the Wine project authors.
   * Original Spumante macOS parity additions within `dlls/` and `tests/` are
     dual-licensed under `Apache-2.0 OR LGPL-2.1-or-later`.
   * The full text of the GNU Lesser General Public License Version 2.1 is
-    provided in `LICENSE-LGPL-2.1`.
+    provided in `third_party/wine/LICENSE-LGPL-2.1` (see `third_party/README.md`).
