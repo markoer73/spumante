@@ -42,6 +42,8 @@ NATIVE_SOURCES = [
     "spm_runtime.c",
 ]
 APP_BINARY = APP_BUNDLE_DIR / "Contents" / "MacOS" / "Spumante"
+APP_ICON_SRC = REPO_ROOT / "packaging" / "assets" / "spumante.icns"
+APP_ICON_NAME = "spumante.icns"
 
 BUILTIN_GUI_APPS: list[str] = [
     "notepad.exe",
@@ -215,6 +217,8 @@ def _generate_info_plist() -> str:
     <string>Spumante</string>
     <key>CFBundleIdentifier</key>
     <string>{BUNDLE_ID}</string>
+    <key>CFBundleIconFile</key>
+    <string>spumante</string>
     <key>CFBundleInfoDictionaryVersion</key>
     <string>6.0</string>
     <key>CFBundleName</key>
@@ -328,6 +332,8 @@ def _generate_config_app_info_plist() -> str:
     <string>SpumanteConfig</string>
     <key>CFBundleIdentifier</key>
     <string>{CONFIG_BUNDLE_ID}</string>
+    <key>CFBundleIconFile</key>
+    <string>spumante</string>
     <key>CFBundleInfoDictionaryVersion</key>
     <string>6.0</string>
     <key>CFBundleName</key>
@@ -516,6 +522,10 @@ def build_macos_exe_handler(dry_run: bool = False) -> dict[str, Any]:
             for res_dir in (contents_dir / "Resources", cfg_contents_dir / "Resources"):
                 res_dir.mkdir(parents=True, exist_ok=True)
                 shutil.copy2(logo_src, res_dir / "spumante-logo.png")
+        if APP_ICON_SRC.is_file():
+            for res_dir in (contents_dir / "Resources", cfg_contents_dir / "Resources"):
+                res_dir.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(APP_ICON_SRC, res_dir / APP_ICON_NAME)
         staged_builtin_apps = ensure_builtin_windows_apps(dry_run=False)
     else:
         cfg_app_bin = CONFIG_APP_BUNDLE_DIR / "Contents" / "MacOS" / "SpumanteConfig"

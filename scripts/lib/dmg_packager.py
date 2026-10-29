@@ -15,6 +15,7 @@ import struct
 import subprocess
 import sys
 import tempfile
+import time
 from pathlib import Path
 from typing import Any
 
@@ -102,6 +103,109 @@ def _clone_tree(src: Path, dst: Path) -> None:
         if dst.exists():
             shutil.rmtree(dst, ignore_errors=True)
     shutil.copytree(src, dst, symlinks=True)
+
+
+def _set_dmg_volume_icon(dest: Path, errors: list[str]) -> bool:
+    """Build a compressed DMG whose mounted volume carries the Spumante prosecco icon.
+
+    Finder volume icons are stored as a `.VolumeIcon.icns` file plus the custom-icon Finder flag on a
+    writable volume, so this creates a read/write image, applies the flag, then compresses it to ULMO.
+    Returns True when `dest` was produced.
+    """
+    hdiutil = shutil.which("hdiutil")
+    setfile = shutil.which("SetFile")
+    icon_src = REPO_ROOT / "packaging" / "assets" / "spumante.icns"
+    if not hdiutil or not setfile or not icon_src.is_file():
+        return False
+
+    rw_dmg = dest.parent / f".tmp_spumante_rw_{os.getpid()}.dmg"
+    mount_point = Path(tempfile.mkdtemp(prefix="spumante_mnt_"))
+    attached = False
+    try:
+        # `hdiutil create` intermittently fails with "No child processes" on recent macOS releases
+        # (diskimages-helper teardown race), so retry a few times before giving up.
+        create_cmd = [
+            hdiutil,
+            "create",
+            "-volname",
+            VOLUME_NAME,
+            "-srcfolder",
+            str(DMG_STAGING_DIR),
+            "-fs",
+            "HFS+",
+            "-format",
+            "UDRW",
+            "-ov",
+            "-noanyowners",
+            str(rw_dmg),
+        ]
+        created = False
+        for attempt in range(3):
+            if rw_dmg.exists():
+                rw_dmg.unlink()
+            res = subprocess.run(create_cmd, cwd=REPO_ROOT, capture_output=True, text=True, check=False)
+            if res.returncode == 0 and rw_dmg.is_file():
+                created = True
+                break
+            errors.append(
+                f"volume icon: hdiutil create UDRW attempt {attempt + 1} rc={res.returncode} "
+                f"{res.stderr.strip()[-200:]}"
+            )
+            time.sleep(2)
+        if not created:
+            return False
+
+        res = subprocess.run(
+            [
+                hdiutil,
+                "attach",
+                "-nobrowse",
+                "-noautoopen",
+                "-readwrite",
+                "-mountpoint",
+                str(mount_point),
+                str(rw_dmg),
+            ],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if res.returncode != 0:
+            errors.append(f"volume icon: hdiutil attach rc={res.returncode} {res.stderr.strip()[-200:]}")
+            return False
+        attached = True
+
+        shutil.copy2(icon_src, mount_point / ".VolumeIcon.icns")
+        subprocess.run([setfile, "-a", "C", str(mount_point)], capture_output=True, check=False)
+    finally:
+        if attached:
+            subprocess.run(
+                [hdiutil, "detach", str(mount_point), "-force"],
+                cwd=REPO_ROOT,
+                capture_output=True,
+                check=False,
+            )
+        try:
+            mount_point.rmdir()
+        except OSError:
+            pass
+
+    if dest.exists():
+        dest.unlink()
+    res = subprocess.run(
+        [hdiutil, "convert", str(rw_dmg), "-format", "ULMO", "-o", str(dest)],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if rw_dmg.exists():
+        rw_dmg.unlink()
+    if res.returncode != 0 or not dest.is_file():
+        errors.append(f"volume icon: hdiutil convert rc={res.returncode} {res.stderr.strip()[-200:]}")
+        return False
+    return True
 
 
 def _runtime_fingerprint(src: Path) -> dict[str, Any]:
@@ -638,18 +742,28 @@ Contents of this Disk Image:
        * Graphics & Acceleration: IOSurface-backed CAMetalLayer swapchains,
          VideoToolbox hardware H.264/HEVC decode, and ARM64EC WJTC JIT cache.
 
-  3. Install Spumante.command
-     - Double-click to automatically install both Spumante.app and
-       Spumante Config.app into /Applications (or ~/Applications), install
-       the 'spumante' and 'spumante-config' CLI commands, initialize
-       ~/.config/spumante/config.json (0600) + ~/.wine registry cascade,
-       and open Spumante Config.app.
+  3. Install Spumante.app
+     - Double-click this to install Spumante (code-signed & notarized, so it
+       launches normally even from a downloaded disk image).
+     - Installs both apps into /Applications (or ~/Applications), adds the
+       'spumante' and 'spumante-config' CLI commands, prepares the dedicated
+       ~/.spumante Wine prefix, registers .exe / .msi files, and optionally
+       starts the menu bar tray at login for fast app launches.
+
+  4. Install Spumante.command
+     - Terminal / advanced variant of the same installer, with flags such as
+       --user, --skip-prefix-init and --no-login-agent.
+     - If macOS refuses to open it with a double-click ("cannot be opened
+       because the developer cannot be verified"), right-click it and choose
+       "Open", or run:
+         xattr -dr com.apple.quarantine "/Volumes/Spumante"
 
 Quick Installation:
-  - Option A (Recommended): Double-click "Install Spumante.command".
+  - Option A (Recommended): Double-click "Install Spumante.app".
   - Option B (Drag & Drop): Drag "Spumante.app" and "Spumante Config.app"
     onto the "Applications" folder shortcut, then open "Spumante Config.app"
     to configure your Spumante environment.
+  - Option C (Terminal): ./Install\\ Spumante.command --no-open-config
 
 Licensing:
   - Spumante Launcher, Menu Bar Tray App, Settings UI, Security Scanner &
@@ -657,6 +771,128 @@ Licensing:
   - Bundled Wine Runtime & Wine DLL Parity Overlays: GNU Lesser General
     Public License v2.1 or later (see LICENSE-LGPL-2.1 and NOTICE).
 """
+
+
+def _generate_installer_app_script() -> str:
+    """Generate the executable of the double-clickable `Install Spumante.app` bundle.
+
+    macOS blocks plain shell scripts downloaded inside a disk image ("cannot be opened because the
+    developer cannot be verified"). A code-signed, notarized .app bundle is launched normally by
+    Gatekeeper, so the bundle wraps the very same installer logic behind native macOS dialogs.
+    """
+    return r"""#!/bin/bash
+# SPDX-License-Identifier: Apache-2.0
+# Spumante installer UI: runs "Install Spumante.command" from the same disk image and reports
+# success or failure with native dialogs. No scripting runtime is required beyond macOS /bin/bash.
+
+set -uo pipefail
+
+BUNDLE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+VOLUME_DIR="$(dirname "$BUNDLE_DIR")"
+INSTALLER="$VOLUME_DIR/Install Spumante.command"
+LOG_DIR="$HOME/Library/Logs/Spumante"
+LOG_FILE="$LOG_DIR/install.log"
+mkdir -p "$LOG_DIR" 2>/dev/null || true
+
+# Show a native alert. Arguments: <message> [icon: note|caution|stop]
+show_alert() {
+    local message
+    message="$(printf '%b' "$1")"
+    local icon="${2:-note}"
+    osascript -e 'on run argv' \
+        -e 'display dialog (item 1 of argv) buttons {"OK"} default button "OK" with title "Spumante Installer" with icon '"$icon" \
+        -e 'end run' "$message" >/dev/null 2>&1 || true
+}
+
+fail() {
+    show_alert "$1" stop
+    exit 1
+}
+
+if [ ! -f "$INSTALLER" ]; then
+    fail "Install Spumante.command could not be found next to Install Spumante.app.\nPlease run the installer directly from the Spumante disk image."
+fi
+
+# Optional menu bar login agent: keeps a warm Wine session so Windows apps open quickly.
+AGENT_CONSENT="yes"
+AGENT_REPLY="$(osascript -e 'on run argv' \
+    -e 'button returned of (display dialog (item 1 of argv) buttons {"No", "Yes"} default button "Yes" with title "Spumante Installer" with icon note)' \
+    -e 'end run' "$(printf '%b' 'Install the Spumante menu bar tray and start it automatically at login?\n\nThis keeps a warm Wine session so Windows apps open in under a second. You can change this later in Spumante Settings.')" 2>/dev/null)"
+case "$AGENT_REPLY" in
+    No) AGENT_CONSENT="no" ;;
+esac
+
+SPUMANTE_LOGIN_AGENT_CONSENT="$AGENT_CONSENT" SPUMANTE_PREFIX_INIT_CONSENT="yes" \
+    /bin/bash "$INSTALLER" --no-open-config >"$LOG_FILE" 2>&1
+STATUS=$?
+
+if [ "$STATUS" -ne 0 ]; then
+    fail "Spumante could not be installed (error $STATUS).\n\nDetails: $LOG_FILE"
+fi
+
+if osascript -e 'on run argv' \
+    -e 'button returned of (display dialog (item 1 of argv) buttons {"Later", "Open Settings"} default button "Open Settings" with title "Spumante Installer" with icon note)' \
+    -e 'end run' "$(printf '%b' 'Spumante was installed successfully!\n\nSpumante.app and Spumante Config.app are in your Applications folder, and the spumante and spumante-config commands are available in Terminal.\n\nOpen Spumante Settings now?')" 2>/dev/null | grep -q "Open Settings"; then
+    open "/Applications/Spumante Config.app" >/dev/null 2>&1 || true
+fi
+
+exit 0
+"""
+
+
+def _write_installer_app(bundle_dir: Path, icon_src: Path | None) -> Path:
+    """Create the `Install Spumante.app` bundle used as the double-clickable installer."""
+    if bundle_dir.exists():
+        shutil.rmtree(bundle_dir, ignore_errors=True)
+    macos_dir = bundle_dir / "Contents" / "MacOS"
+    resources_dir = bundle_dir / "Contents" / "Resources"
+    macos_dir.mkdir(parents=True)
+    resources_dir.mkdir(parents=True)
+
+    executable = macos_dir / "InstallSpumante"
+    executable.write_text(_generate_installer_app_script(), encoding="utf-8")
+    executable.chmod(0o755)
+
+    icon_name = ""
+    if icon_src is not None and icon_src.is_file():
+        shutil.copy2(icon_src, resources_dir / "spumante.icns")
+        icon_name = "<key>CFBundleIconFile</key><string>spumante</string>"
+
+    (bundle_dir / "Contents" / "Info.plist").write_text(
+        f"""<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleDevelopmentRegion</key>
+    <string>en</string>
+    <key>CFBundleDisplayName</key>
+    <string>Install Spumante</string>
+    <key>CFBundleExecutable</key>
+    <string>InstallSpumante</string>
+    <key>CFBundleIdentifier</key>
+    <string>org.spumante.installer</string>
+    {icon_name}
+    <key>CFBundleInfoDictionaryVersion</key>
+    <string>6.0</string>
+    <key>CFBundleName</key>
+    <string>Install Spumante</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    <key>CFBundleShortVersionString</key>
+    <string>1.0.0</string>
+    <key>CFBundleVersion</key>
+    <string>1</string>
+    <key>LSMinimumSystemVersion</key>
+    <string>11.0</string>
+    <key>NSHighResolutionCapable</key>
+    <true/>
+</dict>
+</plist>
+""",
+        encoding="utf-8",
+    )
+    (bundle_dir / "Contents" / "PkgInfo").write_text("APPLSPMI", encoding="utf-8")
+    return bundle_dir
 
 
 def _detect_codesign_identity(explicit_identity: str | None = None) -> tuple[str, str]:
@@ -736,7 +972,7 @@ def build_dmg_package(
     installer_script = DMG_STAGING_DIR / "Install Spumante.command"
     apps_symlink = DMG_STAGING_DIR / "Applications"
     readme_file = DMG_STAGING_DIR / "README.txt"
-    dmg_format = "UDZO"
+    dmg_format = "ULMO"
 
     sign_token, resolved_identity = _detect_codesign_identity(codesign_identity)
     explicit_profile = (
@@ -763,6 +999,7 @@ def build_dmg_package(
     signed_targets = [
         str(staged_launcher_app),
         str(staged_config_app),
+        str(DMG_STAGING_DIR / "Install Spumante.app"),
         str(DMG_OUTPUT_PATH),
     ]
     if not explicit_profile and asc_creds is not None:
@@ -857,11 +1094,31 @@ def build_dmg_package(
             installer_script.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH
         )
 
+        # Double-clickable, code-signed installer bundle (macOS blocks plain .command scripts from
+        # downloaded disk images, but launches a notarized .app normally).
+        installer_app = DMG_STAGING_DIR / "Install Spumante.app"
+        icon_for_installer = REPO_ROOT / "packaging" / "assets" / "spumante.icns"
+        _write_installer_app(installer_app, icon_for_installer if icon_for_installer.is_file() else None)
+
         readme_file.write_text(_generate_dmg_readme(), encoding="utf-8")
         for lic_name in ("LICENSE", "LICENSE-LGPL-2.1", "NOTICE"):
             lic_src = REPO_ROOT / lic_name
             if lic_src.is_file():
                 shutil.copy2(lic_src, DMG_STAGING_DIR / lic_name)
+
+        # Prosecco volume icon shown in Finder for the mounted Spumante disk image
+        volume_icon_src = REPO_ROOT / "packaging" / "assets" / "spumante.icns"
+        if volume_icon_src.is_file():
+            shutil.copy2(volume_icon_src, DMG_STAGING_DIR / ".VolumeIcon.icns")
+
+        # Keep the disk image window focused on the apps: hide licence boilerplate (still readable)
+        if sys.platform == "darwin" and shutil.which("chflags"):
+            for hidden_name in ("LICENSE", "LICENSE-LGPL-2.1", "NOTICE"):
+                hidden_path = DMG_STAGING_DIR / hidden_name
+                if hidden_path.is_file():
+                    subprocess.run(
+                        ["chflags", "hidden", str(hidden_path)], capture_output=True, check=False
+                    )
 
         if sys.platform == "darwin" and shutil.which("xattr"):
             subprocess.run(
@@ -902,9 +1159,35 @@ def build_dmg_package(
             cs_base = [codesign_bin, "--force", "--options", "runtime"]
             if sign_token != "-":
                 cs_base.append("--timestamp")
-            for bundle_target in (staged_launcher_app, staged_config_app):
+
+            # Sign all nested Mach-O binaries (executables, dylibs, .so libraries) inside-out with Developer ID + runtime
+            staged_macho: list[Path] = []
+            for dirpath, _dirs, files in os.walk(DMG_STAGING_DIR):
+                for fname in files:
+                    p = Path(dirpath) / fname
+                    if p.is_symlink():
+                        continue
+                    kind, _ = _classify_binary(p)
+                    if kind == "macho":
+                        staged_macho.append(p)
+
+            staged_macho.sort(key=lambda p: len(p.parts), reverse=True)
+            for macho_target in staged_macho:
                 subprocess.run(
-                    [*cs_base, "--deep", "--sign", sign_token, str(bundle_target)],
+                    [*cs_base, "--sign", sign_token, str(macho_target)],
+                    cwd=REPO_ROOT,
+                    capture_output=True,
+                    text=True,
+                    check=True,
+                )
+
+            for bundle_target in (
+                staged_config_app,
+                staged_launcher_app,
+                DMG_STAGING_DIR / "Install Spumante.app",
+            ):
+                subprocess.run(
+                    [*cs_base, "--sign", sign_token, str(bundle_target)],
                     cwd=REPO_ROOT,
                     capture_output=True,
                     text=True,
@@ -928,7 +1211,22 @@ def build_dmg_package(
 
             temp_dmg = DMG_OUTPUT_PATH.parent / f".tmp_spumante_build_{os.getpid()}.dmg"
 
-            if diskutil:
+            # Give the mounted volume the Spumante prosecco icon (Finder flags live on a writable volume,
+            # so build a read/write image first and compress it afterwards).
+            volume_icon_errors: list[str] = []
+            if hdiutil and _set_dmg_volume_icon(temp_dmg, volume_icon_errors):
+                if DMG_OUTPUT_PATH.exists():
+                    DMG_OUTPUT_PATH.unlink()
+                shutil.move(str(temp_dmg), str(DMG_OUTPUT_PATH))
+                created_via_hdiutil = True
+            elif volume_icon_errors:
+                print(
+                    "[Spumante] WARNING: could not set the disk image volume icon; "
+                    + "; ".join(volume_icon_errors),
+                    file=sys.stderr,
+                )
+
+            if not created_via_hdiutil and diskutil:
                 cmd = [
                     diskutil,
                     "image",
@@ -937,7 +1235,7 @@ def build_dmg_package(
                     "--volumeName",
                     VOLUME_NAME,
                     "--format",
-                    "UDZO",
+                    "ULMO",
                     str(DMG_STAGING_DIR),
                     str(temp_dmg),
                 ]
@@ -1023,47 +1321,51 @@ def build_dmg_package(
                 if apple_id and team_id and app_password and "@env:SPUMANTE_APP_PASSWORD" in exec_notary_cmd:
                     idx = exec_notary_cmd.index("@env:SPUMANTE_APP_PASSWORD")
                     exec_notary_cmd[idx] = app_password
-                res_notary = subprocess.run(
-                    exec_notary_cmd,
-                    cwd=REPO_ROOT,
-                    capture_output=True,
-                    text=True,
-                    check=False,
-                )
-                # If a keychain profile was requested but not found in Keychain, fallback to ~/.appstoreconnect API key
-                if res_notary.returncode != 0 and asc_creds is not None and "--keychain-profile" in exec_notary_cmd:
-                    asc_key_path, asc_key_id, asc_issuer_id = asc_creds
-                    fallback_cmd = [
-                        "xcrun",
-                        "notarytool",
-                        "submit",
-                        str(DMG_OUTPUT_PATH),
-                        "--key",
-                        asc_key_path,
-                        "--key-id",
-                        asc_key_id,
-                        "--issuer",
-                        asc_issuer_id,
-                        "--wait",
-                        "--output-format",
-                        "json",
-                    ]
-                    notarytool_cmd = fallback_cmd
+
+                max_notary_attempts = 3
+                for attempt in range(max_notary_attempts):
                     res_notary = subprocess.run(
-                        fallback_cmd,
+                        exec_notary_cmd,
                         cwd=REPO_ROOT,
                         capture_output=True,
                         text=True,
                         check=False,
                     )
+                    # If a keychain profile was requested but not found in Keychain, fallback to ~/.appstoreconnect API key
+                    if res_notary.returncode != 0 and asc_creds is not None and "--keychain-profile" in exec_notary_cmd:
+                        asc_key_path, asc_key_id, asc_issuer_id = asc_creds
+                        exec_notary_cmd = [
+                            "xcrun",
+                            "notarytool",
+                            "submit",
+                            str(DMG_OUTPUT_PATH),
+                            "--key",
+                            asc_key_path,
+                            "--key-id",
+                            asc_key_id,
+                            "--issuer",
+                            asc_issuer_id,
+                            "--wait",
+                            "--output-format",
+                            "json",
+                        ]
+                        continue
 
-                if res_notary.stdout.strip():
-                    try:
-                        notary_submission_output = json.loads(res_notary.stdout)
-                    except ValueError:
-                        notary_submission_output = {"raw": res_notary.stdout.strip()}
-                elif res_notary.stderr.strip():
-                    notary_submission_output = {"error": res_notary.stderr.strip()}
+                    if res_notary.stdout.strip():
+                        try:
+                            notary_submission_output = json.loads(res_notary.stdout)
+                        except ValueError:
+                            notary_submission_output = {"raw": res_notary.stdout.strip()}
+                    elif res_notary.stderr.strip():
+                        notary_submission_output = {"error": res_notary.stderr.strip()}
+
+                    if res_notary.returncode == 0 and notary_submission_output.get("status") in (None, "Accepted"):
+                        break
+
+                    # If upload stalled on S3 transfer acceleration, retry without acceleration
+                    if "--no-s3-acceleration" not in exec_notary_cmd and attempt < max_notary_attempts - 1:
+                        exec_notary_cmd.append("--no-s3-acceleration")
+                    time.sleep(3)
 
                 if res_notary.returncode == 0 and notary_submission_output.get("status") in (None, "Accepted"):
                     res_staple = subprocess.run(
@@ -1129,6 +1431,7 @@ def build_dmg_package(
         "bundled_cli_apps": list(BUILTIN_CLI_APPS),
         "bundled_windows_apps": list(ALL_BUILTIN_APPS),
         "installer_script": str(installer_script),
+        "installer_app": str(DMG_STAGING_DIR / "Install Spumante.app"),
         "readme_path": str(readme_file),
         "bundled_wine_runtimes": bundled_runtimes,
         "bundled_parity_overlays": len(bundled_parity),

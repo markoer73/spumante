@@ -5,7 +5,7 @@
 
 cask "spumante" do
   version "1.0.0"
-  sha256 :no_check
+  sha256 "c88dc061afdbd38f2917bf007de6c5f02b5bc583f78e02e1d8f84de28d9c35f9"
 
   url "https://github.com/markoer73/Spumante/releases/download/v#{version}/Spumante-Installer.dmg"
   name "Spumante"
@@ -38,7 +38,8 @@ cask "spumante" do
 
   zap trash: [
     "~/.config/spumante",
-    "~/.spumante-prefix",
+    "~/.spumante",
+    "~/Library/LaunchAgents/org.spumante.tray.plist",
   ]
 
   caveats <<~EOS

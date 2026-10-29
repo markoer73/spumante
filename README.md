@@ -17,28 +17,47 @@ Run Windows `.exe` and `.msi` applications directly on macOS (Apple Silicon & In
 
 > **Warning — Rosetta 2 Is Required on Apple Silicon Macs:**
 > Running 32-bit and 64-bit Intel (`x86` / `x86_64`) Windows applications on Apple Silicon (`M1` / `M2` / `M3` / `M4`) requires **Apple Rosetta 2**.
-> - If Rosetta 2 is not yet installed on your Mac, **`Install Spumante.command`** and **`Spumante.app`** will prompt for your consent to install it automatically (`softwareupdate --install-rosetta`), and will abort installation if declined.
+> - If Rosetta 2 is not yet installed on your Mac, **`Install Spumante.app`**, **`Install Spumante.command`**, and **`Spumante.app`** will prompt for your consent to install it automatically (`softwareupdate --install-rosetta`), and will abort installation if declined.
 > - You can also install Rosetta 2 manually at any time in Terminal:
 >   ```sh
 >   softwareupdate --install-rosetta --agree-to-license
 >   ```
 
-### Option A: Install from the `.dmg` Package (Fastest)
+### Option A: Install from the `.dmg` Package (Recommended)
 
-No Python, Xcode, or Homebrew needed: the disk image is self-contained (native apps plus a bundled Wine runtime) and works from any location.
+No Python, Xcode, or Homebrew needed: the disk image is self-contained (native apps plus a bundled Wine runtime) and works from any location. Open **`Spumante-Installer.dmg`** (download it from [Releases](https://github.com/markoer73/spumante/releases/latest), or use `builds/Spumante-Installer.dmg` if you built it locally) and pick one of the two methods below.
 
-1. Open **`Spumante-Installer.dmg`** (located in `builds/Spumante-Installer.dmg` if built locally).
-2. Double-click **`Install Spumante.command`**.
-   - Installs **`Spumante.app`** and **`Spumante Config.app`** into `/Applications`.
-   - Installs the `spumante` and `spumante-config` terminal commands.
-   - Registers `.exe` and `.msi` files so you can double-click them in Finder.
-   - Opens **`Spumante Config.app`** so you are ready to go.
+#### A1. Double-click **`Install Spumante.app`** (easiest)
 
-*(Alternatively, drag `Spumante.app` and `Spumante Config.app` into the `Applications` folder inside the DMG.)*
+The disk image opens on a Finder window showing the Spumante prosecco icon. Double-click **`Install Spumante.app`** and confirm the dialogs:
+
+- Installs **`Spumante.app`** and **`Spumante Config.app`** into `/Applications` (falls back to `~/Applications` when `/Applications` is not writable).
+- Adds the `spumante` and `spumante-config` commands to `/usr/local/bin` (or `~/.local/bin`).
+- Registers `.exe` and `.msi` files so you can double-click them in Finder.
+- Prepares the dedicated **`~/.spumante`** Wine prefix once, so the first Windows app starts quickly.
+- Optionally installs the menu bar tray as a **login agent**, which keeps a warm Wine session so Windows apps open in under a second.
+- Logs every step to `~/Library/Logs/Spumante/install.log`.
+
+#### A2. Drag and drop onto **Applications**
+
+Prefer the classic macOS gesture? Drag **`Spumante.app`** and **`Spumante Config.app`** onto the **Applications** shortcut in the disk image window. Both apps are signed with a Developer ID and notarized by Apple, so they launch without any security warning.
+
+> **Terminal / advanced installer (`Install Spumante.command`):**
+> The disk image also contains `Install Spumante.command`, which performs the same setup with flags such as `--user`, `--skip-prefix-init`, and `--no-login-agent`.
+> Because it is a shell script, macOS Gatekeeper refuses to open it with a plain double-click after download ("cannot be opened because the developer cannot be verified"). Use one of these instead:
+> - **Right-click → Open** on `Install Spumante.command`, then confirm **Open**.
+> - Or remove the quarantine flag for the mounted disk image first:
+>   ```sh
+>   xattr -dr com.apple.quarantine "/Volumes/Spumante"
+>   ```
+> - Or run it from Terminal directly:
+>   ```sh
+>   "/Volumes/Spumante/Install Spumante.command" --no-open-config
+> ```
 
 ### Option B: Install via Homebrew Cask
 
-Once a GitHub Release is published (see [`docs/RELEASE_AND_LAUNCH.md`](docs/RELEASE_AND_LAUNCH.md)), you can install `Spumante.app`, `Spumante Config.app`, and the `spumante` / `spumante-config` CLI tools via Homebrew:
+You can install `Spumante.app`, `Spumante Config.app`, and the `spumante` / `spumante-config` CLI tools through the published Homebrew Tap:
 
 ```sh
 brew install --cask markoer73/spumante/spumante

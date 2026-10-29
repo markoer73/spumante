@@ -72,7 +72,7 @@ Run Windows `.exe` and `.msi` applications directly on macOS (Apple Silicon & In
 
 ### Installation
 
-- **Option A — DMG Installer**: Download `Spumante-Installer.dmg` below, open it, and double-click **`Install Spumante.command`**.
+- **Option A — DMG Installer**: Download `Spumante-Installer.dmg` below, open it, and double-click **`Install Spumante.app`** (or drag both apps onto the **Applications** shortcut).
 - **Option B — Homebrew Cask**:
   ```sh
   brew install --cask markoer73/spumante/spumante
