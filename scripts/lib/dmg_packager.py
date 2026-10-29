@@ -106,6 +106,104 @@ def _clone_tree(src: Path, dst: Path) -> None:
     shutil.copytree(src, dst, symlinks=True)
 
 
+def _create_writable_image(hdiutil: str, rw_dmg: Path, errors: list[str]) -> bool:
+    """Create the read/write HFS+ staging image used to stamp a Finder volume icon.
+
+    `hdiutil create` intermittently aborts with "No child processes" on recent macOS releases, so
+    the folder-based form is retried and, if it keeps failing, an empty image is created instead and
+    the payload is copied in with `ditto` (different code path, same result).
+    """
+    folder_cmd = [
+        hdiutil,
+        "create",
+        "-volname",
+        VOLUME_NAME,
+        "-srcfolder",
+        str(DMG_STAGING_DIR),
+        "-fs",
+        "HFS+",
+        "-format",
+        "UDRW",
+        "-ov",
+        "-noanyowners",
+        str(rw_dmg),
+    ]
+    for attempt, delay in enumerate((2, 5, 10), start=1):
+        if rw_dmg.exists():
+            rw_dmg.unlink()
+        res = subprocess.run(folder_cmd, cwd=REPO_ROOT, capture_output=True, text=True, check=False)
+        if res.returncode == 0 and rw_dmg.is_file():
+            return True
+        errors.append(
+            f"volume icon: hdiutil create -srcfolder attempt {attempt} rc={res.returncode} "
+            f"{res.stderr.strip()[-160:]}"
+        )
+        time.sleep(delay)
+
+    # Fallback: size an empty HFS+ image, then copy the payload with ditto.
+    total_bytes = 0
+    for dirpath, _dirs, files in os.walk(DMG_STAGING_DIR):
+        for fname in files:
+            try:
+                total_bytes += (Path(dirpath) / fname).lstat().st_size
+            except OSError:
+                continue
+    size_mb = max(256, int(total_bytes / (1024 * 1024)) + 256)
+    if rw_dmg.exists():
+        rw_dmg.unlink()
+    res = subprocess.run(
+        [
+            hdiutil,
+            "create",
+            "-size",
+            f"{size_mb}m",
+            "-fs",
+            "HFS+",
+            "-volname",
+            VOLUME_NAME,
+            "-format",
+            "UDRW",
+            "-ov",
+            str(rw_dmg),
+        ],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if res.returncode != 0 or not rw_dmg.is_file():
+        errors.append(f"volume icon: hdiutil create -size rc={res.returncode} {res.stderr.strip()[-160:]}")
+        return False
+
+    mount_point = Path(tempfile.mkdtemp(prefix="spumante_fill_"))
+    try:
+        res = subprocess.run(
+            [hdiutil, "attach", "-nobrowse", "-noautoopen", "-readwrite", "-mountpoint", str(mount_point), str(rw_dmg)],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if res.returncode != 0:
+            errors.append(f"volume icon: hdiutil attach (fill) rc={res.returncode} {res.stderr.strip()[-160:]}")
+            return False
+        subprocess.run(
+            ["ditto", "--rsrc", "--extattr", f"{DMG_STAGING_DIR}/", f"{mount_point}/"],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            check=False,
+        )
+        return True
+    finally:
+        subprocess.run(
+            [hdiutil, "detach", str(mount_point), "-force"], cwd=REPO_ROOT, capture_output=True, check=False
+        )
+        try:
+            mount_point.rmdir()
+        except OSError:
+            pass
+
+
 def _set_dmg_volume_icon(dest: Path, errors: list[str]) -> bool:
     """Build a compressed DMG whose mounted volume carries the Spumante prosecco icon.
 
@@ -123,37 +221,7 @@ def _set_dmg_volume_icon(dest: Path, errors: list[str]) -> bool:
     mount_point = Path(tempfile.mkdtemp(prefix="spumante_mnt_"))
     attached = False
     try:
-        # `hdiutil create` intermittently fails with "No child processes" on recent macOS releases
-        # (diskimages-helper teardown race), so retry a few times before giving up.
-        create_cmd = [
-            hdiutil,
-            "create",
-            "-volname",
-            VOLUME_NAME,
-            "-srcfolder",
-            str(DMG_STAGING_DIR),
-            "-fs",
-            "HFS+",
-            "-format",
-            "UDRW",
-            "-ov",
-            "-noanyowners",
-            str(rw_dmg),
-        ]
-        created = False
-        for attempt in range(3):
-            if rw_dmg.exists():
-                rw_dmg.unlink()
-            res = subprocess.run(create_cmd, cwd=REPO_ROOT, capture_output=True, text=True, check=False)
-            if res.returncode == 0 and rw_dmg.is_file():
-                created = True
-                break
-            errors.append(
-                f"volume icon: hdiutil create UDRW attempt {attempt + 1} rc={res.returncode} "
-                f"{res.stderr.strip()[-200:]}"
-            )
-            time.sleep(2)
-        if not created:
+        if not _create_writable_image(hdiutil, rw_dmg, errors):
             return False
 
         res = subprocess.run(
@@ -410,6 +478,8 @@ def _generate_installer_command_script() -> str:
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${{BASH_SOURCE[0]}}")" && pwd)"
+# The installer app embeds a copy of this script; it points back at the disk image via SPUMANTE_SOURCE_DIR.
+SOURCE_DIR="${{SPUMANTE_SOURCE_DIR:-$SCRIPT_DIR}}"
 
 TARGET_APPS_DIR=""
 TARGET_BIN_DIR=""
@@ -517,8 +587,8 @@ if [[ -z "$TARGET_BIN_DIR" ]]; then
     fi
 fi
 
-SRC_LAUNCHER_APP="$SCRIPT_DIR/Spumante.app"
-SRC_CONFIG_APP="$SCRIPT_DIR/Spumante Config.app"
+SRC_LAUNCHER_APP="$SOURCE_DIR/Spumante.app"
+SRC_CONFIG_APP="$SOURCE_DIR/Spumante Config.app"
 
 if [[ ! -d "$SRC_LAUNCHER_APP" || ! -d "$SRC_CONFIG_APP" ]]; then
     echo "[Spumante Installer] ERROR: Spumante.app and Spumante Config.app must be next to this installer." >&2
@@ -779,62 +849,86 @@ def _generate_installer_app_script() -> str:
     """Generate the executable of the double-clickable `Install Spumante.app` bundle.
 
     macOS blocks plain shell scripts downloaded inside a disk image ("cannot be opened because the
-    developer cannot be verified"). A code-signed, notarized .app bundle is launched normally by
-    Gatekeeper, so the bundle wraps the very same installer logic behind native macOS dialogs.
+    developer cannot be verified"), while a code-signed, notarized .app launches normally. The bundle
+    therefore runs the installer and reports progress with native dialogs.
     """
     return r"""#!/bin/bash
 # SPDX-License-Identifier: Apache-2.0
-# Spumante installer UI: runs "Install Spumante.command" from the same disk image and reports
-# success or failure with native dialogs. No scripting runtime is required beyond macOS /bin/bash.
+# Spumante installer UI. Prefers "Install Spumante.command" next to the app on the disk image and
+# falls back to the copy embedded in Contents/Resources, then reports through native dialogs.
 
 set -uo pipefail
 
-BUNDLE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-VOLUME_DIR="$(dirname "$BUNDLE_DIR")"
-INSTALLER="$VOLUME_DIR/Install Spumante.command"
+BUNDLE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"   # .../Install Spumante.app
+VOLUME_DIR="$(dirname "$BUNDLE_DIR")"                              # mounted disk image root
 LOG_DIR="$HOME/Library/Logs/Spumante"
 LOG_FILE="$LOG_DIR/install.log"
 mkdir -p "$LOG_DIR" 2>/dev/null || true
 
-# Show a native alert. Arguments: <message> [icon: note|caution|stop]
+NO_UI="${SPUMANTE_INSTALLER_NO_UI:-0}"
+
 show_alert() {
-    local message
+    [ "$NO_UI" = "1" ] && return 0
+    local message icon="${2:-note}"
     message="$(printf '%b' "$1")"
-    local icon="${2:-note}"
     osascript -e 'on run argv' \
         -e 'display dialog (item 1 of argv) buttons {"OK"} default button "OK" with title "Spumante Installer" with icon '"$icon" \
         -e 'end run' "$message" >/dev/null 2>&1 || true
 }
 
 fail() {
+    echo "[Spumante Installer] ERROR: $1" >&2
     show_alert "$1" stop
     exit 1
 }
 
-if [ ! -f "$INSTALLER" ]; then
-    fail "Install Spumante.command could not be found next to Install Spumante.app.\nPlease run the installer directly from the Spumante disk image."
+# Locate the installer: next to the app on the disk image, else the copy embedded in this bundle.
+INSTALLER=""
+SOURCE_DIR=""
+for candidate in "$VOLUME_DIR/Install Spumante.command" "$BUNDLE_DIR/Contents/Resources/install-spumante.sh"; do
+    if [ -f "$candidate" ]; then
+        INSTALLER="$candidate"
+        SOURCE_DIR="$VOLUME_DIR"
+        break
+    fi
+done
+if [ -z "$INSTALLER" ]; then
+    fail "The Spumante installer payload could not be found.\nPlease run Install Spumante.app directly from the Spumante disk image."
+fi
+if [ ! -d "$SOURCE_DIR/Spumante.app" ] || [ ! -d "$SOURCE_DIR/Spumante Config.app" ]; then
+    fail "Spumante.app and Spumante Config.app were not found on the disk image.\nPlease run Install Spumante.app directly from the Spumante disk image."
 fi
 
 # Optional menu bar login agent: keeps a warm Wine session so Windows apps open quickly.
 AGENT_CONSENT="yes"
-AGENT_REPLY="$(osascript -e 'on run argv' \
-    -e 'button returned of (display dialog (item 1 of argv) buttons {"No", "Yes"} default button "Yes" with title "Spumante Installer" with icon note)' \
-    -e 'end run' "$(printf '%b' 'Install the Spumante menu bar tray and start it automatically at login?\n\nThis keeps a warm Wine session so Windows apps open in under a second. You can change this later in Spumante Settings.')" 2>/dev/null)"
-case "$AGENT_REPLY" in
-    No) AGENT_CONSENT="no" ;;
-esac
+if [ "$NO_UI" != "1" ]; then
+    AGENT_REPLY="$(osascript -e 'on run argv' \
+        -e 'button returned of (display dialog (item 1 of argv) buttons {"No", "Yes"} default button "Yes" with title "Spumante Installer" with icon note)' \
+        -e 'end run' "$(printf '%b' 'Install the Spumante menu bar tray and start it automatically at login?\n\nThis keeps a warm Wine session so Windows apps open in under a second. You can change this later in Spumante Settings.')" 2>/dev/null)"
+    case "$AGENT_REPLY" in
+        No) AGENT_CONSENT="no" ;;
+    esac
+fi
 
-SPUMANTE_LOGIN_AGENT_CONSENT="$AGENT_CONSENT" SPUMANTE_PREFIX_INIT_CONSENT="yes" \
-    /bin/bash "$INSTALLER" --no-open-config >"$LOG_FILE" 2>&1
+SPUMANTE_SOURCE_DIR="$SOURCE_DIR" \
+SPUMANTE_LOGIN_AGENT_CONSENT="$AGENT_CONSENT" \
+SPUMANTE_PREFIX_INIT_CONSENT="yes" \
+    /bin/bash "$INSTALLER" --no-open-config "$@" >"$LOG_FILE" 2>&1
 STATUS=$?
 
 if [ "$STATUS" -ne 0 ]; then
     fail "Spumante could not be installed (error $STATUS).\n\nDetails: $LOG_FILE"
 fi
 
-if osascript -e 'on run argv' \
-    -e 'button returned of (display dialog (item 1 of argv) buttons {"Later", "Open Settings"} default button "Open Settings" with title "Spumante Installer" with icon note)' \
-    -e 'end run' "$(printf '%b' 'Spumante was installed successfully!\n\nSpumante.app and Spumante Config.app are in your Applications folder, and the spumante and spumante-config commands are available in Terminal.\n\nOpen Spumante Settings now?')" 2>/dev/null | grep -q "Open Settings"; then
+OPEN_SETTINGS="no"
+if [ "$NO_UI" != "1" ]; then
+    if osascript -e 'on run argv' \
+        -e 'button returned of (display dialog (item 1 of argv) buttons {"Later", "Open Settings"} default button "Open Settings" with title "Spumante Installer" with icon note)' \
+        -e 'end run' "$(printf '%b' 'Spumante was installed successfully!\n\nSpumante.app and Spumante Config.app are in your Applications folder, and the spumante and spumante-config commands are available in Terminal.\n\nOpen Spumante Settings now?')" 2>/dev/null | grep -q "Open Settings"; then
+        OPEN_SETTINGS="yes"
+    fi
+fi
+if [ "$OPEN_SETTINGS" = "yes" ]; then
     open "/Applications/Spumante Config.app" >/dev/null 2>&1 || true
 fi
 
@@ -854,6 +948,11 @@ def _write_installer_app(bundle_dir: Path, icon_src: Path | None) -> Path:
     executable = macos_dir / "InstallSpumante"
     executable.write_text(_generate_installer_app_script(), encoding="utf-8")
     executable.chmod(0o755)
+
+    # Self-contained payload: the app still works if the neighbouring .command cannot be executed.
+    embedded = resources_dir / "install-spumante.sh"
+    embedded.write_text(_generate_installer_command_script(), encoding="utf-8")
+    embedded.chmod(0o755)
 
     icon_name = ""
     if icon_src is not None and icon_src.is_file():
